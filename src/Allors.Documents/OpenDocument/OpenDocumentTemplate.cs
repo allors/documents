@@ -3,122 +3,135 @@
 // Licensed under the LGPL license. See LICENSE file in the project root for full license information.
 // </copyright>
 
-namespace Allors.Document.OpenDocument
+namespace Allors.Documents.OpenDocument;
+
+using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
+using System.Xml.Linq;
+using Allors.Documents.Expressions;
+using Allors.Documents.Templating;
+
+/// <summary>
+/// An OpenDocument (.odt) template. Loading parses and validates the template once;
+/// the instance is immutable and can render any number of models, also concurrently.
+/// </summary>
+public class OpenDocumentTemplate : IDocumentTemplate
 {
-    using System;
-    using System.Collections.Generic;
-    using System.IO;
-    using System.IO.Compression;
-    using System.Linq;
-    using Allors.Document.Xml;
-    using Antlr4.StringTemplate;
-    using Antlr4.StringTemplate.Misc;
+    private readonly OpenDocumentPackage package;
 
-    public class OpenDocumentTemplate
+    private readonly ValueAccessor accessor;
+
+    private protected OpenDocumentTemplate(OpenDocumentPackage package, OpenDocumentOptions options)
     {
-        internal const string ContentFileName = "content.xml";
+        this.package = package;
+        this.accessor = ValueAccessor.For(options.UseReflectionFallback);
+    }
 
-        internal const string StylesFileName = "styles.xml";
+    /// <summary>Loads and validates a template from the bytes of an .odt document.</summary>
+    /// <param name="document">The .odt document.</param>
+    /// <param name="options">Optional load options.</param>
+    /// <returns>The loaded template.</returns>
+    /// <exception cref="TemplateException">The document is not a valid OpenDocument file or contains invalid template tags.</exception>
+    public static OpenDocumentTemplate Load(byte[] document, OpenDocumentOptions? options = null)
+    {
+        ArgumentNullException.ThrowIfNull(document);
 
-        internal const string MetaFileName = "META-INF/manifest.xml";
+        var package = ReadAndValidate(document);
+        return new OpenDocumentTemplate(package, options ?? OpenDocumentOptions.Default);
+    }
 
-        protected const char DefaultLeftDelimiter = '\u02C2';
+    /// <summary>Loads and validates a template from a stream containing an .odt document.</summary>
+    /// <param name="document">The stream with the .odt document.</param>
+    /// <param name="options">Optional load options.</param>
+    /// <param name="cancellationToken">A token to cancel the operation.</param>
+    /// <returns>The loaded template.</returns>
+    /// <exception cref="TemplateException">The document is not a valid OpenDocument file or contains invalid template tags.</exception>
+    public static async Task<OpenDocumentTemplate> LoadAsync(Stream document, OpenDocumentOptions? options = null, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(document);
 
-        protected const char DefaultRightDelimiter = '\u02C3';
+        return Load(await ToBytesAsync(document, cancellationToken).ConfigureAwait(false), options);
+    }
 
-        private const string MainTemplateName = "main";
+    /// <inheritdoc/>
+    public byte[] Render(IReadOnlyDictionary<string, object?> model, IReadOnlyDictionary<string, byte[]>? images = null)
+    {
+        ArgumentNullException.ThrowIfNull(model);
 
-        private readonly Dictionary<string, byte[]> fileByFileName;
+        return this.RenderCore(model, images);
+    }
 
-        private readonly TemplateGroup ContentTemplateGroup;
+    /// <inheritdoc/>
+    public Task<byte[]> RenderAsync(IReadOnlyDictionary<string, object?> model, IReadOnlyDictionary<string, byte[]>? images = null, CancellationToken cancellationToken = default) =>
+        Task.FromResult(this.Render(model, images));
 
-        private readonly TemplateGroup StylesTemplateGroup;
+    private protected static async Task<byte[]> ToBytesAsync(Stream stream, CancellationToken cancellationToken)
+    {
+        using var buffer = new MemoryStream();
+        await stream.CopyToAsync(buffer, cancellationToken).ConfigureAwait(false);
+        return buffer.ToArray();
+    }
 
-        private readonly byte[] manifest;
+    private protected static OpenDocumentPackage ReadAndValidate(byte[] document)
+    {
+        var package = OpenDocumentPackage.Read(document);
 
-        public OpenDocumentTemplate(byte[] document, string arguments, char leftDelimiter = DefaultLeftDelimiter, char rightDelimiter = DefaultRightDelimiter)
+        // Surface tag errors at load time rather than at first render.
+        Validate(package.Content, OpenDocumentPackage.ContentFileName);
+
+        if (package.Styles is not null)
         {
-            this.fileByFileName = new Dictionary<string, byte[]>();
+            Validate(package.Styles, OpenDocumentPackage.StylesFileName);
+        }
 
-            using (var zip = new MemoryStream(document))
+        return package;
+    }
+
+    private protected byte[] RenderCore(object model, IReadOnlyDictionary<string, byte[]>? images)
+    {
+        var scope = new RenderScope(model, this.accessor);
+
+        var content = new XDocument(this.package.Content);
+        new OpenDocumentRenderer(OpenDocumentPackage.ContentFileName).Render(content, scope);
+
+        XDocument? styles = null;
+        if (this.package.Styles is not null)
+        {
+            styles = new XDocument(this.package.Styles);
+            new OpenDocumentRenderer(OpenDocumentPackage.StylesFileName).Render(styles, scope);
+        }
+
+        var manifest = this.package.Manifest is null ? null : new XDocument(this.package.Manifest);
+
+        var resolvedImages = images is null
+            ? new List<ResolvedImage>()
+            : images.Select(image => new ResolvedImage(image.Key, image.Value)).ToList();
+
+        if (resolvedImages.Count > 0)
+        {
+            if (manifest is null)
             {
-                using (var archive = new ZipArchive(zip, ZipArchiveMode.Read))
-                {
-                    foreach (var entry in archive.Entries)
-                    {
-                        using (var memoryStream = new MemoryStream())
-                        {
-                            using (var zipStream = entry.Open())
-                            {
-                                zipStream.CopyTo(memoryStream);
-                                var file = memoryStream.ToArray();
-
-                                var xmlStringRenderer = new XmlStringRenderer();
-
-                                if (entry.FullName.Equals(ContentFileName))
-                                {
-                                    var errorBuffer = new ErrorBuffer();
-
-                                    var content = new OpenDocumentTemplateContent(file, leftDelimiter, rightDelimiter);
-                                    var stringTemplate = content.ToStringTemplate();
-                                    var group = MainTemplateName + "(" + arguments + ")" + stringTemplate;
-                                    this.ContentTemplateGroup = new TemplateGroupString(MainTemplateName, group, leftDelimiter, rightDelimiter)
-                                    {
-                                        ErrorManager = new ErrorManager(errorBuffer),
-                                    };
-
-                                    // Force a compilation of the templates to check for errors
-                                    this.ContentTemplateGroup.GetInstanceOf(MainTemplateName);
-                                    if (errorBuffer.Errors.Count > 0)
-                                    {
-                                        throw new TemplateException(errorBuffer.Errors);
-                                    }
-
-                                    this.ContentTemplateGroup.RegisterRenderer(typeof(string), xmlStringRenderer);
-                                }
-                                else if (entry.FullName.Equals(StylesFileName))
-                                {
-                                    var errorBuffer = new ErrorBuffer();
-
-                                    var content = new OpenDocumentTemplateContent(file, leftDelimiter, rightDelimiter);
-                                    var stringTemplate = content.ToStringTemplate();
-                                    var group = MainTemplateName + "(" + arguments + ")" + stringTemplate;
-                                    this.StylesTemplateGroup = new TemplateGroupString(MainTemplateName, group, leftDelimiter, rightDelimiter)
-                                    {
-                                        ErrorManager = new ErrorManager(errorBuffer),
-                                    };
-
-                                    // Force a compilation of the templates to check for errors
-                                    this.StylesTemplateGroup.GetInstanceOf(MainTemplateName);
-                                    if (errorBuffer.Errors.Count > 0)
-                                    {
-                                        throw new TemplateException(errorBuffer.Errors);
-                                    }
-
-                                    this.StylesTemplateGroup.RegisterRenderer(typeof(string), xmlStringRenderer);
-                                }
-                                else if (entry.FullName.Equals(MetaFileName))
-                                {
-                                    this.manifest = file;
-                                }
-                                else
-                                {
-                                    this.fileByFileName.Add(entry.FullName, file);
-                                }
-                            }
-                        }
-                    }
-                }
+                throw new TemplateException($"Images were provided but the document has no {OpenDocumentPackage.ManifestFileName}.");
             }
+
+            var documents = styles is null ? new[] { content } : new[] { content, styles };
+            OpenDocumentImageProcessor.Process(documents, manifest, resolvedImages);
         }
 
-        public static string InferArguments(Type fromType) => string.Join(",", fromType.GetProperties().Select(v => v.Name));
+        return OpenDocumentPackage.Write(content, styles, manifest, this.package.FileByFileName, resolvedImages);
+    }
 
-        public byte[] Render(IDictionary<string, object> model, IDictionary<string, byte[]> imageByName = null)
+    private static void Validate(XDocument document, string fileName)
+    {
+        if (document.Root is null)
         {
-            var clonedFileByFileName = new Dictionary<string, byte[]>(this.fileByFileName);
-            var render = new OpenDocumentRendering(model, this.manifest, imageByName, this.ContentTemplateGroup, this.StylesTemplateGroup, clonedFileByFileName);
-            return render.Execute();
+            throw new TemplateException(new[] { new TemplateError("The document has no root element.", fileName) });
         }
+
+        TagScanner.Scan(new XNode[] { document.Root }, fileName);
     }
 }
