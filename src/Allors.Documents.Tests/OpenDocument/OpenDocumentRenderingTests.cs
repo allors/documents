@@ -148,6 +148,20 @@ public class OpenDocumentRenderingTests
     }
 
     [Fact]
+    public void IfComparisonPreservesInt64Precision()
+    {
+        // 9007199254740992 = 2^53; a double comparison cannot distinguish it from 2^53 + 1.
+        var document = Odt.Document(
+            $"<text:p>{Odt.Placeholder("<@if Id == 9007199254740993>")}</text:p>" +
+            "<text:p>match</text:p>" +
+            $"<text:p>{Odt.Placeholder("<@end>")}</text:p>");
+        var template = OpenDocumentTemplate.Load(document);
+
+        Assert.Empty(Odt.Content(template.Render(Model(("Id", 9007199254740992L)))).Descendants(Text + "p"));
+        Assert.Single(Odt.Content(template.Render(Model(("Id", 9007199254740993L)))).Descendants(Text + "p"));
+    }
+
+    [Fact]
     public void ForRepeatsBlockPerItem()
     {
         var document = Odt.Document(

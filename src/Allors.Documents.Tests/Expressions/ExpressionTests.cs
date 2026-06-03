@@ -123,6 +123,48 @@ public class ExpressionTests
     }
 
     [Theory]
+    [InlineData("Id == 9007199254740993", false)]
+    [InlineData("Id != 9007199254740993", true)]
+    [InlineData("Id < 9007199254740993", true)]
+    [InlineData("Id >= 9007199254740993", false)]
+    [InlineData("Id == 9007199254740992", true)]
+    public void NumericComparisonsPreserveInt64Precision(string expression, bool expected)
+    {
+        // 9007199254740992 = 2^53; doubles cannot distinguish it from 2^53 + 1.
+        var scope = Scope(new Dictionary<string, object?> { ["Id"] = 9007199254740992L });
+
+        Assert.Equal(expected, Evaluate(expression, scope));
+    }
+
+    [Fact]
+    public void NumericComparisonsPreserveUInt64Precision()
+    {
+        var scope = Scope(new Dictionary<string, object?> { ["Big"] = ulong.MaxValue });
+
+        Assert.Equal(false, Evaluate("Big == 18446744073709551614", scope));
+        Assert.Equal(true, Evaluate("Big == 18446744073709551615", scope));
+        Assert.Equal(true, Evaluate("Big > 18446744073709551614", scope));
+    }
+
+    [Fact]
+    public void NumericComparisonsPreserveDecimalPrecision()
+    {
+        var scope = Scope(new Dictionary<string, object?> { ["Amount"] = 1.0000000000000000001m });
+
+        Assert.Equal(false, Evaluate("Amount == 1.0000000000000000002", scope));
+        Assert.Equal(true, Evaluate("Amount < 1.0000000000000000002", scope));
+        Assert.Equal(true, Evaluate("Amount == 1.0000000000000000001", scope));
+    }
+
+    [Fact]
+    public void DecimalScaleDoesNotAffectEquality()
+    {
+        var scope = Scope(new Dictionary<string, object?> { ["Amount"] = 0.30m });
+
+        Assert.Equal(true, Evaluate("Amount == 0.3", scope));
+    }
+
+    [Theory]
     [InlineData("Name == 'Koen'", true)]
     [InlineData("Name == \"Koen\"", true)]
     [InlineData("Name != 'Jane'", true)]

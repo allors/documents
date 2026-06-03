@@ -83,7 +83,8 @@ internal enum BinaryOperator
 
 /// <summary>
 /// A binary operation. Logical operators short-circuit on truthiness.
-/// Equality is null-safe; numbers compare numerically across numeric types.
+/// Equality is null-safe; numbers compare numerically across numeric types — exactly (as
+/// <see cref="decimal"/>) unless a binary floating point operand forces a <see cref="double"/> comparison.
 /// Relational comparisons are numeric, ordinal for strings, and <see cref="IComparable"/> for
 /// same-typed operands; incomparable operands (including null) compare as false.
 /// </summary>
@@ -142,7 +143,9 @@ internal sealed class BinaryExpression : Expression
 
         if (IsNumeric(left) && IsNumeric(right))
         {
-            return ToDouble(left) == ToDouble(right);
+            return IsBinaryFloatingPoint(left) || IsBinaryFloatingPoint(right)
+                ? ToDouble(left) == ToDouble(right)
+                : ToDecimal(left) == ToDecimal(right);
         }
 
         return left.Equals(right);
@@ -157,7 +160,9 @@ internal sealed class BinaryExpression : Expression
 
         if (IsNumeric(left) && IsNumeric(right))
         {
-            return ToDouble(left).CompareTo(ToDouble(right));
+            return IsBinaryFloatingPoint(left) || IsBinaryFloatingPoint(right)
+                ? ToDouble(left).CompareTo(ToDouble(right))
+                : ToDecimal(left).CompareTo(ToDecimal(right));
         }
 
         if (left is string leftString && right is string rightString)
@@ -176,5 +181,9 @@ internal sealed class BinaryExpression : Expression
     private static bool IsNumeric(object value) =>
         value is sbyte or byte or short or ushort or int or uint or long or ulong or float or double or decimal;
 
+    private static bool IsBinaryFloatingPoint(object value) => value is float or double;
+
     private static double ToDouble(object value) => Convert.ToDouble(value, CultureInfo.InvariantCulture);
+
+    private static decimal ToDecimal(object value) => Convert.ToDecimal(value, CultureInfo.InvariantCulture);
 }
