@@ -1,4 +1,5 @@
 <Solution>
+  <Project Path="Allors.Documents.Generators/Allors.Documents.Generators.csproj" />
   <Project Path="Allors.Documents.Tests/Allors.Documents.Tests.csproj" />
   <Project Path="Allors.Documents/Allors.Documents.csproj" />
 </Solution>

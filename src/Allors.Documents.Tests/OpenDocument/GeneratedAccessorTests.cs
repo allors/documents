@@ -1,0 +1,98 @@
+// <copyright file="GeneratedAccessorTests.cs" company="Allors bvba">
+// Copyright (c) Allors bvba. All rights reserved.
+// Licensed under the LGPL license. See LICENSE file in the project root for full license information.
+// </copyright>
+
+namespace Allors.Documents.Tests.OpenDocument;
+
+using System.IO;
+using System.Linq;
+using System.Reflection;
+using Allors.Documents.Expressions;
+using Allors.Documents.OpenDocument;
+using Xunit;
+
+/// <summary>Verifies the source generated accessors and their parity with the reflection fallback.</summary>
+public class GeneratedAccessorTests
+{
+    [Fact]
+    public void AccessorIsGeneratedForAnnotatedModel()
+    {
+        Assert.True(AccessorRegistry.TryGet(typeof(Model), out var accessor));
+
+        var model = new Model { Person = new ModelPerson { FirstName = "Jane" } };
+        Assert.True(accessor!.TryGet(model, "Person", out var person));
+        Assert.Same(model.Person, person);
+
+        Assert.False(accessor.TryGet(model, "Missing", out _));
+    }
+
+    [Fact]
+    public void AccessorIsGeneratedForTransitivelyReferencedModelTypes()
+    {
+        // ModelPerson is not annotated; it is reached through Model's members.
+        Assert.True(AccessorRegistry.TryGet(typeof(ModelPerson), out var accessor));
+
+        var person = new ModelPerson { FirstName = "John" };
+        Assert.True(accessor!.TryGet(person, "FirstName", out var firstName));
+        Assert.Equal("John", firstName);
+    }
+
+    [Fact]
+    public void GeneratedPathEqualsReflectionPath()
+    {
+        var document = GetResource("EmbeddedTemplate.odt");
+        var model = new Model
+        {
+            Person = new ModelPerson { FirstName = "Jane" },
+            People =
+            [
+                new ModelPerson { FirstName = "John" },
+                new ModelPerson { FirstName = "Jenny" }
+            ],
+            Images = ["number1"],
+        };
+
+        var withReflection = OpenDocumentTemplate<Model>.Load(document, new OpenDocumentOptions { UseReflectionFallback = true });
+        var withoutReflection = OpenDocumentTemplate<Model>.Load(document, new OpenDocumentOptions { UseReflectionFallback = false });
+
+        var first = withReflection.Render(model);
+        var second = withoutReflection.Render(model);
+
+        Assert.Equal(Odt.Entry(first, Odt.ContentFileName), Odt.Entry(second, Odt.ContentFileName));
+        Assert.Equal(Odt.Entry(first, Odt.StylesFileName), Odt.Entry(second, Odt.StylesFileName));
+    }
+
+    [Fact]
+    public void WithoutReflectionFallbackUnregisteredTypesResolveToNull()
+    {
+        var document = Odt.Document($"<text:p>[{Odt.Placeholder("<$Person.FirstName>")}]</text:p>");
+        var template = OpenDocumentTemplate.Load(document, new OpenDocumentOptions { UseReflectionFallback = false });
+
+        var model = new System.Collections.Generic.Dictionary<string, object?>
+        {
+            ["Person"] = new Unregistered { FirstName = "hidden" },
+        };
+
+        var result = template.Render(model);
+
+        Assert.Equal("[]", Odt.Content(result).Descendants("{urn:oasis:names:tc:opendocument:xmlns:text:1.0}p").Single().Value);
+    }
+
+    private static byte[] GetResource(string name)
+    {
+        var assembly = typeof(GeneratedAccessorTests).GetTypeInfo().Assembly;
+
+        var resourceName = assembly.GetManifestResourceNames().First(v => v.Contains(name));
+        using var resource = assembly.GetManifestResourceStream(resourceName);
+
+        using var output = new MemoryStream();
+        resource?.CopyTo(output);
+        return output.ToArray();
+    }
+
+    private sealed class Unregistered
+    {
+        public string? FirstName { get; set; }
+    }
+}

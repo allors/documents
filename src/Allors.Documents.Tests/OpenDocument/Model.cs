@@ -5,6 +5,9 @@
 
 namespace Allors.Documents.Tests.OpenDocument;
 
+using Allors.Documents;
+
+[DocumentModel]
 public partial class Model
 {
     public ModelPerson? Person { get; set; }
