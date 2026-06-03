@@ -10,6 +10,7 @@ using System.Collections.Immutable;
 using System.Linq;
 using System.Text;
 using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.Text;
 
@@ -79,7 +80,10 @@ public sealed class ModelBindingGenerator : IIncrementalGenerator
             }
 
             var fullyQualifiedName = type.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
-            var safeName = fullyQualifiedName.Replace("global::", string.Empty).Replace('.', '_');
+
+            // The fully qualified name @-escapes keyword identifiers; strip the escapes so the
+            // mangled name stays a valid identifier.
+            var safeName = fullyQualifiedName.Replace("global::", string.Empty).Replace("@", string.Empty).Replace('.', '_');
 
             result.Add(new ModelType(fullyQualifiedName, safeName, string.Join(";", memberNames)));
         }
@@ -192,10 +196,12 @@ public sealed class ModelBindingGenerator : IIncrementalGenerator
 
                 foreach (var memberName in memberNames)
                 {
+                    // The case label is the raw name, as used by templates and the reflection
+                    // fallback; the member access must escape keyword identifiers.
                     builder.Append("                    case \"")
                         .Append(memberName)
                         .Append("\": value = typed.")
-                        .Append(memberName)
+                        .Append(EscapeIdentifier(memberName))
                         .Append("; return true;\n");
                 }
 
@@ -218,6 +224,11 @@ public sealed class ModelBindingGenerator : IIncrementalGenerator
 
         context.AddSource("DocumentModelAccessors.g.cs", SourceText.From(builder.ToString(), Encoding.UTF8));
     }
+
+    private static string EscapeIdentifier(string name) =>
+        SyntaxFacts.GetKeywordKind(name) != SyntaxKind.None || SyntaxFacts.GetContextualKeywordKind(name) != SyntaxKind.None
+            ? "@" + name
+            : name;
 
     private sealed record ModelType(string FullyQualifiedName, string SafeName, string MemberNames);
 }

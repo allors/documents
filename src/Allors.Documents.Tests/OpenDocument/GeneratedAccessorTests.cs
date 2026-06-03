@@ -39,6 +39,31 @@ public class GeneratedAccessorTests
     }
 
     [Fact]
+    public void AccessorResolvesKeywordNamedMembers()
+    {
+        Assert.True(AccessorRegistry.TryGet(typeof(KeywordModel), out var accessor));
+
+        var model = new KeywordModel { @class = "x", @event = 7 };
+
+        // Lookups use the raw member name, as templates and the reflection fallback do.
+        Assert.True(accessor!.TryGet(model, "class", out var classValue));
+        Assert.Equal("x", classValue);
+
+        Assert.True(accessor.TryGet(model, "event", out var eventValue));
+        Assert.Equal(7, eventValue);
+    }
+
+    [Fact]
+    public void AccessorIsGeneratedForKeywordNamedType()
+    {
+        // @struct is not annotated; it is reached through KeywordModel's members.
+        Assert.True(AccessorRegistry.TryGet(typeof(@struct), out var accessor));
+
+        Assert.True(accessor!.TryGet(new @struct { @string = "s" }, "string", out var value));
+        Assert.Equal("s", value);
+    }
+
+    [Fact]
     public void GeneratedPathEqualsReflectionPath()
     {
         var document = GetResource("EmbeddedTemplate.odt");
