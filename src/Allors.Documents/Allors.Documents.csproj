@@ -1,6 +1,6 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 	<PropertyGroup>
-		<TargetFramework>netstandard2.0</TargetFramework>
+		<TargetFramework>net8.0</TargetFramework>
 		<Title>Allors Documents</Title>
 		<Authors>allors</Authors>
 		<Company>Allors bvba</Company>
@@ -16,7 +16,6 @@
 		<EmbedUntrackedSources>true</EmbedUntrackedSources>
 		<IncludeSymbols>true</IncludeSymbols>
 		<SymbolPackageFormat>snupkg</SymbolPackageFormat>
-		<LangVersion>latest</LangVersion>
 	</PropertyGroup>
 
 	<ItemGroup>
