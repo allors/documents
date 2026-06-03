@@ -11,11 +11,15 @@ using System.Collections.Generic;
 /// <summary>Thrown when a template cannot be loaded or rendered.</summary>
 public sealed class TemplateException : Exception
 {
+    /// <summary>Initializes a new exception with a single error.</summary>
+    /// <param name="message">The error message.</param>
     public TemplateException(string message)
         : this(new[] { new TemplateError(message) })
     {
     }
 
+    /// <summary>Initializes a new exception with the given errors.</summary>
+    /// <param name="errors">The individual errors; the exception message joins them with newlines.</param>
     public TemplateException(IReadOnlyList<TemplateError> errors)
         : base(string.Join("\n", errors)) =>
         this.Errors = errors;

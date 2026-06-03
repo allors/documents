@@ -10,6 +10,10 @@ using System.Text;
 /// <summary>A single error discovered while loading or rendering a template.</summary>
 public sealed class TemplateError
 {
+    /// <summary>Initializes a new error.</summary>
+    /// <param name="message">The human readable error message.</param>
+    /// <param name="source">The template part the error originates from (e.g. "content.xml").</param>
+    /// <param name="tag">The offending tag text, when known.</param>
     public TemplateError(string message, string? source = null, string? tag = null)
     {
         this.Message = message;
@@ -26,6 +30,7 @@ public sealed class TemplateError
     /// <summary>The offending tag text, when known.</summary>
     public string? Tag { get; }
 
+    /// <summary>The error as "source: message (tag: ...)".</summary>
     public override string ToString()
     {
         var builder = new StringBuilder();
