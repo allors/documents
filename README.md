@@ -86,12 +86,12 @@ name are matched against the images dictionary by that literal name.
 
 # Build
 
-Prerequisites: [.NET SDK 10.0](https://dotnet.microsoft.com/download) and [Task](https://taskfile.dev).
+Prerequisites: [.NET SDK 10.0](https://dotnet.microsoft.com/download).
 
-- `task` or `task ci` — build, test and pack
-- `task test` — build and run tests
-- `task pack` — create the NuGet packages in `artifacts/nuget`
-- `task clean` — clean build outputs
+- `dotnet build src/Documents.slnx` — build the solution
+- `dotnet test src/Allors.Documents.Tests` — build and run tests
+- `dotnet pack src/Allors.Documents --output artifacts/nuget` — create the NuGet packages in `artifacts/nuget`
+- `dotnet clean src/Documents.slnx` — clean build outputs
 
 Versioning is handled by [Nerdbank.GitVersioning](https://github.com/dotnet/Nerdbank.GitVersioning) (`version.json`).
 

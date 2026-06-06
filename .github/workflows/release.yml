@@ -17,6 +17,10 @@ permissions:
   # Required for nuget.org trusted publishing (OIDC)
   id-token: write
 
+env:
+  DOTNET_CLI_TELEMETRY_OPTOUT: '1'
+  DOTNET_NOLOGO: '1'
+
 jobs:
   release:
     runs-on: ubuntu-latest
@@ -30,12 +34,21 @@ jobs:
       - uses: actions/setup-dotnet@v5
         with:
           dotnet-version: 10.0.x
-      - uses: arduino/setup-task@v2
-        with:
-          version: 3.x
-          repo-token: ${{ github.token }}
-      - name: Build, test and pack
-        run: task ci CONFIGURATION=Release
+      - name: Build
+        run: dotnet build src/Documents.slnx --configuration Release
+      - name: Test
+        run: >-
+          dotnet test src/Allors.Documents.Tests
+          --configuration Release
+          --no-build
+          --logger "trx;LogFileName=AllorsDocumentsTests.trx"
+          --results-directory artifacts/tests
+      - name: Pack
+        run: >-
+          dotnet pack src/Allors.Documents
+          --configuration Release
+          --no-build
+          --output artifacts/nuget
       - name: NuGet login (OIDC)
         id: nuget-login
         uses: NuGet/login@v1
