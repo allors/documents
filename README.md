@@ -84,16 +84,10 @@ loop) and the resulting name is matched against the images dictionary passed
 to `Render`; matching frames get their picture replaced. Frames with a plain
 name are matched against the images dictionary by that literal name.
 
-# Build
+# Contributing
 
-Prerequisites: [.NET SDK 10.0](https://dotnet.microsoft.com/download).
-
-- `dotnet build src/Documents.slnx` — build the solution
-- `dotnet test src/Allors.Documents.Tests` — build and run tests
-- `dotnet pack src/Allors.Documents --output artifacts/nuget` — create the NuGet packages in `artifacts/nuget`
-- `dotnet clean src/Documents.slnx` — clean build outputs
-
-Versioning is handled by [Nerdbank.GitVersioning](https://github.com/dotnet/Nerdbank.GitVersioning) (`version.json`).
+Building, testing, and the project layout are documented in [AGENTS.md](AGENTS.md).
+Notable changes are tracked in [CHANGELOG.md](CHANGELOG.md).
 
 # Migrating from 1.x
 
