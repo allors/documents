@@ -24,7 +24,7 @@ Prerequisite: [.NET SDK 10.0](https://dotnet.microsoft.com/download).
 - `dotnet build src/Documents.slnx` — build the solution
 - `dotnet test src/Allors.Documents.Tests` — build and run tests
 - `dotnet pack src/Allors.Documents --output artifacts/nuget` — produce the `.nupkg`/`.snupkg`
-- `dotnet clean src/Documents.slnx` — clean build outputs
+- `dotnet clean src/Documents.slnx` — clean build outputs (bin/obj; delete `artifacts/` separately)
 
 CI (`.github/workflows/ci.yml`) runs the same build → test → pack sequence in
 `Release`. Shared MSBuild settings live in `src/Directory.Build.props`:
@@ -47,12 +47,14 @@ images?)` produces the output document. The flow:
    tree, and collects bindings + image-frame references, using the regexes in
    `TagSyntax`.
 3. `ExpressionParser` / `ExpressionLexer` parse expressions (cached by text).
-4. `OpenDocumentRenderer` mutates the DOM in one pass: substitutes bindings
-   (XML-escaped), evaluates frame names and replaces pictures via
-   `OpenDocumentImageProcessor`, and expands if/for blocks. `RenderScope` holds
-   loop variables; `ValueAccessor` resolves member paths through
-   `AccessorRegistry` (generated accessors for `[DocumentModel]` types, otherwise
-   reflection).
+4. `OpenDocumentRenderer` mutates the DOM in one pass: it substitutes bindings
+   (XML-escaped), evaluates frame-name expressions (writing the resolved
+   `draw:name`), and expands if/for blocks. `RenderScope` holds loop variables;
+   `ValueAccessor` resolves member paths through `AccessorRegistry` (generated
+   accessors for `[DocumentModel]` types, otherwise reflection).
+5. `OpenDocumentTemplate.RenderCore` then runs `OpenDocumentImageProcessor` over
+   the rendered documents, replacing pictures whose frame name matches a supplied
+   image and updating the manifest.
 
 Validation happens at **load** time; failures throw `TemplateException` carrying
 `TemplateError`s.

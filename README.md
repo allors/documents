@@ -86,8 +86,10 @@ name are matched against the images dictionary by that literal name.
 
 # Contributing
 
-Building, testing, and the project layout are documented in [AGENTS.md](AGENTS.md).
-Notable changes are tracked in [CHANGELOG.md](CHANGELOG.md).
+Building, testing, and the project layout are documented in
+[AGENTS.md](https://github.com/Allors/Documents/blob/main/AGENTS.md).
+Notable changes are tracked in
+[CHANGELOG.md](https://github.com/Allors/Documents/blob/main/CHANGELOG.md).
 
 # Migrating from 1.x
 
