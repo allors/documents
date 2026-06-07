@@ -17,14 +17,14 @@ internal abstract class Tag
     internal XElement Element { get; }
 }
 
-/// <summary>A variable binding: <c>&lt;$Person.FirstName&gt;</c>.</summary>
+/// <summary>A variable binding: <c>&lt;$Person.FirstName&gt;</c>, optionally with a fallback such as <c>&lt;$Name ?? 'N/A'&gt;</c>.</summary>
 internal sealed class BindingTag : Tag
 {
-    internal BindingTag(XElement element, PathExpression path)
+    internal BindingTag(XElement element, Expression expression)
         : base(element) =>
-        this.Path = path;
+        this.Expression = expression;
 
-    internal PathExpression Path { get; }
+    internal Expression Expression { get; }
 }
 
 /// <summary>A loop: <c>&lt;@for p People&gt;</c>.</summary>

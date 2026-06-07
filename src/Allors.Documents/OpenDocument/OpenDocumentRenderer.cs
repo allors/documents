@@ -124,7 +124,7 @@ internal sealed class OpenDocumentRenderer
 
     private static void ReplaceBinding(BindingTag binding, RenderScope scope)
     {
-        var text = ToText(binding.Path.Evaluate(scope));
+        var text = ToText(binding.Expression.Evaluate(scope));
 
         if (text.Length == 0)
         {

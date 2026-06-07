@@ -26,6 +26,7 @@ internal enum TokenKind
     GreaterThanOrEqual,
     And,
     Or,
+    Coalesce,
     LeftParen,
     RightParen,
     End,
@@ -152,6 +153,16 @@ internal static class ExpressionLexer
                     }
 
                     throw Error(text, position, "expected '||'");
+
+                case '?':
+                    if (Peek(text, position + 1) == '?')
+                    {
+                        tokens.Add(new Token(TokenKind.Coalesce, "??", position));
+                        position += 2;
+                        continue;
+                    }
+
+                    throw Error(text, position, "expected '??'");
 
                 case '"':
                 case '\'':

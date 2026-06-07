@@ -187,3 +187,31 @@ internal sealed class BinaryExpression : Expression
 
     private static decimal ToDecimal(object value) => Convert.ToDecimal(value, CultureInfo.InvariantCulture);
 }
+
+/// <summary>
+/// Null/blank coalescing: returns the left operand unless it is "blank" (<see langword="null"/>
+/// or a whitespace-only string), in which case the right operand is evaluated and returned.
+/// "Blank" mirrors how bindings render empty, so it is broader than C#'s null-only <c>??</c>.
+/// </summary>
+internal sealed class CoalesceExpression : Expression
+{
+    internal CoalesceExpression(Expression left, Expression right)
+    {
+        this.Left = left;
+        this.Right = right;
+    }
+
+    internal Expression Left { get; }
+
+    internal Expression Right { get; }
+
+    internal override object? Evaluate(RenderScope scope)
+    {
+        var left = this.Left.Evaluate(scope);
+        return IsBlank(left) ? this.Right.Evaluate(scope) : left;
+
+        static bool IsBlank(object? value) => value is null || (value is string text && string.IsNullOrWhiteSpace(text));
+    }
+
+    public override string ToString() => $"{this.Left} ?? {this.Right}";
+}

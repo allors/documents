@@ -90,7 +90,7 @@ public class TagScannerTests
         var result = TagScanner.Scan(new[] { body });
 
         var binding = Assert.Single(result.Bindings);
-        Assert.Equal("Title", binding.Path.ToString());
+        Assert.Equal("Title", binding.Expression.ToString());
     }
 
     [Fact]

@@ -55,7 +55,7 @@ internal static class TagSyntax
         var match = BindingRegex.Match(text);
         if (match.Success)
         {
-            return new BindingTag(placeholder, ExpressionParser.ParsePath(match.Groups[1].Value));
+            return new BindingTag(placeholder, ExpressionParser.Parse(match.Groups[1].Value));
         }
 
         match = ForRegex.Match(text);

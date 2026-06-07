@@ -308,6 +308,47 @@ public class ExpressionTests
         Assert.Contains("out of range", Assert.Single(exception.Errors).Message);
     }
 
+    [Theory]
+    [InlineData("Name ?? 'fallback'", "Koen")]
+    [InlineData("Empty ?? 'fallback'", "fallback")]
+    [InlineData("Spaces ?? 'fallback'", "fallback")]
+    [InlineData("Nothing ?? 'fallback'", "fallback")]
+    [InlineData("Missing ?? 'fallback'", "fallback")]
+    [InlineData("Missing ?? Nothing ?? 'third'", "third")]
+    public void CoalesceUsesRightWhenLeftIsBlank(string expression, string expected)
+    {
+        var scope = Scope(new Dictionary<string, object?>
+        {
+            ["Name"] = "Koen",
+            ["Empty"] = "",
+            ["Spaces"] = "   ",
+            ["Nothing"] = null,
+        });
+
+        Assert.Equal(expected, Evaluate(expression, scope));
+    }
+
+    [Fact]
+    public void CoalesceTreatsZeroAndFalseAsPresent()
+    {
+        var scope = Scope(new Dictionary<string, object?> { ["Count"] = 0, ["Flag"] = false });
+
+        Assert.Equal(0, Evaluate("Count ?? 'fallback'", scope));
+        Assert.Equal(false, Evaluate("Flag ?? 'fallback'", scope));
+    }
+
+    [Fact]
+    public void CoalesceHasLowestPrecedence()
+    {
+        var scope = Scope(new Dictionary<string, object?> { ["Nothing"] = null });
+
+        // '??' binds looser than '==', so this parses as Nothing ?? ('a' == 'b').
+        Assert.Equal(false, Evaluate("Nothing ?? 'a' == 'b'", scope));
+
+        // Parentheses force the coalesce first.
+        Assert.Equal(true, Evaluate("(Nothing ?? 'a') == 'a'", scope));
+    }
+
     private static object? Evaluate(string expression, RenderScope scope) => ExpressionParser.Parse(expression).Evaluate(scope);
 
     private static RenderScope Scope(IReadOnlyDictionary<string, object?> model) => new(model, ValueAccessor.Default);

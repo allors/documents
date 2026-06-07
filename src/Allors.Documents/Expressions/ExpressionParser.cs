@@ -13,7 +13,8 @@ using System.Globalization;
 /// <summary>
 /// Recursive descent parser for template expressions. Grammar:
 /// <code>
-/// expression  := orExpr
+/// expression  := coalesceExpr
+/// coalesceExpr := orExpr ( "??" orExpr )*
 /// orExpr      := andExpr ( "||" andExpr )*
 /// andExpr     := compareExpr ( "&amp;&amp;" compareExpr )*
 /// compareExpr := unary ( ("==" | "!=" | "&lt;" | "&gt;" | "&lt;=" | "&gt;=") unary )?
@@ -52,7 +53,7 @@ internal static class ExpressionParser
 
         internal Expression ParseExpression()
         {
-            var expression = this.ParseOr();
+            var expression = this.ParseCoalesce();
             this.Expect(TokenKind.End, "end of expression");
             return expression;
         }
@@ -62,6 +63,19 @@ internal static class ExpressionParser
             var path = this.ParsePathSegments();
             this.Expect(TokenKind.End, "end of expression");
             return path;
+        }
+
+        private Expression ParseCoalesce()
+        {
+            var left = this.ParseOr();
+
+            while (this.Current.Kind == TokenKind.Coalesce)
+            {
+                this.index++;
+                left = new CoalesceExpression(left, this.ParseOr());
+            }
+
+            return left;
         }
 
         private Expression ParseOr()
@@ -161,7 +175,7 @@ internal static class ExpressionParser
 
                 case TokenKind.LeftParen:
                     this.index++;
-                    var inner = this.ParseOr();
+                    var inner = this.ParseCoalesce();
                     this.Expect(TokenKind.RightParen, "')'");
                     return inner;
 

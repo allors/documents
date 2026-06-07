@@ -74,6 +74,21 @@ public class OpenDocumentRenderingTests
         Assert.Equal("[]", Odt.Content(result).Descendants(Text + "p").Single().Value);
     }
 
+    [Theory]
+    [InlineData(null, "fallback")]
+    [InlineData("", "fallback")]
+    [InlineData("   ", "fallback")]
+    [InlineData("Koen", "Koen")]
+    public void CoalesceBindingSubstitutesFallbackForBlankValues(string? value, string expected)
+    {
+        var document = Odt.Document($"<text:p>{Odt.Placeholder("<$Name ?? 'fallback'>")}</text:p>");
+        var template = OpenDocumentTemplate.Load(document);
+
+        var result = template.Render(Model(("Name", value)));
+
+        Assert.Equal(expected, Odt.Content(result).Descendants(Text + "p").Single().Value);
+    }
+
     [Fact]
     public void NumbersRenderWithInvariantCulture()
     {

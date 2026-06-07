@@ -70,7 +70,7 @@ Field > More Fields > Functions > Placeholder*):
 
 | Tag | Meaning |
 |-----|---------|
-| `<$Person.FirstName>` | Binding: insert the value of a member path (XML-escaped). Null or missing members render empty. |
+| `<$Person.FirstName>` | Binding: insert the value of a member path (XML-escaped). Null or missing members render empty; use `?? 'fallback'` to substitute a default. |
 | `<@if expression>` … `<@end>` | Conditional: keep the block when the expression is truthy, remove it otherwise. |
 | `<@for item Collection>` … `<@end>` | Loop: repeat the block per item; `item` is in scope inside, plus `i` (1-based) and `i0` (0-based) indexes. |
 
@@ -81,12 +81,17 @@ rows between the markers.
 
 **Expressions** support member paths, literals (`42`, `'text'`, `true`,
 `false`, `null`), comparisons (`==`, `!=`, `<`, `>`, `<=`, `>=`), logical
-operators (`&&`, `||`, `!`) and parentheses:
+operators (`&&`, `||`, `!`), null/blank coalescing (`??`) and parentheses:
 
 ```
 <@if Person.FirstName>
 <@if Invoice.Total >= 100 && !Invoice.Paid>
+<$Person.MiddleName ?? '—'>
 ```
+
+`a ?? b` evaluates to `a` unless `a` is *blank* — `null` or a whitespace-only
+string — in which case it evaluates to `b`; use it to give an empty binding a
+fallback (broader than C#'s null-only `??`).
 
 Truthiness: `null` is false; booleans are themselves; strings are true when
 non-empty; numbers when non-zero; collections when non-empty.
