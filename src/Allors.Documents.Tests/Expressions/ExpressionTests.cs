@@ -284,6 +284,21 @@ public class ExpressionTests
         Assert.Equal("a\"b", Evaluate("\"a\\\"b\"", scope));
     }
 
+    [Fact]
+    public void BackslashEscapeProducesBackslash()
+    {
+        var scope = Scope(new Dictionary<string, object?>());
+
+        Assert.Equal(@"a\b", Evaluate(@"'a\\b'", scope));
+    }
+
+    [Theory]
+    [InlineData(@"'a\nb'")]
+    [InlineData(@"'a\tb'")]
+    [InlineData(@"'a\xb'")]
+    public void InvalidEscapeSequencesThrow(string expression) =>
+        Assert.Throws<TemplateException>(() => Evaluate(expression, Scope(new Dictionary<string, object?>())));
+
     private static object? Evaluate(string expression, RenderScope scope) => ExpressionParser.Parse(expression).Evaluate(scope);
 
     private static RenderScope Scope(IReadOnlyDictionary<string, object?> model) => new(model, ValueAccessor.Default);

@@ -189,9 +189,21 @@ internal static class ExpressionLexer
         {
             var chr = text[position];
 
-            if (chr == '\\' && position + 1 < text.Length)
+            if (chr == '\\')
             {
-                builder.Append(text[position + 1]);
+                if (position + 1 >= text.Length)
+                {
+                    throw Error(text, position, "incomplete escape sequence");
+                }
+
+                var escaped = text[position + 1];
+                builder.Append(escaped switch
+                {
+                    '\\' => '\\',
+                    '\'' => '\'',
+                    '"' => '"',
+                    _ => throw Error(text, position, $"invalid escape sequence '\\{escaped}'"),
+                });
                 position += 2;
                 continue;
             }
