@@ -133,7 +133,12 @@ internal static class ExpressionParser
             {
                 case TokenKind.Number:
                     this.index++;
-                    return new LiteralExpression(decimal.Parse(token.Text, CultureInfo.InvariantCulture));
+                    if (!decimal.TryParse(token.Text, NumberStyles.Number, CultureInfo.InvariantCulture, out var number))
+                    {
+                        throw this.Error(token, "number literal is out of range");
+                    }
+
+                    return new LiteralExpression(number);
 
                 case TokenKind.String:
                     this.index++;

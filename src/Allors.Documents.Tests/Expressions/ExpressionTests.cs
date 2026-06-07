@@ -299,6 +299,15 @@ public class ExpressionTests
     public void InvalidEscapeSequencesThrow(string expression) =>
         Assert.Throws<TemplateException>(() => Evaluate(expression, Scope(new Dictionary<string, object?>())));
 
+    [Fact]
+    public void OversizedNumberLiteralThrows()
+    {
+        var scope = Scope(new Dictionary<string, object?>());
+
+        var exception = Assert.Throws<TemplateException>(() => Evaluate("9999999999999999999999999999999999999999", scope));
+        Assert.Contains("out of range", Assert.Single(exception.Errors).Message);
+    }
+
     private static object? Evaluate(string expression, RenderScope scope) => ExpressionParser.Parse(expression).Evaluate(scope);
 
     private static RenderScope Scope(IReadOnlyDictionary<string, object?> model) => new(model, ValueAccessor.Default);
