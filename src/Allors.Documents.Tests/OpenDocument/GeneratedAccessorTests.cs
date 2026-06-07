@@ -104,6 +104,22 @@ public class GeneratedAccessorTests
         Assert.Equal("[]", Odt.Content(result).Descendants("{urn:oasis:names:tc:opendocument:xmlns:text:1.0}p").Single().Value);
     }
 
+    [Fact]
+    public void AccessorIsGeneratedForNonGenericSubclassOfClosedGeneric()
+    {
+        // The documented escape hatch for generics: derive a non-generic type from the closed
+        // generic and annotate it; inherited members resolve without reflection.
+        Assert.True(AccessorRegistry.TryGet(typeof(TextPage), out var accessor));
+
+        var page = new TextPage { Items = new[] { "a", "b" }, Total = 2 };
+
+        Assert.True(accessor!.TryGet(page, "Total", out var total));
+        Assert.Equal(2, total);
+
+        Assert.True(accessor.TryGet(page, "Items", out var items));
+        Assert.Same(page.Items, items);
+    }
+
     private static byte[] GetResource(string name)
     {
         var assembly = typeof(GeneratedAccessorTests).GetTypeInfo().Assembly;

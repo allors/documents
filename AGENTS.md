@@ -82,7 +82,9 @@ Validation happens at **load** time; failures throw `TemplateException` carrying
   `analyzers/dotnet/cs`; the test project references it with
   `OutputItemType="Analyzer"`. After editing the generator, rebuild so consuming
   projects pick up regenerated accessors (generated into
-  `Allors.Documents.Generated`).
+  `Allors.Documents.Generated`). Generic `[DocumentModel]` types get no accessor —
+  the generator emits warning `ALLORS001`; derive a non-generic subclass of the
+  closed generic (or use reflection fallback / `AccessorRegistry.Register`) instead.
 - **Tests** mirror the source folders (`OpenDocument/`, `Templating/`,
   `Expressions/`), use the `*Tests` suffix and xUnit + XMLUnit for XML asserts.
   `OpenDocument/Odt.cs` is the helper for building and reading back documents;

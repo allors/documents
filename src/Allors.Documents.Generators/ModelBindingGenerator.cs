@@ -25,6 +25,14 @@ public sealed class ModelBindingGenerator : IIncrementalGenerator
 {
     private const string AttributeMetadataName = "Allors.Documents.DocumentModelAttribute";
 
+    private static readonly DiagnosticDescriptor GenericModelDescriptor = new(
+        id: "ALLORS001",
+        title: "[DocumentModel] is ignored on generic types",
+        messageFormat: "[DocumentModel] on generic type '{0}' generates no accessor; derive a non-generic subclass, rely on reflection fallback, or call AccessorRegistry.Register",
+        category: "Allors.Documents",
+        defaultSeverity: DiagnosticSeverity.Warning,
+        isEnabledByDefault: true);
+
     public void Initialize(IncrementalGeneratorInitializationContext context)
     {
         var modelTypes = context.SyntaxProvider.ForAttributeWithMetadataName(
@@ -35,6 +43,23 @@ public sealed class ModelBindingGenerator : IIncrementalGenerator
         var collected = modelTypes.Collect();
 
         context.RegisterSourceOutput(collected, static (productionContext, batches) => Emit(productionContext, batches));
+
+        // Generic types get no accessor (see Enqueue); warn so the omission is not silent.
+        var genericModels = context.SyntaxProvider.ForAttributeWithMetadataName(
+            AttributeMetadataName,
+            predicate: static (node, _) => node is ClassDeclarationSyntax or RecordDeclarationSyntax or StructDeclarationSyntax,
+            transform: static (syntaxContext, _) =>
+                syntaxContext.TargetSymbol is INamedTypeSymbol generic && generic.TypeParameters.Length > 0
+                    ? new GenericModelInfo(generic.ToDisplayString(), generic.Locations.FirstOrDefault() ?? Location.None)
+                    : null);
+
+        context.RegisterSourceOutput(genericModels, static (productionContext, info) =>
+        {
+            if (info is not null)
+            {
+                productionContext.ReportDiagnostic(Diagnostic.Create(GenericModelDescriptor, info.Location, info.Display));
+            }
+        });
     }
 
     private static ImmutableArray<ModelType> Collect(GeneratorAttributeSyntaxContext context)
@@ -231,4 +256,6 @@ public sealed class ModelBindingGenerator : IIncrementalGenerator
             : name;
 
     private sealed record ModelType(string FullyQualifiedName, string SafeName, string MemberNames);
+
+    private sealed record GenericModelInfo(string Display, Location Location);
 }

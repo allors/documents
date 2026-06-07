@@ -48,6 +48,19 @@ var template = OpenDocumentTemplate<InvoiceModel>.Load(File.ReadAllBytes("invoic
 byte[] document = template.Render(new InvoiceModel { /* ... */ });
 ```
 
+`[DocumentModel]` is **not** generated for generic types (placing it on one
+produces a build warning). For reflection-free access to a generic model, derive
+a non-generic type from the closed generic and annotate that:
+
+```csharp
+[DocumentModel]
+public sealed class InvoicePage : PagedResult<Invoice> { }
+```
+
+Otherwise generic models resolve through reflection (the default — see
+`UseReflectionFallback`), or register an accessor yourself with
+`AccessorRegistry.Register`.
+
 Templates are immutable after `Load` and can be rendered concurrently.
 
 # Template syntax
