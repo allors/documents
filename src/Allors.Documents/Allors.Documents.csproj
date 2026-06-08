@@ -1,6 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 	<PropertyGroup>
-		<TargetFramework>netstandard2.0</TargetFramework>
+		<TargetFramework>net8.0</TargetFramework>
+		<GenerateDocumentationFile>true</GenerateDocumentationFile>
 		<Title>Allors Documents</Title>
 		<Authors>allors</Authors>
 		<Company>Allors bvba</Company>
@@ -16,7 +17,6 @@
 		<EmbedUntrackedSources>true</EmbedUntrackedSources>
 		<IncludeSymbols>true</IncludeSymbols>
 		<SymbolPackageFormat>snupkg</SymbolPackageFormat>
-		<LangVersion>latest</LangVersion>
 	</PropertyGroup>
 
 	<ItemGroup>
@@ -25,10 +25,19 @@
 	</ItemGroup>
 
 	<ItemGroup>
+		<!-- Build the source generator with the library and ship it as an analyzer in the package. -->
+		<ProjectReference Include="..\Allors.Documents.Generators\Allors.Documents.Generators.csproj" PrivateAssets="all" ReferenceOutputAssembly="false" />
+		<None Include="..\Allors.Documents.Generators\bin\$(Configuration)\netstandard2.0\Allors.Documents.Generators.dll" Pack="true" PackagePath="analyzers/dotnet/cs" Visible="false" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<InternalsVisibleTo Include="Allors.Documents.Tests" />
+	</ItemGroup>
+
+	<ItemGroup>
 		<PackageReference Include="Microsoft.SourceLink.GitHub" Version="8.0.0">
 			<PrivateAssets>all</PrivateAssets>
 			<IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
 		</PackageReference>
-		<PackageReference Include="StringTemplate4" Version="4.0.8" />
 	</ItemGroup>
 </Project>
