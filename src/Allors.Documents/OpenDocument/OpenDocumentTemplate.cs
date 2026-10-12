@@ -74,7 +74,7 @@ namespace Allors.Document.OpenDocument
                                         throw new TemplateException(errorBuffer.Errors);
                                     }
 
-                                    this.ContentTemplateGroup.RegisterRenderer(typeof(string), xmlStringRenderer);
+                                    this.ContentTemplateGroup.RegisterRenderer(typeof(object), xmlStringRenderer);
                                 }
                                 else if (entry.FullName.Equals(StylesFileName))
                                 {
@@ -95,7 +95,7 @@ namespace Allors.Document.OpenDocument
                                         throw new TemplateException(errorBuffer.Errors);
                                     }
 
-                                    this.StylesTemplateGroup.RegisterRenderer(typeof(string), xmlStringRenderer);
+                                    this.StylesTemplateGroup.RegisterRenderer(typeof(object), xmlStringRenderer);
                                 }
                                 else if (entry.FullName.Equals(MetaFileName))
                                 {
