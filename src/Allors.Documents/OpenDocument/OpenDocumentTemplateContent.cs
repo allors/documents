@@ -8,6 +8,7 @@ namespace Allors.Document.OpenDocument
     using System;
     using System.Collections.Generic;
     using System.IO;
+    using System.Text;
     using System.Text.RegularExpressions;
     using System.Xml;
 
@@ -314,9 +315,31 @@ namespace Allors.Document.OpenDocument
 
         /// <summary>
         /// The XML reader decoded the character references of the template; the template text is XML again, so they go back in.
+        /// StringTemplate then reads that text: a backslash is its escape character and the left delimiter opens an expression, so both get a backslash.
         /// </summary>
-        private string EscapeText(string value) => value.Replace("&", "&amp;").Replace("<", "&lt;").Replace(">", "&gt;");
+        private string EscapeText(string value) => this.EscapeTemplate(value.Replace("&", "&amp;").Replace("<", "&lt;").Replace(">", "&gt;"));
 
-        private string EscapeAttribute(string value) => this.EscapeText(value).Replace("\"", "&quot;");
+        private string EscapeAttribute(string value) => this.EscapeTemplate(value.Replace("&", "&amp;").Replace("<", "&lt;").Replace(">", "&gt;").Replace("\"", "&quot;"));
+
+        private string EscapeTemplate(string value)
+        {
+            if (value.IndexOf('\\') < 0 && value.IndexOf(this.LeftDelimiter) < 0)
+            {
+                return value;
+            }
+
+            var stringBuilder = new StringBuilder(value.Length + 8);
+            foreach (var chr in value)
+            {
+                if (chr == '\\' || chr == this.LeftDelimiter)
+                {
+                    stringBuilder.Append('\\');
+                }
+
+                stringBuilder.Append(chr);
+            }
+
+            return stringBuilder.ToString();
+        }
     }
 }
