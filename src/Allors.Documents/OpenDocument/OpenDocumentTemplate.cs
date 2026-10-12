@@ -22,6 +22,8 @@ namespace Allors.Document.OpenDocument
 
         internal const string MetaFileName = "META-INF/manifest.xml";
 
+        internal const string MimetypeFileName = "mimetype";
+
         protected const char DefaultLeftDelimiter = '\u02C2';
 
         protected const char DefaultRightDelimiter = '\u02C3';
