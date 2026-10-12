@@ -86,7 +86,7 @@ namespace Allors.Document.OpenDocument
                             continue;
                         }
 
-                        Save(archive, fileName, kvp.Value, CompressionLevel.Optimal);
+                        Save(archive, fileName, kvp.Value, CompressedImage.Is(kvp.Value) ? CompressionLevel.NoCompression : CompressionLevel.Optimal);
                     }
                 }
 

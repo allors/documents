@@ -74,11 +74,32 @@ namespace Allos.Document.OpenDocument.Tests
             Assert.True(entries[0].Stored);
             Assert.Equal(["content.xml", "styles.xml", "META-INF/manifest.xml"], entries.Skip(1).Take(3).Select(v => v.Name));
             Assert.Equal(Resource("1.png"), Odt.Entry(rendered, "Pictures/number1").Bytes);
+            Assert.True(Odt.Entry(rendered, "Pictures/number1").Stored);
+            Assert.True(Odt.Entry(rendered, "Thumbnails/thumbnail.png").Stored);
+            Assert.False(Odt.Entry(rendered, "content.xml").Stored);
 
             var content = Odt.Content(rendered);
             Assert.Contains("Jane", Odt.Paragraphs(content));
             Assert.Contains(content.Descendants(Odt.Draw + "frame"), v => (string)v.Attribute(Odt.Draw + "name") == "number1");
             Assert.Contains(Odt.Manifest(rendered).Descendants(Odt.ManifestNs + "file-entry"), v => (string)v.Attribute(Odt.ManifestNs + "full-path") == "Pictures/number1");
+        }
+
+        [Fact]
+        public void AlreadyCompressedPicturesAreStoredAndTheRestIsDeflated()
+        {
+            var png = new byte[] { 0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16 };
+            var jpeg = new byte[] { 0xFF, 0xD8, 0xFF, 0xE0, 0, 16, 0x4A, 0x46, 0x49, 0x46, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9 };
+            var svg = Encoding.ASCII.GetBytes("<svg xmlns='http://www.w3.org/2000/svg'><rect width='1' height='1'/></svg>");
+            var pictures = new Dictionary<string, byte[]> { ["placeholder.png"] = png, ["drawing.svg"] = svg };
+            var package = Odt.Build("<text:p>" + Odt.Frame("$Photo", "Pictures/placeholder.png") + "</text:p>", pictures);
+
+            var rendered = new OpenDocumentTemplate(package, "Photo").Render(new Dictionary<string, object> { ["Photo"] = "photo" }, new Dictionary<string, byte[]> { ["photo"] = jpeg });
+
+            Assert.True(Odt.Entry(rendered, "Pictures/placeholder.png").Stored);
+            Assert.True(Odt.Entry(rendered, "Pictures/photo").Stored);
+            Assert.False(Odt.Entry(rendered, "Pictures/drawing.svg").Stored);
+            Assert.False(Odt.Entry(rendered, "content.xml").Stored);
+            Assert.False(Odt.Entry(rendered, "styles.xml").Stored);
         }
 
         private static byte[] Resource(string name)
