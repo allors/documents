@@ -19,6 +19,8 @@ namespace Allors.Document.OpenDocument
     {
         private const string MainTemplateName = "main";
 
+        private const string XLinkNamespace = "http://www.w3.org/1999/xlink";
+
         private readonly IDictionary<string, object> model;
         private readonly TemplateGroup ContentTemplateGroup;
         private readonly TemplateGroup StylesTemplateGroup;
@@ -46,22 +48,39 @@ namespace Allors.Document.OpenDocument
 
             if (this.images.Length > 0)
             {
+                var content = LoadPart(contentGenerated);
+                var styles = LoadPart(stylesGenerated);
+
                 var manifest = new XmlDocument();
                 manifest.Load(new MemoryStream(this.manifestFile));
 
-                contentGenerated = this.ProcessImages(contentGenerated, manifest);
-                stylesGenerated = this.ProcessImages(stylesGenerated, manifest);
+                // A frame named after a passed image shows that image instead of the template picture it held
+                var replaced = new HashSet<string>();
+                this.BindImages(content, replaced);
+                this.BindImages(styles, replaced);
+
+                foreach (var image in this.images.Where(v => v.OriginalFullPath != null))
+                {
+                    this.fileByFileName[image.FullPath] = image.Contents;
+                    AddManifestEntry(manifest, image.OriginalFullPath, image.FullPath);
+                }
+
+                // A template picture that no frame shows any more stays out of the document
+                var shown = new HashSet<string>(Hrefs(content).Concat(Hrefs(styles)));
+                foreach (var fullPath in replaced.Where(v => !shown.Contains(v)))
+                {
+                    this.fileByFileName.Remove(fullPath);
+                    RemoveManifestEntries(manifest, fullPath);
+                }
+
+                contentGenerated = content.OuterXml;
+                stylesGenerated = styles.OuterXml;
 
                 using (var output = new MemoryStream())
                 {
                     manifest.Save(output);
                     this.manifestFile = output.ToArray();
                 }
-            }
-
-            foreach (var image in this.images?.Where(v => v.OriginalFullPath != null))
-            {
-                this.fileByFileName.Add(image.FullPath, image.Contents);
             }
 
             using (var zip = new MemoryStream())
@@ -103,6 +122,58 @@ namespace Allors.Document.OpenDocument
             }
         }
 
+        /// <summary>Loads a rendered part. Every white space character in it is the author's, so none is dropped.</summary>
+        private static XmlDocument LoadPart(string xml)
+        {
+            var document = new XmlDocument { PreserveWhitespace = true };
+            document.LoadXml(xml);
+            return document;
+        }
+
+        private static IEnumerable<string> Hrefs(XmlDocument document)
+        {
+            foreach (XmlElement element in document.GetElementsByTagName("*"))
+            {
+                foreach (XmlAttribute attribute in element.Attributes)
+                {
+                    if (attribute.LocalName.Equals("href") && attribute.NamespaceURI.Equals(XLinkNamespace))
+                    {
+                        yield return attribute.Value;
+                    }
+                }
+            }
+        }
+
+        /// <summary>The new picture takes over the manifest entry of the picture it replaces, media type included; a picture bound in several parts gets one entry.</summary>
+        private static void AddManifestEntry(XmlDocument manifest, string originalFullPath, string fullPath)
+        {
+            var entries = ManifestEntries(manifest).ToArray();
+            if (entries.Any(v => FullPath(v).Equals(fullPath)))
+            {
+                return;
+            }
+
+            var original = entries.FirstOrDefault(v => FullPath(v).Equals(originalFullPath));
+            if (original != null)
+            {
+                var entry = (XmlElement)original.Clone();
+                entry.SetAttribute("full-path", entry.GetNamespaceOfPrefix("manifest"), fullPath);
+                manifest.DocumentElement.AppendChild(entry);
+            }
+        }
+
+        private static void RemoveManifestEntries(XmlDocument manifest, string fullPath)
+        {
+            foreach (var entry in ManifestEntries(manifest).Where(v => FullPath(v).Equals(fullPath)).ToArray())
+            {
+                manifest.DocumentElement.RemoveChild(entry);
+            }
+        }
+
+        private static IEnumerable<XmlElement> ManifestEntries(XmlDocument manifest) => manifest.DocumentElement.ChildNodes.OfType<XmlElement>();
+
+        private static string FullPath(XmlElement entry) => entry.GetAttribute("full-path", entry.GetNamespaceOfPrefix("manifest"));
+
         private string Generate(TemplateGroup templateGroup)
         {
             var errorBuffer = new ErrorBuffer();
@@ -132,47 +203,36 @@ namespace Allors.Document.OpenDocument
             return contentGenerated;
         }
 
-        private string ProcessImages(string generated, XmlDocument manifest)
+        /// <summary>
+        /// Points every frame named after a passed image at that image and records the template picture it held.
+        /// A frame without a picture, such as a text box, is left alone.
+        /// </summary>
+        private void BindImages(XmlDocument document, HashSet<string> replaced)
         {
-            var document = new XmlDocument();
-            document.LoadXml(generated);
-
-            var frameElements = document.GetElementsByTagName("draw:frame");
-            foreach (XmlElement frameElement in frameElements)
+            foreach (XmlElement frameElement in document.GetElementsByTagName("draw:frame"))
             {
                 var drawNs = frameElement.GetNamespaceOfPrefix("draw");
                 var name = frameElement.GetAttribute("name", drawNs).Trim();
                 var image = this.images.FirstOrDefault(v => v.Name.Equals(name));
-                if (image != null)
+                if (image == null)
                 {
-                    var imageElement = (XmlElement)frameElement.GetElementsByTagName("draw:image")[0];
-                    var xlinkNs = imageElement.GetNamespaceOfPrefix("xlink");
-                    image.OriginalFullPath = imageElement.GetAttribute("href", xlinkNs);
-                    imageElement.SetAttribute("href", xlinkNs, image.FullPath);
+                    continue;
                 }
-            }
 
-            generated = document.OuterXml;
-
-            var documentElement = manifest.DocumentElement;
-            var elements = documentElement.ChildNodes.OfType<XmlElement>().ToArray();
-
-            foreach (var element in elements)
-            {
-                var manifestNs = element.GetNamespaceOfPrefix("manifest");
-                var fullPath = element.GetAttribute("full-path", manifestNs);
-
-                foreach (var image in this.images.Where(v => v.OriginalFullPath != null && v.OriginalFullPath.Equals(fullPath)))
+                var imageElements = frameElement.GetElementsByTagName("draw:image");
+                if (imageElements.Count == 0)
                 {
-                    var newElement = (XmlElement)element.Clone();
-                    documentElement.AppendChild(newElement);
-
-                    manifestNs = newElement.GetNamespaceOfPrefix("manifest");
-                    newElement.SetAttribute("full-path", manifestNs, image.FullPath);
+                    continue;
                 }
-            }
 
-            return generated;
+                var imageElement = (XmlElement)imageElements[0];
+                var xlinkNs = imageElement.GetNamespaceOfPrefix("xlink");
+                var href = imageElement.GetAttribute("href", xlinkNs);
+
+                replaced.Add(href);
+                image.OriginalFullPath = image.OriginalFullPath ?? href;
+                imageElement.SetAttribute("href", xlinkNs, image.FullPath);
+            }
         }
     }
 }

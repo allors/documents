@@ -14,46 +14,43 @@ namespace Allos.Document.OpenDocument.Tests
         [Fact]
         public void ToStringTemplate()
         {
-            var input = @"<?xml version=""1.0"" encoding=""UTF-8""?>
-<office:document-content xmlns:office=""urn:oasis:names:tc:opendocument:xmlns:office:1.0"" xmlns:text=""urn:oasis:names:tc:opendocument:xmlns:text:1.0"">
-  <office:body>
-    <office:text>
-        <text:placeholder text:placeholder-type=""text"">&lt;@if person.FirstName&gt;</text:placeholder>
-        <text:placeholder text:placeholder-type=""text"">&lt;$person.FirstName&gt;</text:placeholder>
-        <text:placeholder text:placeholder-type=""text"">&lt;@end&gt;</text:placeholder>
+            const char L = 'Ë‚';
+            const char R = 'Ëƒ';
+            const string Ns = "xmlns:office=\"urn:oasis:names:tc:opendocument:xmlns:office:1.0\" xmlns:text=\"urn:oasis:names:tc:opendocument:xmlns:text:1.0\"";
 
-        <text:placeholder text:placeholder-type=""text"">&lt;@for p people&gt;</text:placeholder>
-        <text:placeholder text:placeholder-type=""text"">&lt;$p.FirstName&gt;</text:placeholder>
-        <text:placeholder text:placeholder-type=""text"">&lt;@end&gt;</text:placeholder>
-    </office:text>
-  </office:body>
-</office:document-content>
-";
+            // Writer saves a part without indentation: every white space character in it is the author's
+            var input =
+                "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n" +
+                "<office:document-content " + Ns + "><office:body><office:text>" +
+                "<text:p text:style-name=\"P1\">Dear <text:placeholder text:placeholder-type=\"text\">&lt;$person.FirstName&gt;</text:placeholder>,</text:p>" +
+                "<text:p><text:placeholder text:placeholder-type=\"text\">&lt;@if person.FirstName&gt;</text:placeholder></text:p>" +
+                "<text:p>Hello<text:span text:style-name=\"T1\"> </text:span>again</text:p>" +
+                "<text:p><text:placeholder text:placeholder-type=\"text\">&lt;@end&gt;</text:placeholder></text:p>" +
+                "<text:p><text:placeholder text:placeholder-type=\"text\">&lt;@for p people&gt;</text:placeholder></text:p>" +
+                "<text:p><text:placeholder text:placeholder-type=\"text\">&lt;$p.FirstName&gt;</text:placeholder></text:p>" +
+                "<text:p><text:placeholder text:placeholder-type=\"text\">&lt;@end&gt;</text:placeholder></text:p>" +
+                "</office:text></office:body></office:document-content>";
 
-            var byteArray = System.Text.Encoding.UTF8.GetBytes(input);
-            var document = new OpenDocumentTemplateContent(byteArray, '¬', '¬');
+            var document = new OpenDocumentTemplateContent(System.Text.Encoding.UTF8.GetBytes(input), L, R);
 
             var actual = document.ToStringTemplate();
 
-            var expected = @" ::= <<
-<?xml version=""1.0"" encoding=""UTF-8""?>
-<office:document-content xmlns:office=""urn:oasis:names:tc:opendocument:xmlns:office:1.0"" xmlns:text=""urn:oasis:names:tc:opendocument:xmlns:text:1.0"">
-<office:body>
-<office:text>
-¬if(person.FirstName)¬
-¬person.FirstName; format=""xml-string""¬
-¬endif¬
-¬people:{p|¬for1(p)¬}¬
-</office:text>
-</office:body>
-</office:document-content>
->>
+            // The XML comes back character for character: the tags become expressions, and the paragraphs that held a block tag go
+            var expected =
+                " ::= <<\n" +
+                "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n" +
+                "<office:document-content " + Ns + "><office:body><office:text>" +
+                "<text:p text:style-name=\"P1\">Dear " + L + "person.FirstName; format=\"xml-string\"" + R + ",</text:p>" +
+                L + "if(person.FirstName)" + R + "<text:p>Hello<text:span text:style-name=\"T1\"> </text:span>again</text:p>" + L + "endif" + R +
+                L + "people:{p|" + L + "for1(p)" + R + "}" + R +
+                "</office:text></office:body></office:document-content>\n" +
+                ">>\n" +
+                "\n" +
+                "for1(p) ::= <<\n" +
+                "<text:p>" + L + "p.FirstName; format=\"xml-string\"" + R + "</text:p>\n" +
+                ">>";
 
-for1(p) ::= <<
-¬p.FirstName; format=""xml-string""¬
->>";
-
-            Assert.Equal(expected, actual);
+            Assert.Equal(expected, actual.Replace("\r\n", "\n"));
         }
     }
 }
