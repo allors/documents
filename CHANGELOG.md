@@ -7,7 +7,7 @@ All notable changes to this project are documented in this file. The format foll
 ### Fixed
 
 - Static text and attribute values of a template are escaped again when the template becomes a StringTemplate. `Terms & Conditions`, `if a < b` and a link with `&` in its address rendered a malformed `content.xml`, and `Next >> page` ended the template body and threw at load.
-- Every bound value is escaped, not only strings: a value whose `ToString()` contained `&` broke the document.
+- Every bound value is escaped, not only strings: a value whose `ToString()` contained `&` broke the document. Like strings, they lose the characters below U+0020.
 - The engine's delimiters `˂` and `˃` (U+02C2 and U+02C3) and backslashes in static text render literally. The text between two delimiters silently disappeared, and `\\` collapsed to `\`.
 - The `mimetype` entry is the first entry of the package, stored and without an extra field, as ODF 1.2 part 3 requires. It was the fourth entry, deflated.
 
