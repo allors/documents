@@ -22,6 +22,8 @@ namespace Allors.Document.OpenDocument
 
         internal const string MetaFileName = "META-INF/manifest.xml";
 
+        internal const string MimetypeFileName = "mimetype";
+
         protected const char DefaultLeftDelimiter = '\u02C2';
 
         protected const char DefaultRightDelimiter = '\u02C3';
@@ -74,7 +76,7 @@ namespace Allors.Document.OpenDocument
                                         throw new TemplateException(errorBuffer.Errors);
                                     }
 
-                                    this.ContentTemplateGroup.RegisterRenderer(typeof(string), xmlStringRenderer);
+                                    this.ContentTemplateGroup.RegisterRenderer(typeof(object), xmlStringRenderer);
                                 }
                                 else if (entry.FullName.Equals(StylesFileName))
                                 {
@@ -95,7 +97,7 @@ namespace Allors.Document.OpenDocument
                                         throw new TemplateException(errorBuffer.Errors);
                                     }
 
-                                    this.StylesTemplateGroup.RegisterRenderer(typeof(string), xmlStringRenderer);
+                                    this.StylesTemplateGroup.RegisterRenderer(typeof(object), xmlStringRenderer);
                                 }
                                 else if (entry.FullName.Equals(MetaFileName))
                                 {

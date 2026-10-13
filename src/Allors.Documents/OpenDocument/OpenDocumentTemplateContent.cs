@@ -8,6 +8,7 @@ namespace Allors.Document.OpenDocument
     using System;
     using System.Collections.Generic;
     using System.IO;
+    using System.Text;
     using System.Text.RegularExpressions;
     using System.Xml;
 
@@ -23,6 +24,7 @@ namespace Allors.Document.OpenDocument
         private readonly XmlDocument template;
 
         private readonly Dictionary<XmlElement, Binding> bindingByXmlElement;
+        private readonly Dictionary<XmlElement, Binding> imageBindingByXmlElement;
         private readonly Dictionary<XmlElement, Statement> statementByXmlElement;
 
         public OpenDocumentTemplateContent(byte[] content, char leftDelimiter, char rightDelimiter)
@@ -31,6 +33,7 @@ namespace Allors.Document.OpenDocument
             this.RightDelimiter = rightDelimiter;
 
             this.bindingByXmlElement = new Dictionary<XmlElement, Binding>();
+            this.imageBindingByXmlElement = new Dictionary<XmlElement, Binding>();
             this.statementByXmlElement = new Dictionary<XmlElement, Statement>();
 
             this.template = new XmlDocument();
@@ -162,14 +165,14 @@ namespace Allors.Document.OpenDocument
                         }
                     }
 
+                    // Images: a frame named $expression takes the name of the image to show from the model
                     if (element.LocalName.Equals("frame") && element.NamespaceURI.Contains("opendocument:xmlns:drawing"))
                     {
                         var drawNs = element.GetNamespaceOfPrefix("draw");
                         var name = element.GetAttribute("name", drawNs).Trim();
                         if (name.StartsWith("$"))
                         {
-                            var value = this.LeftDelimiter + name.Substring(1) + this.RightDelimiter;
-                            element.SetAttribute("name", drawNs, value);
+                            this.imageBindingByXmlElement[element] = new Binding(name.Substring(1));
                         }
                     }
 
@@ -182,10 +185,7 @@ namespace Allors.Document.OpenDocument
         {
             if (this.bindingByXmlElement.TryGetValue(element, out var binding))
             {
-                writer.Write(this.LeftDelimiter);
-                writer.Write(binding.Text);
-                writer.Write(@"; format=""xml-string""");
-                writer.Write(this.RightDelimiter);
+                this.WriteBinding(binding, writer);
                 return;
             }
 
@@ -228,6 +228,8 @@ namespace Allors.Document.OpenDocument
                 return;
             }
 
+            this.imageBindingByXmlElement.TryGetValue(element, out var imageBinding);
+
             writer.Write("<");
             if (!string.IsNullOrWhiteSpace(element.Prefix))
             {
@@ -248,7 +250,16 @@ namespace Allors.Document.OpenDocument
 
                 writer.Write(attribute.LocalName);
                 writer.Write(@"=""");
-                writer.Write(attribute.Value);
+
+                if (imageBinding != null && attribute.LocalName.Equals("name") && attribute.NamespaceURI.Equals(element.NamespaceURI))
+                {
+                    this.WriteBinding(imageBinding, writer);
+                }
+                else
+                {
+                    writer.Write(this.EscapeAttribute(attribute.Value));
+                }
+
                 writer.Write(@"""");
             }
 
@@ -281,7 +292,8 @@ namespace Allors.Document.OpenDocument
                         break;
 
                     case XmlNodeType.Text:
-                        writer.Write(childNode.Value);
+                    case XmlNodeType.CDATA:
+                        writer.Write(this.EscapeText(childNode.Value));
                         break;
 
                     // TODO: Other XmlNodeTypes
@@ -291,6 +303,43 @@ namespace Allors.Document.OpenDocument
                         break;
                 }
             }
+        }
+
+        private void WriteBinding(Binding binding, TextWriter writer)
+        {
+            writer.Write(this.LeftDelimiter);
+            writer.Write(binding.Text);
+            writer.Write("; format=\"" + XmlStringRenderer.XmlStringFormat + "\"");
+            writer.Write(this.RightDelimiter);
+        }
+
+        /// <summary>
+        /// The XML reader decoded the character references of the template; the template text is XML again, so they go back in.
+        /// StringTemplate then reads that text: a backslash is its escape character and the left delimiter opens an expression, so both get a backslash.
+        /// </summary>
+        private string EscapeText(string value) => this.EscapeTemplate(value.Replace("&", "&amp;").Replace("<", "&lt;").Replace(">", "&gt;"));
+
+        private string EscapeAttribute(string value) => this.EscapeTemplate(value.Replace("&", "&amp;").Replace("<", "&lt;").Replace(">", "&gt;").Replace("\"", "&quot;"));
+
+        private string EscapeTemplate(string value)
+        {
+            if (value.IndexOf('\\') < 0 && value.IndexOf(this.LeftDelimiter) < 0)
+            {
+                return value;
+            }
+
+            var stringBuilder = new StringBuilder(value.Length + 8);
+            foreach (var chr in value)
+            {
+                if (chr == '\\' || chr == this.LeftDelimiter)
+                {
+                    stringBuilder.Append('\\');
+                }
+
+                stringBuilder.Append(chr);
+            }
+
+            return stringBuilder.ToString();
         }
     }
 }

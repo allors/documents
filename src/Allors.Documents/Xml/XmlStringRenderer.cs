@@ -1,4 +1,4 @@
-// <copyright file="Binding.cs" company="Allors bvba">
+// <copyright file="XmlStringRenderer.cs" company="Allors bvba">
 // Copyright (c) Allors bvba. All rights reserved.
 // Licensed under the LGPL license. See LICENSE file in the project root for full license information.
 // </copyright>
@@ -9,18 +9,38 @@ using Antlr4.StringTemplate;
 
 namespace Allors.Document.Xml
 {
+    /// <summary>
+    /// Renders every bound value, so that a value never breaks the XML it lands in.
+    /// Register it for <see cref="object"/>: StringTemplate picks the renderer by assignability.
+    /// </summary>
     public class XmlStringRenderer : IAttributeRenderer
     {
+        public const string XmlStringFormat = "xml-string";
+
         private static readonly StringRenderer DefaultRenderer = new StringRenderer();
 
         public string ToString(object obj, string formatString, CultureInfo culture)
         {
-            if ("xml-string".Equals(formatString))
+            if (obj is string text)
             {
-                return XmlString(obj as string);
+                return XmlStringFormat.Equals(formatString) ? XmlString(text) : DefaultRenderer.ToString(text, formatString, culture);
             }
 
-            return DefaultRenderer.ToString(obj, formatString, culture);
+            var plain = PlainString(obj);
+            return XmlStringFormat.Equals(formatString) ? XmlString(plain) : plain;
+        }
+
+        /// <summary>
+        /// Converts a value the way StringTemplate does without a renderer: booleans in lower case, everything else through ToString in the current culture.
+        /// </summary>
+        public static string PlainString(object obj)
+        {
+            if (obj is bool flag)
+            {
+                return flag ? "true" : "false";
+            }
+
+            return obj?.ToString();
         }
 
         public static string XmlString(string text)

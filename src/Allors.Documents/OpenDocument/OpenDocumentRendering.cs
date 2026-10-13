@@ -68,34 +68,25 @@ namespace Allors.Document.OpenDocument
             {
                 using (var archive = new ZipArchive(zip, ZipArchiveMode.Create))
                 {
-                    SaveGenerated(archive, contentGenerated, OpenDocumentTemplate.ContentFileName);
-                    SaveGenerated(archive, stylesGenerated, OpenDocumentTemplate.StylesFileName);
-
+                    // ODF 1.2 part 3, 3.3: the mimetype entry comes first, uncompressed and without an extra field, so that the media type sits at a fixed offset
+                    if (this.fileByFileName.TryGetValue(OpenDocumentTemplate.MimetypeFileName, out var mimetype))
                     {
-                        var zipContent = archive.CreateEntry(OpenDocumentTemplate.MetaFileName);
-                        using (var memoryStream = new MemoryStream(this.manifestFile))
-                        {
-                            using (var zipStream = zipContent.Open())
-                            {
-                                memoryStream.CopyTo(zipStream);
-                            }
-                        }
+                        Save(archive, OpenDocumentTemplate.MimetypeFileName, mimetype, CompressionLevel.NoCompression);
                     }
+
+                    Save(archive, OpenDocumentTemplate.ContentFileName, Encoding.UTF8.GetBytes(contentGenerated), CompressionLevel.Optimal);
+                    Save(archive, OpenDocumentTemplate.StylesFileName, Encoding.UTF8.GetBytes(stylesGenerated), CompressionLevel.Optimal);
+                    Save(archive, OpenDocumentTemplate.MetaFileName, this.manifestFile, CompressionLevel.Optimal);
 
                     foreach (var kvp in this.fileByFileName)
                     {
                         var fileName = kvp.Key;
-                        var file = kvp.Value;
-
-                        var zipContent = archive.CreateEntry(fileName);
-
-                        using (var memoryStream = new MemoryStream(file))
+                        if (fileName.Equals(OpenDocumentTemplate.MimetypeFileName))
                         {
-                            using (var zipStream = zipContent.Open())
-                            {
-                                memoryStream.CopyTo(zipStream);
-                            }
+                            continue;
                         }
+
+                        Save(archive, fileName, kvp.Value, CompressedImage.Is(kvp.Value) ? CompressionLevel.NoCompression : CompressionLevel.Optimal);
                     }
                 }
 
@@ -103,16 +94,12 @@ namespace Allors.Document.OpenDocument
             }
         }
 
-        private static void SaveGenerated(ZipArchive archive, string generated, string fileName)
+        private static void Save(ZipArchive archive, string fileName, byte[] file, CompressionLevel compressionLevel)
         {
-            var zipContent = archive.CreateEntry(fileName);
-            var buffer = Encoding.UTF8.GetBytes(generated);
-            using (var memoryStream = new MemoryStream(buffer))
+            var entry = archive.CreateEntry(fileName, compressionLevel);
+            using (var zipStream = entry.Open())
             {
-                using (var zipStream = zipContent.Open())
-                {
-                    memoryStream.CopyTo(zipStream);
-                }
+                zipStream.Write(file, 0, file.Length);
             }
         }
 
