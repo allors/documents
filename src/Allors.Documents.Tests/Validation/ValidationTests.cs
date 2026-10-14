@@ -257,7 +257,7 @@ namespace Allos.Document.Validation.Tests
 
             var finding = Assert.Single(Validate(body).Findings);
             Assert.Equal(FindingKind.BlockStructure, finding.Kind);
-            Assert.Contains("both tags sit in one table row", finding.Message);
+            Assert.Contains("the tags sit in two cells of one row", finding.Message);
         }
 
         [Fact]
@@ -293,6 +293,34 @@ namespace Allos.Document.Validation.Tests
             var finding = Assert.Single(Validate(body).Findings);
             Assert.Equal(FindingKind.MixedText, finding.Kind);
             Assert.Contains("the row that holds this tag is removed with the tag, and '<$line.Product>' with it", finding.Message);
+        }
+
+        [Fact]
+        public void ABlockInsideOneParagraphCostsOnlyTheTags()
+        {
+            var body =
+                "<text:p>" + Odt.Placeholder("<@if Invoice.BillTo>") + Odt.Placeholder("<$Invoice.BillTo.Name>") + Odt.Placeholder("<@end>") + " - " + Odt.Placeholder("<$Invoice.Number>") + "</text:p>" +
+                "<text:p>Orders: " + Odt.Placeholder("<@for line Invoice.Lines>") + Odt.Placeholder("<$line.Product>") + ", " + Odt.Placeholder("<@end>") + "</text:p>";
+
+            Assert.Empty(Validate(body).Findings);
+        }
+
+        [Fact]
+        public void AnEndInsideAListOfTheSameCellIsFine()
+        {
+            var body = Table(Row(Cell(P("<@if Invoice.BillTo>") + P("<$Invoice.BillTo.Name>") + "<text:list><text:list-header>" + P("<@end>") + "</text:list-header></text:list>")));
+
+            Assert.Empty(Validate(body).Findings);
+        }
+
+        [Fact]
+        public void OtherTextInAListThatHoldsABlockTagIsAWarning()
+        {
+            var body = P("<@if Invoice.BillTo>") + P("<$Invoice.BillTo.Name>") + "<text:list><text:list-item>" + P("<@end>") + P("Thank you") + "</text:list-item></text:list>";
+
+            var finding = Assert.Single(Validate(body).Findings);
+            Assert.Equal(FindingKind.MixedText, finding.Kind);
+            Assert.Contains("the list that holds this tag is removed with the tag, and 'Thank you' with it: give the tag its own list", finding.Message);
         }
 
         [Fact]

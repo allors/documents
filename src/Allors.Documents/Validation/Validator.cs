@@ -254,6 +254,11 @@ namespace Allors.Document.Validation
             return Walk.Success(current);
         }
 
+        /// <summary>
+        /// What the renderer does with a block: it takes the lowest common ancestor of the two tags and removes the two children of
+        /// that ancestor that hold them, keeping or repeating what sits between. Tags in one paragraph cost only their text runs; tags
+        /// in two cells of one row cost the cells; a tag inside a table whose partner is outside costs the whole table.
+        /// </summary>
         private void CheckStructure(InspectedTag block)
         {
             var end = block.End;
@@ -262,54 +267,46 @@ namespace Allors.Document.Validation
                 return;
             }
 
-            var begin = ParagraphOf(block.Element);
-            var finish = ParagraphOf(end.Element);
+            var pair = new XmlPair(null, block.Element) { End = end.Element };
+            var begin = pair.BeginSibling;
+            var finish = pair.EndSibling;
             if (begin == null || finish == null)
             {
                 return;
             }
 
-            if (begin.ParentNode == finish.ParentNode)
+            string detail = null;
+            if (Is(begin, TableNamespace, "table-cell") || Is(finish, TableNamespace, "table-cell"))
             {
-                this.CheckMixedText(begin, "paragraph", block);
-                this.CheckMixedText(finish, "paragraph", end);
-                return;
+                detail = "the tags sit in two cells of one row, which removes those cells and breaks the row";
             }
-
-            var beginRow = RowOf(begin);
-            var finishRow = RowOf(finish);
-            if (beginRow != null && finishRow != null && beginRow != finishRow && beginRow.ParentNode == finishRow.ParentNode)
+            else if (Is(begin, TableNamespace, "table") && Is(finish, TableNamespace, "table"))
             {
-                this.CheckMixedText(beginRow, "row", block);
-                this.CheckMixedText(finishRow, "row", end);
-                return;
+                detail = "the tags sit in two tables, which removes both tables";
             }
-
-            string detail;
-            if (beginRow != null && beginRow == finishRow)
-            {
-                detail = "both tags sit in one table row, which empties the row";
-            }
-            else if (beginRow != null && finishRow == null)
+            else if (Is(begin, TableNamespace, "table"))
             {
                 detail = "the block begins in a table row and ends outside the table, which would repeat or remove the whole table";
             }
-            else if (beginRow == null && finishRow != null)
+            else if (Is(finish, TableNamespace, "table"))
             {
                 detail = "the block begins outside a table and ends in a table row, which would remove the whole table";
             }
-            else
+
+            if (detail != null)
             {
-                detail = "the begin and the end sit in different containers";
+                this.Add(FindingKind.BlockStructure, FindingSeverity.Error, block.Tag.Text, null, "a block begins and ends in paragraphs of one container or in rows of one table; " + detail, block.Location);
+                return;
             }
 
-            this.Add(FindingKind.BlockStructure, FindingSeverity.Error, block.Tag.Text, null, "a block begins and ends in paragraphs of one container or in rows of one table; " + detail, block.Location);
+            this.CheckMixedText(begin, block);
+            this.CheckMixedText(finish, end);
         }
 
-        /// <summary>The paragraph or row that holds a block tag is removed with everything else in it; say so when there is something else.</summary>
-        private void CheckMixedText(XmlElement container, string what, InspectedTag tag)
+        /// <summary>The element that holds a block tag is removed with everything else in it; say so when there is something else.</summary>
+        private void CheckMixedText(XmlElement container, InspectedTag tag)
         {
-            if (!this.containersChecked.Add(container))
+            if (this.blockElements.Contains(container) || !this.containersChecked.Add(container))
             {
                 return;
             }
@@ -327,6 +324,11 @@ namespace Allors.Document.Validation
                 rest = rest.Substring(0, 60) + "...";
             }
 
+            var what = Is(container, TextNamespace, "p") || Is(container, TextNamespace, "h") ? "paragraph"
+                : Is(container, TableNamespace, "table-row") ? "row"
+                : Is(container, TextNamespace, "list") ? "list"
+                : Is(container, TextNamespace, "span") ? "text run"
+                : container.LocalName;
             this.Add(FindingKind.MixedText, FindingSeverity.Warning, tag.Tag.Text, null, "the " + what + " that holds this tag is removed with the tag, and '" + rest + "' with it: give the tag its own " + what, tag.Location);
         }
 
@@ -428,31 +430,7 @@ namespace Allors.Document.Validation
             }
         }
 
-        private static XmlElement ParagraphOf(XmlElement element)
-        {
-            for (var node = (XmlNode)element; node is XmlElement current; node = current.ParentNode)
-            {
-                if (current.NamespaceURI == TextNamespace && (current.LocalName == "p" || current.LocalName == "h"))
-                {
-                    return current;
-                }
-            }
-
-            return null;
-        }
-
-        private static XmlElement RowOf(XmlElement element)
-        {
-            for (var node = element.ParentNode; node is XmlElement current; node = current.ParentNode)
-            {
-                if (current.NamespaceURI == TableNamespace && current.LocalName == "table-row")
-                {
-                    return current;
-                }
-            }
-
-            return null;
-        }
+        private static bool Is(XmlElement element, string ns, string localName) => element.NamespaceURI == ns && element.LocalName == localName;
 
         private static void CollectText(XmlNode node, StringBuilder text, HashSet<XmlElement> skip)
         {
