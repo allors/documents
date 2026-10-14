@@ -2,6 +2,24 @@
 
 All notable changes to this project are documented in this file. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses [semantic versioning](https://semver.org/).
 
+## [2.1.0] - unreleased
+
+A template can be inspected and validated against its model before it renders. Rendering is unchanged: every template renders the same document as 2.0.0.
+
+### Added
+
+- `OpenDocumentTemplate.Inspect(byte[])` reads a template without a model: every tag in document order with its part, paragraph and enclosing block, the picture frames bound by path, the custom document properties, and the tags it cannot read.
+- `OpenDocumentTemplate.Validate(byte[], IShape)` checks a template against the shape of its model: unknown members on bindings, loops, conditions, sort keys and pictures; unbalanced, misplaced or row-crossing blocks; text in the paragraph of a block tag; unknown attributes; bad cultures and patterns; reserved loop names; loops over a value that is not a collection; unknown document settings. It never throws for what the template says.
+- The model contracts `IShape` (the static view Validate walks) and `IResolver` (the runtime view a renderer reads through), the `Resolver` base class with the shared rules, `Formatting` with the document settings `culture`, `date`, `time`, `datetime`, `number`, `true` and `false`, and `DictionaryShape` for dictionary models, open or over declared members.
+- The package `Allors.Documents.Reflection` with `ReflectionShape` and `ReflectionResolver`: the members of plain classes and dictionaries as the engine looks them up. `ReflectionShape.Arguments<T>()` is the root a template rendered with `OpenDocumentTemplate<T>` sees.
+- The tag `<@ifdef path>` ... `<@end>`, which keeps its block when the object at hand has the member, even when the value is empty. The engine of this version cannot tell a missing member from an empty one, so it renders `<@ifdef>` as `<@if>`; the 3.0 renderer makes the difference.
+- Attributes on a binding, `format`, `culture`, `true` and `false`, and `sort` on a loop, with `asc` or `desc` per key. This version parses and validates them and renders as before; the 3.0 renderer applies them.
+- The package targets net10.0 next to netstandard2.0, is trimmable and AOT-compatible, and uses no reflection; the reflection classes carry `RequiresUnreferencedCode`.
+
+### Changed
+
+- Tags are read by a grammar instead of loose patterns. A placeholder whose text is not a well-formed tag, such as `<$>` or `<@for item>`, renders as the text the author typed and `Validate` reports it; 2.0.0 handed whatever stood between the brackets to the engine.
+
 ## [2.0.0] - 2026-10-14
 
 The template renders as typed, and nothing more. The constructors and `Render` are unchanged.
