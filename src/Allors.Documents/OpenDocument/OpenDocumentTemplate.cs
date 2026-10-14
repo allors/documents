@@ -10,6 +10,7 @@ namespace Allors.Document.OpenDocument
     using System.IO;
     using System.IO.Compression;
     using System.Linq;
+    using Allors.Document.Inspection;
     using Allors.Document.Xml;
     using Antlr4.StringTemplate;
     using Antlr4.StringTemplate.Misc;
@@ -115,6 +116,9 @@ namespace Allors.Document.OpenDocument
         }
 
         public static string InferArguments(Type fromType) => string.Join(",", fromType.GetProperties().Select(v => v.Name));
+
+        /// <summary>Reads the tags, bound pictures and document settings of a template without rendering it.</summary>
+        public static TemplateInspection Inspect(byte[] document) => Inspector.Inspect(document);
 
         public byte[] Render(IDictionary<string, object> model, IDictionary<string, byte[]> imageByName = null)
         {

@@ -46,7 +46,7 @@ namespace Allos.Document.OpenDocument.Tests
         /// <summary>
         /// A package with the given office:text body, optional pictures (added under Pictures/ and to the manifest) and optional master styles.
         /// </summary>
-        public static byte[] Build(string body, IDictionary<string, byte[]> pictures = null, string masterStyles = null, bool withMimetype = true)
+        public static byte[] Build(string body, IDictionary<string, byte[]> pictures = null, string masterStyles = null, bool withMimetype = true, IDictionary<string, string> settings = null)
         {
             var content =
                 "<?xml version=\"1.0\" encoding=\"UTF-8\"?>" +
@@ -70,6 +70,20 @@ namespace Allos.Document.OpenDocument.Tests
                 manifest.Append("<manifest:file-entry manifest:full-path=\"Pictures/" + picture.Key + "\" manifest:media-type=\"image/png\"/>");
             }
 
+            // Custom document properties (File, Properties, Custom Properties) live in meta.xml as user-defined fields
+            string meta = null;
+            if (settings != null)
+            {
+                var properties = new StringBuilder();
+                foreach (var setting in settings)
+                {
+                    properties.Append("<meta:user-defined meta:name=\"" + setting.Key + "\">" + new XText(setting.Value) + "</meta:user-defined>");
+                }
+
+                meta = "<?xml version=\"1.0\" encoding=\"UTF-8\"?><office:document-meta " + Namespaces + " xmlns:meta=\"urn:oasis:names:tc:opendocument:xmlns:meta:1.0\" office:version=\"1.3\"><office:meta>" + properties + "</office:meta></office:document-meta>";
+                manifest.Append("<manifest:file-entry manifest:full-path=\"meta.xml\" manifest:media-type=\"text/xml\"/>");
+            }
+
             manifest.Append("</manifest:manifest>");
 
             using var output = new MemoryStream();
@@ -83,6 +97,11 @@ namespace Allos.Document.OpenDocument.Tests
                 Add(zip, "META-INF/manifest.xml", Bytes(manifest.ToString()), CompressionLevel.Optimal);
                 Add(zip, "content.xml", Bytes(content), CompressionLevel.Optimal);
                 Add(zip, "styles.xml", Bytes(styles), CompressionLevel.Optimal);
+
+                if (meta != null)
+                {
+                    Add(zip, "meta.xml", Bytes(meta), CompressionLevel.Optimal);
+                }
 
                 foreach (var picture in pictures ?? new Dictionary<string, byte[]>())
                 {

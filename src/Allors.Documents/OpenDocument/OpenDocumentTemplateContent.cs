@@ -9,9 +9,9 @@ namespace Allors.Document.OpenDocument
     using System.Collections.Generic;
     using System.IO;
     using System.Text;
-    using System.Text.RegularExpressions;
     using System.Xml;
 
+    using Allors.Document.Tags;
     using Allors.Document.Xml;
 
     /// <summary>
@@ -20,11 +20,6 @@ namespace Allors.Document.OpenDocument
     /// </summary>
     public class OpenDocumentTemplateContent
     {
-        private static readonly Regex BindingRegex = new Regex(@"<\$(.*)>", RegexOptions.IgnoreCase);
-        private static readonly Regex ForRegex = new Regex(@"<@for(.*)>", RegexOptions.IgnoreCase);
-        private static readonly Regex IfRegex = new Regex(@"<@if(.*)>", RegexOptions.IgnoreCase);
-        private static readonly Regex EndRegex = new Regex(@"<@end(.*)>", RegexOptions.IgnoreCase);
-
         private readonly XmlDocument template;
 
         private readonly Dictionary<XmlElement, Binding> bindingByXmlElement;
@@ -59,19 +54,20 @@ namespace Allors.Document.OpenDocument
             XmlElement Factory(XmlPair pair)
             {
                 var text = pair.Begin.InnerText.Trim();
-                var match = ForRegex.Match(text);
-                if (match.Success)
+                TagSyntax.TryParse(text, out var tag, out _);
+
+                if (tag?.Kind == TagKind.For)
                 {
                     var element = pair.Document.CreateElement("for");
-                    var statement = new For(++forCounter, match.Groups[1].ToString());
+                    var statement = new For(++forCounter, tag.Variable, tag.Path);
                     this.statementByXmlElement.Add(element, statement);
                     return element;
                 }
 
-                if ((match = IfRegex.Match(text)).Success)
+                if (tag?.Kind == TagKind.If)
                 {
                     var element = pair.Document.CreateElement("if");
-                    var statement = new If(match.Groups[1].ToString());
+                    var statement = new If(tag.Path);
                     this.statementByXmlElement.Add(element, statement);
                     return element;
                 }
@@ -148,30 +144,29 @@ namespace Allors.Document.OpenDocument
                 {
                     if (element.LocalName.Equals("placeholder") && element.NamespaceURI.Contains("opendocument:xmlns:text"))
                     {
-                        var text = element.InnerText.Trim();
-
-                        // Bindings
-                        var match = BindingRegex.Match(text);
-                        if (match.Success)
+                        // A placeholder that is not a tag, or a tag that cannot be read, stays as the text the author typed; Validate reports it
+                        if (TagSyntax.TryParse(element.InnerText.Trim(), out var tag, out _))
                         {
-                            bindingByOriginalXmlElement[element] = new Binding(match.Groups[1].ToString());
-                        }
+                            switch (tag.Kind)
+                            {
+                                case TagKind.Binding:
+                                    bindingByOriginalXmlElement[element] = new Binding(tag.Path);
+                                    break;
 
-                        // Instructions (for/if)
-                        if (ForRegex.Match(text).Success || IfRegex.Match(text).Success)
-                        {
-                            var childNode = new XmlPair(parentPair, element);
-                            stack.Push(childNode);
-                            parentPair.Children.Add(childNode);
-                            parentPair = childNode;
-                        }
+                                case TagKind.For:
+                                case TagKind.If:
+                                    var childNode = new XmlPair(parentPair, element);
+                                    stack.Push(childNode);
+                                    parentPair.Children.Add(childNode);
+                                    parentPair = childNode;
+                                    break;
 
-                        // Instructions (end)
-                        if (EndRegex.Match(text).Success)
-                        {
-                            var childNode = stack.Pop();
-                            childNode.End = element;
-                            parentPair = childNode.Parent;
+                                case TagKind.End:
+                                    var block = stack.Pop();
+                                    block.End = element;
+                                    parentPair = block.Parent;
+                                    break;
+                            }
                         }
                     }
 
