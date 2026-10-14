@@ -94,6 +94,23 @@ namespace Allos.Document.Tags.Tests
         }
 
         [Theory]
+        [InlineData("<@ifdef BillTo.FirstName>", "BillTo.FirstName")]
+        [InlineData("<@IFDEF p.Children>", "p.Children")]
+        public void DefinedConditionsHaveAPath(string text, string path)
+        {
+            Assert.True(TagSyntax.TryParse(text, out var tag, out var error), error);
+            Assert.Equal(TagKind.IfDef, tag.Kind);
+            Assert.Equal(path, tag.Path);
+        }
+
+        [Fact]
+        public void ADefinedConditionNeedsAPath()
+        {
+            Assert.False(TagSyntax.TryParse("<@ifdef>", out _, out var error));
+            Assert.Equal("<@ifdef> needs a path: <@ifdef Invoice.Comment>", error);
+        }
+
+        [Theory]
         [InlineData("<@if Receiver.Contact>", "Receiver.Contact")]
         [InlineData("<@IF BillTo.City>", "BillTo.City")]
         [InlineData("<@If item.HasSerialisedItemComment>", "item.HasSerialisedItemComment")]

@@ -41,6 +41,11 @@ namespace Allors.Document.Inspection
                 }
             }
 
+            if (!parts.ContainsKey("content.xml"))
+            {
+                throw new InvalidDataException("the package has no content.xml: it is not an OpenDocument text");
+            }
+
             var tags = new List<InspectedTag>();
             var pictures = new List<InspectedPicture>();
             var problems = new List<InspectionProblem>();
@@ -106,7 +111,7 @@ namespace Allors.Document.Inspection
                 while (this.blocks.Count > 0)
                 {
                     var block = this.blocks.Pop();
-                    this.problems.Add(new InspectionProblem(block.Tag.Text, "this block never ends: add an <@end> tag", block.Location));
+                    this.problems.Add(new InspectionProblem(block.Tag.Text, "this block never ends: add an <@end> tag", block.Location, true));
                 }
             }
 
@@ -158,16 +163,16 @@ namespace Allors.Document.Inspection
                 {
                     if (block == null)
                     {
-                        this.problems.Add(new InspectionProblem(text, "this <@end> closes nothing: no loop or condition is open here", location));
+                        this.problems.Add(new InspectionProblem(text, "this <@end> closes nothing: no loop or condition is open here", location, true));
                         return;
                     }
 
                     this.blocks.Pop();
-                    block.Add(new InspectedTag(tag, location, block));
+                    block.Add(new InspectedTag(tag, location, block, element));
                     return;
                 }
 
-                var inspected = new InspectedTag(tag, location, block);
+                var inspected = new InspectedTag(tag, location, block, element);
                 if (block != null)
                 {
                     block.Add(inspected);
@@ -177,7 +182,7 @@ namespace Allors.Document.Inspection
                     this.tags.Add(inspected);
                 }
 
-                if (tag.Kind == TagKind.For || tag.Kind == TagKind.If)
+                if (tag.Kind == TagKind.For || tag.Kind == TagKind.If || tag.Kind == TagKind.IfDef)
                 {
                     this.blocks.Push(inspected);
                 }

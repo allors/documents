@@ -19,10 +19,16 @@ namespace Allors.Document.Models
 
         private readonly IReadOnlyDictionary<string, IShape> members;
 
-        /// <summary>A closed shape over these members; null for an open shape.</summary>
-        public DictionaryShape(IReadOnlyDictionary<string, IShape> members) => this.members = members;
+        private readonly string name;
 
-        public string Name => "dictionary";
+        /// <summary>A closed shape over these members; null for an open shape. The name is for findings.</summary>
+        public DictionaryShape(IReadOnlyDictionary<string, IShape> members, string name = null)
+        {
+            this.members = members;
+            this.name = name;
+        }
+
+        public string Name => this.name ?? "dictionary";
 
         public bool IsOpen => this.members == null;
 
@@ -32,6 +38,8 @@ namespace Allors.Document.Models
         public bool IsCollection => this.IsOpen;
 
         public IShape Element => this.IsOpen ? this : null;
+
+        public IEnumerable<IShape> Variants => Enumerable.Empty<IShape>();
 
         public IShape Member(string name)
         {

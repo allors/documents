@@ -8,12 +8,16 @@ namespace Allors.Document.Inspection
     /// <summary>Something in a template that cannot be read as the author meant it: a malformed tag, an end without a block or a block without an end.</summary>
     public sealed class InspectionProblem
     {
-        internal InspectionProblem(string text, string message, Location location)
+        internal InspectionProblem(string text, string message, Location location, bool isUnbalanced = false)
         {
             this.Text = text;
             this.Message = message;
             this.Location = location;
+            this.IsUnbalanced = isUnbalanced;
         }
+
+        /// <summary>True for a block without an end or an end without a block, false for a tag that cannot be read.</summary>
+        public bool IsUnbalanced { get; }
 
         /// <summary>The tag or frame name as the author typed it.</summary>
         public string Text { get; }

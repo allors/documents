@@ -43,7 +43,7 @@ namespace Allors.Document.Inspection
 
         public IEnumerable<InspectedTag> Bindings => this.All.Where(v => v.Tag.Kind == TagKind.Binding);
 
-        public IEnumerable<InspectedTag> Blocks => this.All.Where(v => v.Tag.Kind == TagKind.For || v.Tag.Kind == TagKind.If);
+        public IEnumerable<InspectedTag> Blocks => this.All.Where(v => v.Tag.Kind == TagKind.For || v.Tag.Kind == TagKind.If || v.Tag.Kind == TagKind.IfDef);
 
         private static IEnumerable<InspectedTag> Flatten(IEnumerable<InspectedTag> tags)
         {

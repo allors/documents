@@ -10,7 +10,7 @@ namespace Allors.Document.Tags
     using System.Text.RegularExpressions;
 
     /// <summary>
-    /// The tag language of a template: <c>&lt;$path attr="value"&gt;</c>, <c>&lt;@for variable path sort="key desc"&gt;</c>, <c>&lt;@if path&gt;</c> and <c>&lt;@end&gt;</c> in placeholder fields,
+    /// The tag language of a template: <c>&lt;$path attr="value"&gt;</c>, <c>&lt;@for variable path sort="key desc"&gt;</c>, <c>&lt;@if path&gt;</c>, <c>&lt;@ifdef path&gt;</c> and <c>&lt;@end&gt;</c> in placeholder fields,
     /// and <c>$path</c> as the name of a picture frame. A path is a chain of member names; keywords are not case-sensitive.
     /// </summary>
     public static class TagSyntax
@@ -90,13 +90,14 @@ namespace Allors.Document.Tags
                     return true;
 
                 case "if":
+                case "ifdef":
                     if (!PathRegex.IsMatch(rest))
                     {
-                        error = rest.Length == 0 ? "<@if> needs a path: <@if Invoice.Comment>" : "'" + rest + "' is not a path";
+                        error = rest.Length == 0 ? "<@" + keyword + "> needs a path: <@" + keyword + " Invoice.Comment>" : "'" + rest + "' is not a path";
                         return false;
                     }
 
-                    tag = new Tag(TagKind.If, trimmed, rest, null, null);
+                    tag = new Tag(keyword == "if" ? TagKind.If : TagKind.IfDef, trimmed, rest, null, null);
                     return true;
 
                 case "end":
@@ -104,7 +105,7 @@ namespace Allors.Document.Tags
                     return true;
 
                 default:
-                    error = "unknown tag <@" + keyword + ">: expected for, if or end";
+                    error = "unknown tag <@" + keyword + ">: expected for, if, ifdef or end";
                     return false;
             }
         }

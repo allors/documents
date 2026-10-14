@@ -18,6 +18,9 @@ namespace Allors.Document.Tags
         /// <summary>A block kept when the value at a path is true: &lt;@if path&gt;.</summary>
         If,
 
+        /// <summary>A block kept when the member at a path exists, whatever its value: &lt;@ifdef path&gt;.</summary>
+        IfDef,
+
         /// <summary>The end of a loop or a condition: &lt;@end&gt;.</summary>
         End,
     }

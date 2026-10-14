@@ -64,7 +64,8 @@ namespace Allors.Document.OpenDocument
                     return element;
                 }
 
-                if (tag?.Kind == TagKind.If)
+                // The StringTemplate engine cannot tell a missing member from a null one, so <@ifdef> renders as <@if> until 3.0
+                if (tag?.Kind == TagKind.If || tag?.Kind == TagKind.IfDef)
                 {
                     var element = pair.Document.CreateElement("if");
                     var statement = new If(tag.Path);
@@ -155,6 +156,7 @@ namespace Allors.Document.OpenDocument
 
                                 case TagKind.For:
                                 case TagKind.If:
+                                case TagKind.IfDef:
                                     var childNode = new XmlPair(parentPair, element);
                                     stack.Push(childNode);
                                     parentPair.Children.Add(childNode);

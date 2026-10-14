@@ -27,5 +27,11 @@ namespace Allors.Document.Models
 
         /// <summary>The shape of one item of the collection; null unless <see cref="IsCollection"/>.</summary>
         IShape Element { get; }
+
+        /// <summary>
+        /// The concrete shapes a value of this shape may have at runtime when the shape is abstract, such as the classes behind an interface;
+        /// empty otherwise. Validation accepts a member some variants have inside an &lt;@ifdef&gt; or &lt;@if&gt; on it.
+        /// </summary>
+        IEnumerable<IShape> Variants { get; }
     }
 }

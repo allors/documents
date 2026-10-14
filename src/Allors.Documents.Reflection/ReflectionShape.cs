@@ -44,8 +44,37 @@ namespace Allors.Document.Reflection
             }
         }
 
+        /// <summary>A class has no variants here: reflection does not enumerate subclasses.</summary>
+        public IEnumerable<IShape> Variants => Enumerable.Empty<IShape>();
+
         /// <summary>The shape of this type.</summary>
         public static IShape Of<T>() => Of(typeof(T));
+
+        /// <summary>
+        /// The root a template rendered with <c>OpenDocumentTemplate&lt;T&gt;</c> sees: the public properties of T by their exact names,
+        /// each with the shape of its type. Nested members follow the first-letter rule; the root does not.
+        /// </summary>
+        public static IShape Arguments<T>() => Arguments(typeof(T));
+
+        /// <summary>The root a template rendered with this model type sees; see <see cref="Arguments{T}"/>.</summary>
+        public static IShape Arguments(Type type)
+        {
+            if (type == null)
+            {
+                throw new ArgumentNullException(nameof(type));
+            }
+
+            var members = new Dictionary<string, IShape>(StringComparer.Ordinal);
+            foreach (var property in type.GetProperties())
+            {
+                if (!members.ContainsKey(property.Name))
+                {
+                    members[property.Name] = Of(property.PropertyType);
+                }
+            }
+
+            return new DictionaryShape(members, type.Name);
+        }
 
         /// <summary>The shape of this type: open for object and dictionaries, otherwise a reflection shape.</summary>
         public static IShape Of(Type type)
