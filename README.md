@@ -27,8 +27,8 @@ With a dictionary as the model, name the arguments: `new OpenDocumentTemplate(te
 
 ## Rendering rules
 
-- Static text and attribute values render unchanged, including `&`, `<`, `>`, `"`, backslashes and the characters `˂` and `˃` (U+02C2 and U+02C3) that the engine uses as its delimiters.
-- Bound values are escaped for XML. Characters below U+0020 (tab, newline) are dropped and a value of only white space renders empty. Booleans render as `true` or `false`; other values render through `ToString()` in the current culture.
+- The template renders as typed. Static text and attribute values pass unchanged, including `&`, `<`, `>`, `"`, backslashes and the characters `˂` and `˃` (U+02C2 and U+02C3) that the engine uses as its delimiters. The engine adds no white space of its own: a word split by formatting stays one word, and two adjacent tags render without a space between them.
+- Bound values are escaped for XML and keep their white space: a tab becomes `<text:tab/>`, a line break `<text:line-break/>` and a run of spaces `<text:s/>`, as Writer saves them. Other characters below U+0020 are dropped. Booleans render as `true` or `false`; other values render through `ToString()` in the current culture.
 - The paragraph or table row that holds a `<@for>`, `<@if>` or `<@end>` tag is removed with the rest of its text, so give each tag its own paragraph or row.
 - The package starts with an uncompressed `mimetype` entry. PNG, JPEG, GIF and WebP pictures are stored; everything else is deflated.
 

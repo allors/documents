@@ -14,6 +14,10 @@ namespace Allors.Document.OpenDocument
 
     using Allors.Document.Xml;
 
+    /// <summary>
+    /// Turns a part of the package (content.xml or styles.xml) into a StringTemplate group.
+    /// The XML is written back character for character: Writer saves a part without indentation, so every white space character in it is the author's.
+    /// </summary>
     public class OpenDocumentTemplateContent
     {
         private static readonly Regex BindingRegex = new Regex(@"<\$(.*)>", RegexOptions.IgnoreCase);
@@ -36,7 +40,8 @@ namespace Allors.Document.OpenDocument
             this.imageBindingByXmlElement = new Dictionary<XmlElement, Binding>();
             this.statementByXmlElement = new Dictionary<XmlElement, Statement>();
 
-            this.template = new XmlDocument();
+            // A span that holds only a space is a space the author typed
+            this.template = new XmlDocument { PreserveWhitespace = true };
             using (var input = new MemoryStream(content))
             {
                 this.template.Load(input);
@@ -94,6 +99,10 @@ namespace Allors.Document.OpenDocument
 
         private char RightDelimiter { get; }
 
+        /// <summary>
+        /// The group: a main template with the part's XML, and one template per for-loop with the loop's body.
+        /// StringTemplate drops the newline right after a template's <c>&lt;&lt;</c> and the one right before its <c>&gt;&gt;</c>; the latter keeps a closing <c>&gt;</c> of the XML from forming <c>&gt;&gt;</c> with the terminator.
+        /// </summary>
         public string ToStringTemplate()
         {
             using (var writer = new StringWriter())
@@ -117,7 +126,8 @@ namespace Allors.Document.OpenDocument
 
 ");
                         writer.Write(forStatement.Statement);
-                        writer.Write(@" ::= <<");
+                        writer.Write(@" ::= <<
+");
 
                         this.Write(element.ChildNodes, writer);
 
@@ -185,7 +195,7 @@ namespace Allors.Document.OpenDocument
         {
             if (this.bindingByXmlElement.TryGetValue(element, out var binding))
             {
-                this.WriteBinding(binding, writer);
+                this.WriteBinding(binding, XmlStringRenderer.XmlStringFormat, writer);
                 return;
             }
 
@@ -201,8 +211,6 @@ namespace Allors.Document.OpenDocument
 
                     this.Write(element.ChildNodes, writer);
 
-                    writer.Write(@"
-");
                     writer.Write(this.LeftDelimiter);
                     writer.Write("endif");
                     writer.Write(this.RightDelimiter);
@@ -253,7 +261,7 @@ namespace Allors.Document.OpenDocument
 
                 if (imageBinding != null && attribute.LocalName.Equals("name") && attribute.NamespaceURI.Equals(element.NamespaceURI))
                 {
-                    this.WriteBinding(imageBinding, writer);
+                    this.WriteBinding(imageBinding, XmlStringRenderer.XmlAttributeFormat, writer);
                 }
                 else
                 {
@@ -267,8 +275,7 @@ namespace Allors.Document.OpenDocument
 
             this.Write(element.ChildNodes, writer);
 
-            writer.Write(@"
-</");
+            writer.Write("</");
             if (!string.IsNullOrWhiteSpace(element.Prefix))
             {
                 writer.Write(element.Prefix);
@@ -286,13 +293,13 @@ namespace Allors.Document.OpenDocument
                 switch (childNode.NodeType)
                 {
                     case XmlNodeType.Element:
-                        writer.Write(@"
-");
                         this.Write((XmlElement)childNode, writer);
                         break;
 
                     case XmlNodeType.Text:
                     case XmlNodeType.CDATA:
+                    case XmlNodeType.Whitespace:
+                    case XmlNodeType.SignificantWhitespace:
                         writer.Write(this.EscapeText(childNode.Value));
                         break;
 
@@ -305,11 +312,11 @@ namespace Allors.Document.OpenDocument
             }
         }
 
-        private void WriteBinding(Binding binding, TextWriter writer)
+        private void WriteBinding(Binding binding, string format, TextWriter writer)
         {
             writer.Write(this.LeftDelimiter);
             writer.Write(binding.Text);
-            writer.Write("; format=\"" + XmlStringRenderer.XmlStringFormat + "\"");
+            writer.Write("; format=\"" + format + "\"");
             writer.Write(this.RightDelimiter);
         }
 

@@ -10,12 +10,16 @@ using Antlr4.StringTemplate;
 namespace Allors.Document.Xml
 {
     /// <summary>
-    /// Renders every bound value, so that a value never breaks the XML it lands in.
+    /// Renders every bound value, so that a value never breaks the XML it lands in and reads as typed.
     /// Register it for <see cref="object"/>: StringTemplate picks the renderer by assignability.
     /// </summary>
     public class XmlStringRenderer : IAttributeRenderer
     {
+        /// <summary>A value in paragraph text: escaped, with its white space as typed.</summary>
         public const string XmlStringFormat = "xml-string";
+
+        /// <summary>A value in an attribute: escaped, without the characters an attribute cannot hold.</summary>
+        public const string XmlAttributeFormat = "xml-attribute";
 
         private static readonly StringRenderer DefaultRenderer = new StringRenderer();
 
@@ -23,11 +27,27 @@ namespace Allors.Document.Xml
         {
             if (obj is string text)
             {
-                return XmlStringFormat.Equals(formatString) ? XmlString(text) : DefaultRenderer.ToString(text, formatString, culture);
+                switch (formatString)
+                {
+                    case XmlStringFormat:
+                        return XmlString(text);
+                    case XmlAttributeFormat:
+                        return XmlAttribute(text);
+                    default:
+                        return DefaultRenderer.ToString(text, formatString, culture);
+                }
             }
 
             var plain = PlainString(obj);
-            return XmlStringFormat.Equals(formatString) ? XmlString(plain) : plain;
+            switch (formatString)
+            {
+                case XmlStringFormat:
+                    return XmlString(plain);
+                case XmlAttributeFormat:
+                    return XmlAttribute(plain);
+                default:
+                    return plain;
+            }
         }
 
         /// <summary>
@@ -43,36 +63,132 @@ namespace Allors.Document.Xml
             return obj?.ToString();
         }
 
+        /// <summary>
+        /// Escapes the value for paragraph text and writes its white space the way Writer saves typed text:
+        /// a tab as text:tab, a line break as text:line-break and every space after the first of a run as text:s.
+        /// Other characters below U+0020 are dropped.
+        /// </summary>
         public static string XmlString(string text)
         {
-            if (!string.IsNullOrWhiteSpace(text))
+            if (string.IsNullOrEmpty(text))
             {
-                var stringBuilder = new StringBuilder(text.Length);
-
-                foreach (var chr in text)
-                {
-                    if (chr == '<')
-                    {
-                        stringBuilder.Append("&lt;");
-                    }
-                    else if (chr == '>')
-                    {
-                        stringBuilder.Append("&gt;");
-                    }
-                    else if (chr == '&')
-                    {
-                        stringBuilder.Append("&amp;");
-                    }
-                    else if (chr >= 32)
-                    {
-                        stringBuilder.Append(chr);
-                    }
-                }
-
-                return stringBuilder.ToString();
+                return string.Empty;
             }
 
-            return string.Empty;
+            var stringBuilder = new StringBuilder(text.Length);
+            var spaces = 0;
+
+            for (var i = 0; i < text.Length; i++)
+            {
+                var chr = text[i];
+
+                if (chr == ' ')
+                {
+                    spaces++;
+                    continue;
+                }
+
+                AppendSpaces(stringBuilder, spaces);
+                spaces = 0;
+
+                switch (chr)
+                {
+                    case '<':
+                        stringBuilder.Append("&lt;");
+                        break;
+                    case '>':
+                        stringBuilder.Append("&gt;");
+                        break;
+                    case '&':
+                        stringBuilder.Append("&amp;");
+                        break;
+                    case '\t':
+                        stringBuilder.Append("<text:tab/>");
+                        break;
+                    case '\n':
+                        stringBuilder.Append("<text:line-break/>");
+                        break;
+                    case '\r':
+                        stringBuilder.Append("<text:line-break/>");
+                        if (i + 1 < text.Length && text[i + 1] == '\n')
+                        {
+                            i++;
+                        }
+
+                        break;
+                    default:
+                        if (chr >= ' ')
+                        {
+                            stringBuilder.Append(chr);
+                        }
+
+                        break;
+                }
+            }
+
+            AppendSpaces(stringBuilder, spaces);
+
+            return stringBuilder.ToString();
+        }
+
+        /// <summary>
+        /// Escapes the value for an attribute. Characters below U+0020 are dropped: an attribute cannot hold them.
+        /// </summary>
+        public static string XmlAttribute(string text)
+        {
+            if (string.IsNullOrEmpty(text))
+            {
+                return string.Empty;
+            }
+
+            var stringBuilder = new StringBuilder(text.Length);
+
+            foreach (var chr in text)
+            {
+                switch (chr)
+                {
+                    case '<':
+                        stringBuilder.Append("&lt;");
+                        break;
+                    case '>':
+                        stringBuilder.Append("&gt;");
+                        break;
+                    case '&':
+                        stringBuilder.Append("&amp;");
+                        break;
+                    case '"':
+                        stringBuilder.Append("&quot;");
+                        break;
+                    default:
+                        if (chr >= ' ')
+                        {
+                            stringBuilder.Append(chr);
+                        }
+
+                        break;
+                }
+            }
+
+            return stringBuilder.ToString();
+        }
+
+        private static void AppendSpaces(StringBuilder stringBuilder, int count)
+        {
+            if (count == 0)
+            {
+                return;
+            }
+
+            stringBuilder.Append(' ');
+
+            if (count == 2)
+            {
+                stringBuilder.Append("<text:s/>");
+            }
+            else if (count > 2)
+            {
+                stringBuilder.Append("<text:s text:c=\"").Append((count - 1).ToString(CultureInfo.InvariantCulture)).Append("\"/>");
+            }
         }
     }
 }

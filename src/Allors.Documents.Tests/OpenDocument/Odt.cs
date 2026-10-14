@@ -114,18 +114,50 @@ namespace Allos.Document.OpenDocument.Tests
 
         public static XDocument Manifest(byte[] package) => Xml(Entry(package, "META-INF/manifest.xml").Bytes);
 
+        /// <summary>The text of the paragraphs as a reader shows it, one paragraph per line.</summary>
+        public static string Paragraphs(XDocument document) => string.Join("\n", document.Descendants(Text + "p").Select(ReaderText));
+
         /// <summary>
-        /// The text of the paragraphs, one per line. The rendering still puts a line break before every closing tag, which LibreOffice collapses, so each paragraph is trimmed.
+        /// The text a reader shows for an element: a text:tab reads as a tab, a text:line-break as a line break and a text:s as its spaces.
         /// </summary>
-        public static string Paragraphs(XDocument document) => string.Join("\n", document.Descendants(Text + "p").Select(v => v.Value.Trim()));
+        public static string ReaderText(XElement element)
+        {
+            var text = new StringBuilder();
+            foreach (var node in element.DescendantNodes())
+            {
+                if (node is XText value)
+                {
+                    text.Append(value.Value);
+                }
+                else if (node is XElement child)
+                {
+                    if (child.Name == Text + "tab")
+                    {
+                        text.Append('\t');
+                    }
+                    else if (child.Name == Text + "line-break")
+                    {
+                        text.Append('\n');
+                    }
+                    else if (child.Name == Text + "s")
+                    {
+                        text.Append(' ', (int?)child.Attribute(Text + "c") ?? 1);
+                    }
+                }
+            }
+
+            return text.ToString();
+        }
 
         private static byte[] Bytes(string text) => new UTF8Encoding(false).GetBytes(text);
 
-        /// <summary>Parses XML; the rendering writes the manifest with a byte order mark, which the reader detects.</summary>
+        /// <summary>
+        /// Parses XML with every white space character kept, as a reader does. The rendering writes the manifest with a byte order mark, which the stream reader detects.
+        /// </summary>
         private static XDocument Xml(byte[] bytes)
         {
             using var reader = new StreamReader(new MemoryStream(bytes), Encoding.UTF8, true);
-            return XDocument.Load(reader);
+            return XDocument.Load(reader, LoadOptions.PreserveWhitespace);
         }
 
         private static void Add(ZipArchive zip, string name, byte[] bytes, CompressionLevel level)

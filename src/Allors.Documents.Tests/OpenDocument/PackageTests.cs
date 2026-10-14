@@ -78,10 +78,13 @@ namespace Allos.Document.OpenDocument.Tests
             Assert.True(Odt.Entry(rendered, "Thumbnails/thumbnail.png").Stored);
             Assert.False(Odt.Entry(rendered, "content.xml").Stored);
 
+            // Every frame of the template showed the same picture, and every frame now shows a passed image
+            Assert.DoesNotContain(entries, v => v.Name == "Pictures/1000020100000188000000B07F83F2786D7FB2E8.png");
+            Assert.Equal(["Pictures/logo", "Pictures/logo2", "Pictures/number1", "Pictures/number2", "Pictures/number3"], ManifestPictures(rendered));
+
             var content = Odt.Content(rendered);
             Assert.Contains("Jane", Odt.Paragraphs(content));
             Assert.Contains(content.Descendants(Odt.Draw + "frame"), v => (string)v.Attribute(Odt.Draw + "name") == "number1");
-            Assert.Contains(Odt.Manifest(rendered).Descendants(Odt.ManifestNs + "file-entry"), v => (string)v.Attribute(Odt.ManifestNs + "full-path") == "Pictures/number1");
         }
 
         [Fact]
@@ -91,7 +94,7 @@ namespace Allos.Document.OpenDocument.Tests
             var jpeg = new byte[] { 0xFF, 0xD8, 0xFF, 0xE0, 0, 16, 0x4A, 0x46, 0x49, 0x46, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9 };
             var svg = Encoding.ASCII.GetBytes("<svg xmlns='http://www.w3.org/2000/svg'><rect width='1' height='1'/></svg>");
             var pictures = new Dictionary<string, byte[]> { ["placeholder.png"] = png, ["drawing.svg"] = svg };
-            var package = Odt.Build("<text:p>" + Odt.Frame("$Photo", "Pictures/placeholder.png") + "</text:p>", pictures);
+            var package = Odt.Build("<text:p>" + Odt.Frame("$Photo", "Pictures/placeholder.png") + Odt.Frame("Image1", "Pictures/placeholder.png") + "</text:p>", pictures);
 
             var rendered = new OpenDocumentTemplate(package, "Photo").Render(new Dictionary<string, object> { ["Photo"] = "photo" }, new Dictionary<string, byte[]> { ["photo"] = jpeg });
 
@@ -101,6 +104,78 @@ namespace Allos.Document.OpenDocument.Tests
             Assert.False(Odt.Entry(rendered, "content.xml").Stored);
             Assert.False(Odt.Entry(rendered, "styles.xml").Stored);
         }
+
+        [Fact]
+        public void ReplacedTemplatePictureStaysOutOfTheDocument()
+        {
+            var placeholder = new byte[] { 1, 2, 3 };
+            var logo = new byte[] { 4, 5, 6, 7 };
+            var package = Odt.Build("<text:p>" + Odt.Frame("$Logo", "Pictures/placeholder.png") + "</text:p>", new Dictionary<string, byte[]> { ["placeholder.png"] = placeholder });
+
+            var rendered = new OpenDocumentTemplate(package, "Logo").Render(new Dictionary<string, object> { ["Logo"] = "logo" }, new Dictionary<string, byte[]> { ["logo"] = logo });
+
+            Assert.DoesNotContain(Odt.Entries(rendered), v => v.Name == "Pictures/placeholder.png");
+            Assert.Equal(logo, Odt.Entry(rendered, "Pictures/logo").Bytes);
+            Assert.Equal(["Pictures/logo"], ManifestPictures(rendered));
+            Assert.Equal("Pictures/logo", (string)Odt.Content(rendered).Descendants(Odt.Draw + "image").Single().Attribute(Odt.XLink + "href"));
+        }
+
+        [Fact]
+        public void TemplatePictureAnotherFrameStillShowsIsKept()
+        {
+            var placeholder = new byte[] { 1, 2, 3 };
+            var logo = new byte[] { 4, 5, 6, 7 };
+            var package = Odt.Build("<text:p>" + Odt.Frame("$Logo", "Pictures/placeholder.png") + Odt.Frame("Image1", "Pictures/placeholder.png") + "</text:p>", new Dictionary<string, byte[]> { ["placeholder.png"] = placeholder });
+
+            var rendered = new OpenDocumentTemplate(package, "Logo").Render(new Dictionary<string, object> { ["Logo"] = "logo" }, new Dictionary<string, byte[]> { ["logo"] = logo });
+
+            Assert.Equal(placeholder, Odt.Entry(rendered, "Pictures/placeholder.png").Bytes);
+            Assert.Equal(["Pictures/placeholder.png", "Pictures/logo"], ManifestPictures(rendered));
+        }
+
+        [Fact]
+        public void FrameWithoutAPassedImageKeepsItsTemplatePicture()
+        {
+            var placeholder = new byte[] { 1, 2, 3 };
+            var package = Odt.Build("<text:p>" + Odt.Frame("$Photo", "Pictures/placeholder.png") + "</text:p>", new Dictionary<string, byte[]> { ["placeholder.png"] = placeholder });
+
+            var rendered = new OpenDocumentTemplate(package, "Photo").Render(new Dictionary<string, object> { ["Photo"] = "missing" }, new Dictionary<string, byte[]> { ["other"] = new byte[] { 9 } });
+
+            Assert.Equal(placeholder, Odt.Entry(rendered, "Pictures/placeholder.png").Bytes);
+            Assert.DoesNotContain(Odt.Entries(rendered), v => v.Name == "Pictures/other");
+            Assert.Equal(["Pictures/placeholder.png"], ManifestPictures(rendered));
+            Assert.Equal("Pictures/placeholder.png", (string)Odt.Content(rendered).Descendants(Odt.Draw + "image").Single().Attribute(Odt.XLink + "href"));
+        }
+
+        [Fact]
+        public void PictureBoundInBodyAndHeaderHasOneManifestEntry()
+        {
+            var placeholder = new byte[] { 1, 2, 3 };
+            var logo = new byte[] { 4, 5, 6, 7 };
+            var header = "<office:master-styles><style:master-page style:name=\"Standard\"><style:header><text:p>" + Odt.Frame("Logo", "Pictures/placeholder.png") + "</text:p></style:header></style:master-page></office:master-styles>";
+            var package = Odt.Build("<text:p>" + Odt.Frame("Logo", "Pictures/placeholder.png") + "</text:p>", new Dictionary<string, byte[]> { ["placeholder.png"] = placeholder }, header);
+
+            var rendered = new OpenDocumentTemplate(package, string.Empty).Render(new Dictionary<string, object>(), new Dictionary<string, byte[]> { ["Logo"] = logo });
+
+            Assert.Equal(["Pictures/Logo"], ManifestPictures(rendered));
+            Assert.Equal("Pictures/Logo", (string)Odt.Styles(rendered).Descendants(Odt.Draw + "image").Single().Attribute(Odt.XLink + "href"));
+            Assert.Equal("Pictures/Logo", (string)Odt.Content(rendered).Descendants(Odt.Draw + "image").Single().Attribute(Odt.XLink + "href"));
+            Assert.DoesNotContain(Odt.Entries(rendered), v => v.Name == "Pictures/placeholder.png");
+        }
+
+        [Fact]
+        public void FrameWithoutAPictureIsLeftAlone()
+        {
+            var package = Odt.Build("<text:p><draw:frame draw:name=\"Logo\" text:anchor-type=\"paragraph\" svg:width=\"2cm\" svg:height=\"1cm\"><draw:text-box><text:p>box</text:p></draw:text-box></draw:frame></text:p>");
+
+            var rendered = new OpenDocumentTemplate(package, string.Empty).Render(new Dictionary<string, object>(), new Dictionary<string, byte[]> { ["Logo"] = new byte[] { 1 } });
+
+            Assert.DoesNotContain(Odt.Entries(rendered), v => v.Name == "Pictures/Logo");
+            Assert.Equal("box", Odt.Content(rendered).Descendants(Odt.Text + "p").Last().Value);
+        }
+
+        private static IEnumerable<string> ManifestPictures(byte[] rendered) =>
+            Odt.Manifest(rendered).Descendants(Odt.ManifestNs + "file-entry").Select(v => (string)v.Attribute(Odt.ManifestNs + "full-path")).Where(v => v.StartsWith("Pictures/"));
 
         private static byte[] Resource(string name)
         {
