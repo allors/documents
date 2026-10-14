@@ -2,7 +2,7 @@
 
 All notable changes to this project are documented in this file. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses [semantic versioning](https://semver.org/).
 
-## [2.1.0] - unreleased
+## [2.1.0] - 2026-10-14
 
 A template can be inspected and validated against its model before it renders. Rendering is unchanged: every template renders the same document as 2.0.0.
 
