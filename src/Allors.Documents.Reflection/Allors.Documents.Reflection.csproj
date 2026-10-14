@@ -1,0 +1,38 @@
+<Project Sdk="Microsoft.NET.Sdk">
+	<PropertyGroup>
+		<TargetFrameworks>netstandard2.0;net10.0</TargetFrameworks>
+		<RootNamespace>Allors.Document.Reflection</RootNamespace>
+		<Title>Allors Documents Reflection</Title>
+		<Authors>allors</Authors>
+		<Company>Allors bvba</Company>
+		<Copyright>(c) Allors bvba</Copyright>
+		<Description>The reflection shape and resolver for Allors Documents: template models as plain classes and dictionaries.</Description>
+		<PackageProjectUrl>https://github.com/Allors/Documents</PackageProjectUrl>
+		<PackageDescription>Bind Allors Documents templates to plain classes and dictionaries through reflection.</PackageDescription>
+		<PackageIcon>icon.png</PackageIcon>
+		<PackageReadmeFile>README.md</PackageReadmeFile>
+		<PackageLicenseExpression>LGPL-3.0-or-later</PackageLicenseExpression>
+		<PackageTags>office;libreoffice;openoffice;odt;generation;generator;template;reflection</PackageTags>
+		<RepositoryUrl>https://github.com/Allors/Documents.git</RepositoryUrl>
+		<EmbedUntrackedSources>true</EmbedUntrackedSources>
+		<IncludeSymbols>true</IncludeSymbols>
+		<SymbolPackageFormat>snupkg</SymbolPackageFormat>
+		<LangVersion>latest</LangVersion>
+	</PropertyGroup>
+
+	<ItemGroup>
+		<None Include="icon.png" Pack="true" PackagePath="" />
+		<None Include="..\..\README.md" Pack="true" PackagePath="\"/>
+	</ItemGroup>
+
+	<ItemGroup>
+		<PackageReference Include="Microsoft.SourceLink.GitHub" Version="8.0.0">
+			<PrivateAssets>all</PrivateAssets>
+			<IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+		</PackageReference>
+	</ItemGroup>
+
+	<ItemGroup>
+		<ProjectReference Include="..\Allors.Documents\Allors.Documents.csproj" />
+	</ItemGroup>
+</Project>

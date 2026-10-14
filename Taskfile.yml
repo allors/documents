@@ -46,6 +46,10 @@ tasks:
         dotnet pack src/Allors.Documents
         --configuration {{.CONFIGURATION}}
         --output {{.ARTIFACTS}}/nuget
+      - >-
+        dotnet pack src/Allors.Documents.Reflection
+        --configuration {{.CONFIGURATION}}
+        --output {{.ARTIFACTS}}/nuget
 
   ci:
     desc: Build, test and pack

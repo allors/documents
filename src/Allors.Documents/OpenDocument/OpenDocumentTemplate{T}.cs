@@ -9,7 +9,11 @@ namespace Allors.Document.OpenDocument
     using System.Linq;
     using System.Reflection;
 
+#if NET
+    public class OpenDocumentTemplate<[System.Diagnostics.CodeAnalysis.DynamicallyAccessedMembers(System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.PublicProperties)] T> : OpenDocumentTemplate
+#else
     public class OpenDocumentTemplate<T> : OpenDocumentTemplate
+#endif
     {
         private readonly PropertyInfo[] properties;
 

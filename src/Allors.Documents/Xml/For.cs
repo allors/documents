@@ -55,6 +55,19 @@ namespace Allors.Document.Xml
             }
         }
 
+        public For(int index, string argument, string expression)
+        {
+            this.Index = index;
+            this.Argument = argument;
+            this.Expression = expression;
+            this.Statement = $"for{index}({this.Argument})";
+
+            if (ReservedNames.Contains(this.Argument))
+            {
+                throw new ArgumentException(this.Argument + " is a reserved name for a template argument");
+            }
+        }
+
         public int Index { get; }
 
         public string Expression { get; }

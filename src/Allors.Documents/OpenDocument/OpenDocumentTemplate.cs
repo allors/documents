@@ -10,6 +10,9 @@ namespace Allors.Document.OpenDocument
     using System.IO;
     using System.IO.Compression;
     using System.Linq;
+    using Allors.Document.Inspection;
+    using Allors.Document.Models;
+    using Allors.Document.Validation;
     using Allors.Document.Xml;
     using Antlr4.StringTemplate;
     using Antlr4.StringTemplate.Misc;
@@ -114,7 +117,23 @@ namespace Allors.Document.OpenDocument
             }
         }
 
-        public static string InferArguments(Type fromType) => string.Join(",", fromType.GetProperties().Select(v => v.Name));
+#if NET
+        public static string InferArguments([System.Diagnostics.CodeAnalysis.DynamicallyAccessedMembers(System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.PublicProperties)] Type fromType)
+#else
+        public static string InferArguments(Type fromType)
+#endif
+        {
+            return string.Join(",", fromType.GetProperties().Select(v => v.Name));
+        }
+
+        /// <summary>Reads the tags, bound pictures and document settings of a template without rendering it.</summary>
+        public static TemplateInspection Inspect(byte[] document) => Inspector.Inspect(document);
+
+        /// <summary>
+        /// Checks a template against the shape of its model without rendering it: every path, attribute, block and document setting.
+        /// Never throws for what the template says; throws only when the package is not an OpenDocument text.
+        /// </summary>
+        public static TemplateValidation Validate(byte[] document, IShape root) => Validator.Validate(document, root);
 
         public byte[] Render(IDictionary<string, object> model, IDictionary<string, byte[]> imageByName = null)
         {

@@ -36,5 +36,6 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Allors.Documents\Allors.Documents.csproj" />
+    <ProjectReference Include="..\Allors.Documents.Reflection\Allors.Documents.Reflection.csproj" />
   </ItemGroup>
 </Project>
