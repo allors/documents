@@ -2,7 +2,7 @@
 
 All notable changes to this project are documented in this file. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses [semantic versioning](https://semver.org/).
 
-## [2.0.0] - unreleased
+## [2.0.0] - 2026-10-14
 
 The template renders as typed, and nothing more. The constructors and `Render` are unchanged.
 
