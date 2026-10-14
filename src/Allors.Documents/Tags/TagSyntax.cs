@@ -10,7 +10,7 @@ namespace Allors.Document.Tags
     using System.Text.RegularExpressions;
 
     /// <summary>
-    /// The tag language of a template: <c>&lt;$path attr="value"&gt;</c>, <c>&lt;@for variable path&gt;</c>, <c>&lt;@if path&gt;</c> and <c>&lt;@end&gt;</c> in placeholder fields,
+    /// The tag language of a template: <c>&lt;$path attr="value"&gt;</c>, <c>&lt;@for variable path sort="key desc"&gt;</c>, <c>&lt;@if path&gt;</c> and <c>&lt;@end&gt;</c> in placeholder fields,
     /// and <c>$path</c> as the name of a picture frame. A path is a chain of member names; keywords are not case-sensitive.
     /// </summary>
     public static class TagSyntax
@@ -18,6 +18,9 @@ namespace Allors.Document.Tags
         private static readonly Regex PathRegex = new Regex(@"^[A-Za-z_][A-Za-z0-9_]*(\.[A-Za-z_][A-Za-z0-9_]*)*$");
 
         private static readonly Regex NameRegex = new Regex(@"^[A-Za-z_][A-Za-z0-9_]*$");
+
+        /// <summary>The attribute that orders a loop.</summary>
+        public const string SortAttribute = "sort";
 
         private static readonly Regex AttributeRegex = new Regex(@"\G\s+([A-Za-z_][A-Za-z0-9_-]*)\s*=\s*(?:""([^""]*)""|'([^']*)')");
 
@@ -66,20 +69,24 @@ namespace Allors.Document.Tags
                     }
 
                     var variable = rest.Substring(0, variableEnd);
-                    var collection = rest.Substring(variableEnd).Trim();
                     if (!NameRegex.IsMatch(variable))
                     {
                         error = "the loop variable '" + variable + "' is not a name";
                         return false;
                     }
 
-                    if (!PathRegex.IsMatch(collection))
+                    var afterVariable = rest.Substring(variableEnd).Trim();
+                    if (!TryParsePathAndAttributes(afterVariable, "<@for> needs a path after the variable: <@for item Lines>", out var collection, out var loopAttributes, out error))
                     {
-                        error = "'" + collection + "' is not a path";
                         return false;
                     }
 
-                    tag = new Tag(TagKind.For, trimmed, collection, variable, null);
+                    if (!TryParseSort(loopAttributes, out var sort, out error))
+                    {
+                        return false;
+                    }
+
+                    tag = new Tag(TagKind.For, trimmed, collection, variable, loopAttributes, sort);
                     return true;
 
                 case "if":
@@ -129,17 +136,31 @@ namespace Allors.Document.Tags
         private static bool TryParseBinding(string text, string inner, out Tag tag, out string error)
         {
             tag = null;
-            error = null;
 
-            var pathEnd = IndexOfWhitespace(inner);
-            var path = pathEnd < 0 ? inner : inner.Substring(0, pathEnd);
-            if (!PathRegex.IsMatch(path))
+            if (!TryParsePathAndAttributes(inner, "<$> needs a path: <$Invoice.Number>", out var path, out var attributes, out error))
             {
-                error = path.Length == 0 ? "<$> needs a path: <$Invoice.Number>" : "'" + path + "' is not a path";
                 return false;
             }
 
-            var attributes = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            tag = new Tag(TagKind.Binding, text, path, null, attributes);
+            return true;
+        }
+
+        /// <summary>A path followed by zero or more name="value" attributes.</summary>
+        private static bool TryParsePathAndAttributes(string inner, string missingPathError, out string path, out Dictionary<string, string> attributes, out string error)
+        {
+            attributes = null;
+            error = null;
+
+            var pathEnd = IndexOfWhitespace(inner);
+            path = pathEnd < 0 ? inner : inner.Substring(0, pathEnd);
+            if (!PathRegex.IsMatch(path))
+            {
+                error = path.Length == 0 ? missingPathError : "'" + path + "' is not a path";
+                return false;
+            }
+
+            attributes = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
             var position = path.Length;
             while (position < inner.Length)
             {
@@ -154,7 +175,50 @@ namespace Allors.Document.Tags
                 position = match.Index + match.Length;
             }
 
-            tag = new Tag(TagKind.Binding, text, path, null, attributes);
+            return true;
+        }
+
+        /// <summary>The sort attribute of a loop: paths relative to the item, comma separated, each optionally followed by asc or desc.</summary>
+        private static bool TryParseSort(IReadOnlyDictionary<string, string> attributes, out IReadOnlyList<SortKey> sort, out string error)
+        {
+            sort = null;
+            error = null;
+
+            if (!attributes.TryGetValue(SortAttribute, out var text))
+            {
+                return true;
+            }
+
+            var keys = new List<SortKey>();
+            foreach (var part in text.Split(','))
+            {
+                var key = part.Trim();
+                if (key.Length == 0)
+                {
+                    error = "sort=\"" + text + "\": a key is missing between the commas";
+                    return false;
+                }
+
+                var space = IndexOfWhitespace(key);
+                var path = space < 0 ? key : key.Substring(0, space);
+                var direction = space < 0 ? string.Empty : key.Substring(space).Trim().ToLowerInvariant();
+
+                if (!PathRegex.IsMatch(path))
+                {
+                    error = "sort=\"" + text + "\": '" + path + "' is not a path";
+                    return false;
+                }
+
+                if (direction.Length > 0 && direction != "asc" && direction != "desc")
+                {
+                    error = "sort=\"" + text + "\": expected asc or desc after '" + path + "', not '" + direction + "'";
+                    return false;
+                }
+
+                keys.Add(new SortKey(path, direction == "desc"));
+            }
+
+            sort = keys;
             return true;
         }
 

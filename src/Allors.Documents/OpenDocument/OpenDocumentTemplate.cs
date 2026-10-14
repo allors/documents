@@ -115,7 +115,14 @@ namespace Allors.Document.OpenDocument
             }
         }
 
-        public static string InferArguments(Type fromType) => string.Join(",", fromType.GetProperties().Select(v => v.Name));
+#if NET
+        public static string InferArguments([System.Diagnostics.CodeAnalysis.DynamicallyAccessedMembers(System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.PublicProperties)] Type fromType)
+#else
+        public static string InferArguments(Type fromType)
+#endif
+        {
+            return string.Join(",", fromType.GetProperties().Select(v => v.Name));
+        }
 
         /// <summary>Reads the tags, bound pictures and document settings of a template without rendering it.</summary>
         public static TemplateInspection Inspect(byte[] document) => Inspector.Inspect(document);

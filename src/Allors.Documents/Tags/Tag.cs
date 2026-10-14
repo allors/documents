@@ -12,7 +12,7 @@ namespace Allors.Document.Tags
         /// <summary>A value at a path, with optional attributes: &lt;$path attr="value"&gt;.</summary>
         Binding,
 
-        /// <summary>A loop over the collection at a path: &lt;@for variable path&gt;.</summary>
+        /// <summary>A loop over the collection at a path, optionally ordered: &lt;@for variable path sort="key, key desc"&gt;.</summary>
         For,
 
         /// <summary>A block kept when the value at a path is true: &lt;@if path&gt;.</summary>
@@ -29,13 +29,16 @@ namespace Allors.Document.Tags
     {
         private static readonly IReadOnlyDictionary<string, string> NoAttributes = new Dictionary<string, string>();
 
-        internal Tag(TagKind kind, string text, string path, string variable, IReadOnlyDictionary<string, string> attributes)
+        private static readonly IReadOnlyList<SortKey> NoSort = new SortKey[0];
+
+        internal Tag(TagKind kind, string text, string path, string variable, IReadOnlyDictionary<string, string> attributes, IReadOnlyList<SortKey> sort = null)
         {
             this.Kind = kind;
             this.Text = text;
             this.Path = path;
             this.Variable = variable;
             this.Attributes = attributes ?? NoAttributes;
+            this.Sort = sort ?? NoSort;
         }
 
         public TagKind Kind { get; }
@@ -48,8 +51,11 @@ namespace Allors.Document.Tags
         /// <summary>The loop variable of a for tag; null otherwise.</summary>
         public string Variable { get; }
 
-        /// <summary>The attributes of a binding, by name (case-insensitive); empty otherwise.</summary>
+        /// <summary>The attributes of a binding or a loop, by name (case-insensitive); empty otherwise.</summary>
         public IReadOnlyDictionary<string, string> Attributes { get; }
+
+        /// <summary>The sort keys of a loop, from its sort attribute, in order; empty otherwise.</summary>
+        public IReadOnlyList<SortKey> Sort { get; }
 
         public override string ToString() => this.Text;
     }
