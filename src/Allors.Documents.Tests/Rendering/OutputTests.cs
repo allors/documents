@@ -10,6 +10,7 @@ namespace Allos.Document.Rendering.Tests
     using System.Linq;
     using System.Reflection;
     using System.Text;
+    using System.Text.RegularExpressions;
     using System.Threading.Tasks;
     using System.Xml.Linq;
     using Allors.Document.OpenDocument;
@@ -146,7 +147,7 @@ namespace Allos.Document.Rendering.Tests
         }
 
         [Fact]
-        public void BothEnginesRenderTheSameParagraphsOfTheLibreOfficeTemplate()
+        public void BothEnginesRenderTheSameDocumentFromTheLibreOfficeTemplate()
         {
             var model = new Model
             {
@@ -159,9 +160,32 @@ namespace Allos.Document.Rendering.Tests
             var stringTemplate = new OpenDocumentTemplate<Model>(package).Render(model);
             var resolver = new OpenDocumentTemplate(package, string.Empty).Render(model, new RenderSettings { Resolver = ReflectionResolver.Instance }).Document;
 
+            // The parts are the same text once the pictures are set aside: this engine makes frame names unique and binds pictures by their description
             Assert.Equal(Odt.Paragraphs(Odt.Content(stringTemplate)), Odt.Paragraphs(Odt.Content(resolver)));
-            Assert.Equal(Odt.Paragraphs(Odt.Styles(stringTemplate)), Odt.Paragraphs(Odt.Styles(resolver)));
+            Assert.Equal(Canonical(stringTemplate, "content.xml"), Canonical(resolver, "content.xml"));
+            Assert.Equal(Canonical(stringTemplate, "styles.xml"), Canonical(resolver, "styles.xml"));
+
+            // The package holds the same files in the same order and compression, and the manifest the same entries, pictures aside
+            Assert.Equal(Files(stringTemplate), Files(resolver));
+            Assert.Equal(ManifestEntries(stringTemplate), ManifestEntries(resolver));
         }
+
+        /// <summary>
+        /// A part's text with the frame names dropped and the picture hrefs levelled, the two things the engines write differently, and the
+        /// platform's line ending after the declaration (StringTemplate's) read as the fixed one this engine writes.
+        /// </summary>
+        private static string Canonical(byte[] package, string part)
+        {
+            var xml = Encoding.UTF8.GetString(Odt.Entry(package, part).Bytes).Replace("\r\n", "\n");
+            xml = Regex.Replace(xml, " draw:name=\"[^\"]*\"", string.Empty);
+            return Regex.Replace(xml, "xlink:href=\"Pictures/[^\"]*\"", "xlink:href=\"Pictures/\"");
+        }
+
+        private static IEnumerable<string> Files(byte[] package) =>
+            Odt.Entries(package).Where(v => !v.Name.StartsWith("Pictures/")).Select(v => v.Name + (v.Stored ? " stored" : " deflated"));
+
+        private static IEnumerable<string> ManifestEntries(byte[] package) =>
+            Odt.ManifestEntries(package).Where(v => !v.Key.StartsWith("Pictures/")).OrderBy(v => v.Key).Select(v => v.Key + " " + v.Value);
 
         [Fact]
         public void ATemplateRendersRepeatedlyAndConcurrentlyToTheSameDocument()
