@@ -344,21 +344,22 @@ namespace Allors.Document.Validation
             this.Add(FindingKind.MixedText, FindingSeverity.Warning, tag.Tag.Text, null, "the " + what + " that holds this tag is removed with the tag, and '" + rest + "' with it: give the tag its own " + what, tag.Location);
         }
 
+        /// <summary>Every setting must be known and every culture a culture; a pattern is tried in the culture its kind prints in.</summary>
         private void CheckSettings(IReadOnlyDictionary<string, string> settings)
         {
-            var culture = CultureInfo.InvariantCulture;
             foreach (var setting in settings)
             {
                 if (!Formatting.IsSetting(setting.Key))
                 {
                     this.Add(FindingKind.UnknownSetting, FindingSeverity.Warning, setting.Key, null, "'" + setting.Key + "' is not a document setting and is ignored: the settings are " + string.Join(", ", Formatting.SettingNames), SettingsLocation);
                 }
-                else if (string.Equals(setting.Key, Formatting.CultureSetting, StringComparison.OrdinalIgnoreCase))
+                else if (Formatting.IsCultureSetting(setting.Key))
                 {
-                    culture = this.CheckCulture(setting.Value, setting.Key, SettingsLocation) ?? culture;
+                    this.CheckCulture(setting.Value, setting.Key, SettingsLocation);
                 }
             }
 
+            var formatting = Formatting.Default.With(settings);
             foreach (var setting in settings)
             {
                 var name = setting.Key.ToLowerInvariant();
@@ -369,6 +370,7 @@ namespace Allors.Document.Validation
                     continue;
                 }
 
+                var culture = formatting.CultureOf(name);
                 if (isDate ? !IsDatePattern(setting.Value, culture) : !IsNumberPattern(setting.Value, culture))
                 {
                     this.Add(FindingKind.BadPattern, FindingSeverity.Error, setting.Key, null, "'" + setting.Value + "' is not a " + (isDate ? "date" : "number") + " format", SettingsLocation);
@@ -386,7 +388,7 @@ namespace Allors.Document.Validation
             var culture = Formatting.ToCulture(name);
             if (culture == null)
             {
-                this.Add(FindingKind.BadCulture, FindingSeverity.Error, text, null, "'" + name + "' is not a culture: use a name like nl-BE or en-GB", location);
+                this.Add(FindingKind.BadCulture, FindingSeverity.Error, text, null, "'" + name + "' is not a culture: use a name like nl-BE or en-GB, or invariant", location);
             }
 
             return culture;

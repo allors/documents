@@ -190,6 +190,43 @@ namespace Allos.Document.Rendering.Tests
         }
 
         [Fact]
+        public void TheCallerMayPrintDatesAndNumbersInCulturesOfTheirOwn()
+        {
+            var settings = new RenderSettings
+            {
+                Culture = CultureInfo.GetCultureInfo("nl-BE"),
+                DateCulture = CultureInfo.InvariantCulture,
+                Number = "N2",
+                Date = "dd-MMM-yyyy",
+                DateTime = "dd-MMM-yyyy HH:mm",
+            };
+            var model = new Dictionary<string, object>
+            {
+                ["Amount"] = 1250.5m,
+                ["Day"] = new DateTime(2026, 9, 14),
+                ["When"] = new DateTime(2026, 9, 14, 14, 30, 0),
+            };
+
+            var text = Text(P("<$Amount>") + P("<$Day>") + P("<$When>"), model, settings);
+
+            Assert.Equal("1.250,50\n14-Sep-2026\n14-Sep-2026 14:30", text);
+        }
+
+        [Fact]
+        public void ATemplatesCultureResetsTheCallersCulturesPerKindAndATagsCultureResetsTheTemplates()
+        {
+            var settings = new RenderSettings { Culture = CultureInfo.GetCultureInfo("nl-BE"), DateCulture = CultureInfo.InvariantCulture, Number = "N2", Date = "dd-MMM-yyyy" };
+            var model = new Dictionary<string, object> { ["Amount"] = 1234.5m, ["Day"] = new DateTime(2026, 10, 12) };
+            var body = P("<$Amount>") + P("<$Day>") + P("<$Day culture=\"nl-BE\">") + P("<$Day culture=\"invariant\">");
+
+            var reset = Text(body, model, settings, new Dictionary<string, string> { ["culture"] = "en-GB" });
+            var dates = Text(body, model, settings, new Dictionary<string, string> { ["date-culture"] = "nl-BE" });
+
+            Assert.Equal("1,234.50\n12-Oct-2026\n12-okt-2026\n12-Oct-2026", reset);
+            Assert.Equal("1.234,50\n12-okt-2026\n12-okt-2026\n12-Oct-2026", dates);
+        }
+
+        [Fact]
         public void TheTemplateSettingsWinOverTheCallerAndTagAttributesWinOverBoth()
         {
             var documentSettings = new Dictionary<string, string> { ["number"] = "0.0", ["true"] = "Ja" };

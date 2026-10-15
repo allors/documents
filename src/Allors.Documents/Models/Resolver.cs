@@ -62,9 +62,9 @@ namespace Allors.Document.Models
 
         /// <summary>
         /// Null prints blank and text prints as is. A boolean prints the true or false word. A date prints with the date pattern at midnight
-        /// and the datetime pattern otherwise, a number with the number pattern, and the tag's format wins over both. Enums print their name.
-        /// A collection prints its items one after the other, each formatted, with nothing between them: a loop is what separates them.
-        /// Everything else prints through <see cref="IFormattable"/> with the culture, or ToString.
+        /// and the datetime pattern otherwise, in the date culture; a number prints with the number pattern in the number culture; the tag's
+        /// format wins over the patterns. Enums print their name. A collection prints its items one after the other, each formatted, with
+        /// nothing between them: a loop is what separates them. Everything else prints through <see cref="IFormattable"/> with the culture, or ToString.
         /// </summary>
         public virtual string Format(object value, Formatting formatting)
         {
@@ -89,24 +89,28 @@ namespace Allors.Document.Models
 
                     return items.ToString();
                 case DateTime dateTime:
-                    return dateTime.ToString(formatting.Pattern(dateTime.TimeOfDay == TimeSpan.Zero ? Formatting.DateSetting : Formatting.DateTimeSetting), formatting.Culture);
+                    var dateTimeKind = dateTime.TimeOfDay == TimeSpan.Zero ? Formatting.DateSetting : Formatting.DateTimeSetting;
+                    return dateTime.ToString(formatting.Pattern(dateTimeKind), formatting.CultureOf(dateTimeKind));
                 case DateTimeOffset dateTimeOffset:
-                    return dateTimeOffset.ToString(formatting.Pattern(dateTimeOffset.TimeOfDay == TimeSpan.Zero ? Formatting.DateSetting : Formatting.DateTimeSetting), formatting.Culture);
+                    var dateTimeOffsetKind = dateTimeOffset.TimeOfDay == TimeSpan.Zero ? Formatting.DateSetting : Formatting.DateTimeSetting;
+                    return dateTimeOffset.ToString(formatting.Pattern(dateTimeOffsetKind), formatting.CultureOf(dateTimeOffsetKind));
 #if NET
                 case DateOnly date:
-                    return date.ToString(formatting.Pattern(Formatting.DateSetting), formatting.Culture);
+                    return date.ToString(formatting.Pattern(Formatting.DateSetting), formatting.CultureOf(Formatting.DateSetting));
                 case TimeOnly time:
-                    return time.ToString(formatting.Pattern(Formatting.TimeSetting), formatting.Culture);
+                    return time.ToString(formatting.Pattern(Formatting.TimeSetting), formatting.CultureOf(Formatting.TimeSetting));
 #endif
                 case IFormattable formattable:
-                    return formattable.ToString(IsNumber(value) ? formatting.Pattern(Formatting.NumberSetting) : NotNamed(formatting.Format), formatting.Culture);
+                    return IsNumber(value)
+                        ? formattable.ToString(formatting.Pattern(Formatting.NumberSetting), formatting.CultureOf(Formatting.NumberSetting))
+                        : formattable.ToString(NotNamed(formatting.Format), formatting.Culture);
                 default:
                     return value.ToString();
             }
         }
 
         /// <summary>
-        /// Null sorts first. Text is compared in the formatting's culture. Numbers compare across numeric types. Other values of one type
+        /// Null sorts first. Text is compared in the formatting's culture, never in a culture per kind. Numbers compare across numeric types. Other values of one type
         /// compare through <see cref="IComparable"/>. Anything else throws.
         /// </summary>
         public virtual int Compare(object x, object y, Formatting formatting)

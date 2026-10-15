@@ -31,7 +31,7 @@ namespace Allos.Document.Validation.Tests
                 P("<@ifdef Invoice.BillTo.Name>") + P("<$Invoice.BillTo.Name>") + P("<@end>") +
                 P("<@for line Invoice.Lines sort=\"Product, Quantity desc\">") + Tags("<$line.Product>", "<$line.Quantity format=\"number\">") + P("<@end>") +
                 P(Odt.Frame("Logo", "Pictures/logo.png", "<$Logo empty=\"keep\">", "The logo"));
-            var settings = new Dictionary<string, string> { ["culture"] = "nl-BE", ["date"] = "dd-MMM-yyyy", ["datetime"] = "yyyy-MM-dd HH:mm", ["number"] = "N2", ["true"] = "Ja" };
+            var settings = new Dictionary<string, string> { ["culture"] = "nl-BE", ["number-culture"] = "en-GB", ["date-culture"] = "invariant", ["date"] = "dd-MMM-yyyy", ["datetime"] = "yyyy-MM-dd HH:mm", ["number"] = "N2", ["true"] = "Ja" };
 
             var validation = Validate(body, settings);
 
@@ -145,7 +145,17 @@ namespace Allos.Document.Validation.Tests
 
             var finding = Assert.Single(validation.Findings);
             Assert.Equal(FindingKind.BadCulture, finding.Kind);
-            Assert.Equal("'xx-NOPE' is not a culture: use a name like nl-BE or en-GB", finding.Message);
+            Assert.Equal("'xx-NOPE' is not a culture: use a name like nl-BE or en-GB, or invariant", finding.Message);
+        }
+
+        [Fact]
+        public void ACultureOfAKindIsNoTagAttribute()
+        {
+            var validation = Validate(P("<$Invoice.Number number-culture=\"en-GB\">"));
+
+            var finding = Assert.Single(validation.Findings);
+            Assert.Equal(FindingKind.UnknownAttribute, finding.Kind);
+            Assert.Equal("a binding has no attribute 'number-culture': use format, culture, true, false", finding.Message);
         }
 
         [Fact]
@@ -335,18 +345,21 @@ namespace Allos.Document.Validation.Tests
         [Fact]
         public void DocumentSettingsAreChecked()
         {
-            var settings = new Dictionary<string, string> { ["colour"] = "red", ["culture"] = "xx-NOPE", ["date"] = "Q", ["number"] = "N2", ["time"] = string.Empty };
+            var settings = new Dictionary<string, string> { ["colour"] = "red", ["culture"] = "xx-NOPE", ["date"] = "Q", ["number"] = "N2", ["time"] = string.Empty, ["date-culture"] = "xx-NOPE", ["number-culture"] = "invariant" };
 
             var validation = Validate(P("<$Invoice.Number>"), settings);
 
-            Assert.Equal(3, validation.Findings.Count);
+            Assert.Equal(4, validation.Findings.Count);
             Assert.Equal(FindingKind.UnknownSetting, validation.Findings[0].Kind);
             Assert.Equal(FindingSeverity.Warning, validation.Findings[0].Severity);
             Assert.Equal("colour", validation.Findings[0].Text);
             Assert.Equal("meta.xml", validation.Findings[0].Location.Part);
             Assert.Equal(FindingKind.BadCulture, validation.Findings[1].Kind);
-            Assert.Equal(FindingKind.BadPattern, validation.Findings[2].Kind);
-            Assert.Equal("'Q' is not a date format", validation.Findings[2].Message);
+            Assert.Equal("culture", validation.Findings[1].Text);
+            Assert.Equal(FindingKind.BadCulture, validation.Findings[2].Kind);
+            Assert.Equal("date-culture", validation.Findings[2].Text);
+            Assert.Equal(FindingKind.BadPattern, validation.Findings[3].Kind);
+            Assert.Equal("'Q' is not a date format", validation.Findings[3].Message);
         }
 
         [Fact]

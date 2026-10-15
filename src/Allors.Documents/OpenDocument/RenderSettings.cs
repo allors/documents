@@ -11,15 +11,22 @@ namespace Allors.Document.OpenDocument
 
     /// <summary>
     /// How a render reads and formats its model: the resolver that binds paths to values, and the caller's formatting defaults.
-    /// The template's own document settings win over these, and a tag's attributes win over both.
+    /// The template's own document settings win over these, and a tag's attributes win over both; a layer's culture resets the
+    /// number and date cultures of the layers below it.
     /// </summary>
     public sealed class RenderSettings
     {
         /// <summary>Binds paths to the model's members; the template's own resolver when null: <see cref="DictionaryResolver"/>, or the reflection resolver of a template over a model type.</summary>
         public IResolver Resolver { get; set; }
 
-        /// <summary>The culture dates and numbers print in; the invariant culture when null.</summary>
+        /// <summary>The culture values print in and text sorts by; the invariant culture when null.</summary>
         public CultureInfo Culture { get; set; }
+
+        /// <summary>The culture numbers print in when it is not <see cref="Culture"/>; null when they print in the culture.</summary>
+        public CultureInfo NumberCulture { get; set; }
+
+        /// <summary>The culture dates, times and date-times print in when it is not <see cref="Culture"/>; null when they print in the culture.</summary>
+        public CultureInfo DateCulture { get; set; }
 
         /// <summary>The pattern for a date without a time; the culture's default when null.</summary>
         public string Date { get; set; }
@@ -46,7 +53,7 @@ namespace Allors.Document.OpenDocument
         public bool Flat { get; set; }
 
         /// <summary>The caller's layer over the library's defaults.</summary>
-        internal Formatting ToFormatting() => Formatting.Default.WithCulture(this.Culture).With(this.Settings());
+        internal Formatting ToFormatting() => Formatting.Default.WithCulture(this.Culture, this.NumberCulture, this.DateCulture).With(this.Settings());
 
         private IEnumerable<KeyValuePair<string, string>> Settings()
         {
