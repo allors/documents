@@ -30,7 +30,7 @@ namespace Allos.Document.Validation.Tests
                 P("<@if Invoice.BillTo>") + P("<$Invoice.BillTo.Name true=\"Ja\" false=\"Nee\">") + P("<@end>") +
                 P("<@ifdef Invoice.BillTo.Name>") + P("<$Invoice.BillTo.Name>") + P("<@end>") +
                 P("<@for line Invoice.Lines sort=\"Product, Quantity desc\">") + Tags("<$line.Product>", "<$line.Quantity format=\"number\">") + P("<@end>") +
-                P(Odt.Frame("$Logo", "Pictures/logo.png"));
+                P(Odt.Frame("Logo", "Pictures/logo.png", "<$Logo empty=\"keep\">", "The logo"));
             var settings = new Dictionary<string, string> { ["culture"] = "nl-BE", ["date"] = "dd-MMM-yyyy", ["datetime"] = "yyyy-MM-dd HH:mm", ["number"] = "N2", ["true"] = "Ja" };
 
             var validation = Validate(body, settings);
@@ -373,14 +373,45 @@ namespace Allos.Document.Validation.Tests
         [Fact]
         public void PicturesAreCheckedInTheirScope()
         {
-            var body = P(Odt.Frame("$Lgoo", "Pictures/a.png")) + P("<@for line Invoice.Lines>") + P(Odt.Frame("$line.Picture", "Pictures/b.png") + Odt.Frame("$line.Pitcure", "Pictures/c.png")) + P("<@end>");
+            var body = P(Odt.Frame("Logo", "Pictures/a.png", "<$Lgoo>")) + P("<@for line Invoice.Lines>") + P(Odt.Frame("Picture", "Pictures/b.png", "<$line.Picture>") + Odt.Frame("Picture", "Pictures/c.png", "<$line.Pitcure>")) + P("<@end>");
 
             var validation = Validate(body);
 
             Assert.Equal(2, validation.Findings.Count);
             Assert.Equal("Model has no member Lgoo", validation.Findings[0].Message);
-            Assert.Equal("$Lgoo", validation.Findings[0].Text);
+            Assert.Equal("<$Lgoo>", validation.Findings[0].Text);
+            Assert.Equal(FindingKind.UnknownMember, validation.Findings[0].Kind);
             Assert.Equal("Line has no member Pitcure", validation.Findings[1].Message);
+            Assert.Equal("<$line.Pitcure>", validation.Findings[1].Text);
+        }
+
+        [Fact]
+        public void PictureAttributesAndTheirValuesAreChecked()
+        {
+            var body = P(Odt.Frame("Logo", "Pictures/a.png", "<$Logo fit=\"contain\">")) + P(Odt.Frame("Logo", "Pictures/a.png", "<$Logo empty=\"maybe\">")) + P(Odt.Frame("Logo", "Pictures/a.png", "<$Logo empty=\"KEEP\">"));
+
+            var validation = Validate(body);
+
+            Assert.Equal(2, validation.Findings.Count);
+            Assert.Equal(FindingKind.UnknownAttribute, validation.Findings[0].Kind);
+            Assert.Equal("a picture has no attribute 'fit': use empty", validation.Findings[0].Message);
+            Assert.Equal("<$Logo fit=\"contain\">", validation.Findings[0].Text);
+            Assert.Equal(FindingKind.BadValue, validation.Findings[1].Kind);
+            Assert.Equal("empty=\"maybe\": use remove or keep", validation.Findings[1].Message);
+            Assert.Equal(2, validation.Findings[1].Location.Paragraph);
+        }
+
+        [Fact]
+        public void ADescriptionThatIsNotOnePictureTagIsAMalformedTag()
+        {
+            var body = P(Odt.Frame("Logo", "Pictures/a.png", "Logo: <$Logo>"));
+
+            var validation = Validate(body);
+
+            var finding = Assert.Single(validation.Findings);
+            Assert.Equal(FindingKind.MalformedTag, finding.Kind);
+            Assert.Equal("Logo: <$Logo>", finding.Text);
+            Assert.Contains("whole description", finding.Message);
         }
 
         [Fact]

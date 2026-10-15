@@ -49,7 +49,8 @@ namespace Allos.Document.Inspection.Tests
         public void HeadersAndPicturesAreInspectedToo()
         {
             var header = "<office:master-styles><style:master-page style:name=\"Standard\"><style:header><text:p>Page " + Odt.Placeholder("<$Page>") + "</text:p></style:header></style:master-page></office:master-styles>";
-            var package = Odt.Build("<text:p>" + Odt.Frame("$Issuer.LogoImage", "Pictures/placeholder.png") + Odt.Frame("Barcode", "Pictures/placeholder.png") + "</text:p>", new Dictionary<string, byte[]> { ["placeholder.png"] = new byte[] { 1 } }, header);
+            var frames = Odt.Frame("Logo", "Pictures/placeholder.png", "<$Issuer.LogoImage empty=\"keep\">", "The issuer's logo") + Odt.Frame("Barcode", "Pictures/placeholder.png", "The barcode") + Odt.Frame("$Legacy", "Pictures/placeholder.png");
+            var package = Odt.Build("<text:p>" + frames + "</text:p>", new Dictionary<string, byte[]> { ["placeholder.png"] = new byte[] { 1 } }, header);
 
             var inspection = OpenDocumentTemplate.Inspect(package);
 
@@ -57,10 +58,58 @@ namespace Allos.Document.Inspection.Tests
             Assert.Equal("styles.xml", page.Location.Part);
             Assert.Equal("Page <$Page>", page.Location.ParagraphText);
 
+            // A picture is bound by the tag in its description; its name is the author's, and a plain description or a $ name binds nothing
             var picture = Assert.Single(inspection.Pictures);
-            Assert.Equal("$Issuer.LogoImage", picture.FrameName);
+            Assert.Equal("Logo", picture.FrameName);
             Assert.Equal("Issuer.LogoImage", picture.Path);
+            Assert.Equal(TagKind.Picture, picture.Tag.Kind);
+            Assert.Equal("keep", picture.Tag.Attributes["empty"]);
             Assert.Equal("content.xml", picture.Location.Part);
+            Assert.Null(picture.Block);
+            Assert.Equal(["Page", "Issuer.LogoImage"], inspection.Paths);
+            Assert.Empty(inspection.Problems);
+        }
+
+        [Fact]
+        public void APictureInALoopKnowsItsBlock()
+        {
+            var package = Odt.Build(
+                "<text:p>" + Odt.Placeholder("<@for item Items>") + "</text:p>" +
+                "<text:p>" + Odt.Frame("Photo", "Pictures/p.png", "<$item.Photo>") + "</text:p>" +
+                "<text:p>" + Odt.Placeholder("<@end>") + "</text:p>");
+
+            var inspection = OpenDocumentTemplate.Inspect(package);
+
+            var picture = Assert.Single(inspection.Pictures);
+            Assert.Equal("item.Photo", picture.Path);
+            Assert.Equal("item", picture.Block.Tag.Variable);
+            Assert.Equal(2, picture.Location.Paragraph);
+
+            // The description is text of the paragraph that holds the frame, so the paragraph's text shows the tag as the author typed it
+            Assert.Equal("<$item.Photo> in content.xml paragraph 2 \"<$item.Photo>\"", picture.ToString());
+        }
+
+        [Fact]
+        public void ADescriptionThatMeansATagButIsNotOneIsAProblem()
+        {
+            var package = Odt.Build(
+                "<text:p>" + Odt.Frame("Logo", "Pictures/p.png", "Company logo <$Logo>") + "</text:p>" +
+                "<text:p>" + Odt.Frame("Photos", "Pictures/p.png", "<@for p Photos>") + "</text:p>" +
+                "<text:p><draw:frame draw:name=\"Box\" text:anchor-type=\"paragraph\" svg:width=\"2cm\" svg:height=\"1cm\"><draw:text-box><text:p>box</text:p></draw:text-box><svg:desc>&lt;$Logo&gt;</svg:desc></draw:frame></text:p>" +
+                "<text:p>" + Odt.Frame("Note", "Pictures/p.png", "Just a note, no tag") + "</text:p>");
+
+            var inspection = OpenDocumentTemplate.Inspect(package);
+
+            Assert.Empty(inspection.Pictures);
+            Assert.Equal(3, inspection.Problems.Count);
+            Assert.Equal("Company logo <$Logo>", inspection.Problems[0].Text);
+            Assert.Contains("whole description", inspection.Problems[0].Message);
+            Assert.Equal("<@for p Photos>", inspection.Problems[1].Text);
+            Assert.Contains("not a block tag", inspection.Problems[1].Message);
+            Assert.Equal("<$Logo>", inspection.Problems[2].Text);
+            Assert.Contains("holds no picture", inspection.Problems[2].Message);
+            Assert.Equal(3, inspection.Problems[2].Location.Paragraph);
+            Assert.All(inspection.Problems, v => Assert.False(v.IsUnbalanced));
         }
 
         [Fact]
@@ -81,7 +130,7 @@ namespace Allos.Document.Inspection.Tests
                 "<text:p>" + Odt.Placeholder("<$a + b>") + "</text:p>" +
                 "<text:p>" + Odt.Placeholder("<@end>") + "</text:p>" +
                 "<text:p>" + Odt.Placeholder("<@if Receiver.Contact>") + "</text:p>" +
-                "<text:p>" + Odt.Frame("$item.Photo[0]", "Pictures/p.png") + "</text:p>");
+                "<text:p>" + Odt.Frame("Photo", "Pictures/p.png", "<$item.Photo[0]>") + "</text:p>");
 
             var inspection = OpenDocumentTemplate.Inspect(package);
 
@@ -90,7 +139,8 @@ namespace Allos.Document.Inspection.Tests
             Assert.Equal(1, inspection.Problems[0].Location.Paragraph);
             Assert.Equal("<@end>", inspection.Problems[1].Text);
             Assert.Contains("closes nothing", inspection.Problems[1].Message);
-            Assert.Equal("$item.Photo[0]", inspection.Problems[2].Text);
+            Assert.Equal("<$item.Photo[0]>", inspection.Problems[2].Text);
+            Assert.Equal(4, inspection.Problems[2].Location.Paragraph);
             Assert.Equal("<@if Receiver.Contact>", inspection.Problems[3].Text);
             Assert.Contains("never ends", inspection.Problems[3].Message);
         }
@@ -105,8 +155,10 @@ namespace Allos.Document.Inspection.Tests
             Assert.Contains("People", inspection.Paths);
             Assert.Contains("Images", inspection.Paths);
             Assert.Contains(inspection.Blocks, v => v.Tag.Kind == TagKind.For && v.Tag.Variable == "p" && v.Children.Any(c => c.Tag.Kind == TagKind.For && c.Tag.Variable == "p2"));
-            Assert.Contains(inspection.Pictures, v => v.Path == "image" && v.Block?.Tag.Variable == "image");
             Assert.All(inspection.Tags, v => Assert.True(v.Location.Paragraph > 0));
+
+            // The template binds its frame by the name $image, which the StringTemplate engine reads; a picture is bound by its description now
+            Assert.Empty(inspection.Pictures);
         }
 
         private static byte[] Resource(string name)

@@ -17,6 +17,7 @@ namespace Allors.Document.Inspection
     {
         private const string TextNamespace = "urn:oasis:names:tc:opendocument:xmlns:text:1.0";
         private const string DrawingNamespace = "urn:oasis:names:tc:opendocument:xmlns:drawing:1.0";
+        private const string SvgNamespace = "urn:oasis:names:tc:opendocument:xmlns:svg-compatible:1.0";
         private const string MetaNamespace = "urn:oasis:names:tc:opendocument:xmlns:meta:1.0";
 
         private static readonly Regex WhitespaceRegex = new Regex(@"\s+");
@@ -194,22 +195,43 @@ namespace Allors.Document.Inspection
                 }
             }
 
+            /// <summary>A frame whose description holds a tag is a bound picture (Image, Properties, Options, Description); its name stays the author's.</summary>
             private void VisitFrame(XmlElement element)
             {
-                var name = element.GetAttribute("name", DrawingNamespace).Trim();
-                if (!name.StartsWith("$"))
+                var description = Child(element, SvgNamespace, "desc")?.InnerText;
+                if (!TagSyntax.HoldsTag(description))
                 {
                     return;
                 }
 
                 var location = this.LocationOf(element);
-                if (!TagSyntax.TryParsePicture(name, out var path, out var error))
+                if (Child(element, DrawingNamespace, "image") == null)
                 {
-                    this.problems.Add(new InspectionProblem(name, error, location));
+                    this.problems.Add(new InspectionProblem(description.Trim(), "this frame holds no picture: a picture tag goes in the description of a picture", location));
                     return;
                 }
 
-                this.pictures.Add(new InspectedPicture(name, path, location, this.blocks.Count > 0 ? this.blocks.Peek() : null));
+                if (!TagSyntax.TryParsePicture(description, out var tag, out var error))
+                {
+                    this.problems.Add(new InspectionProblem(description.Trim(), error, location));
+                    return;
+                }
+
+                var name = element.GetAttribute("name", DrawingNamespace).Trim();
+                this.pictures.Add(new InspectedPicture(name, tag, location, this.blocks.Count > 0 ? this.blocks.Peek() : null, element));
+            }
+
+            private static XmlElement Child(XmlElement element, string ns, string localName)
+            {
+                foreach (XmlNode child in element.ChildNodes)
+                {
+                    if (child is XmlElement childElement && childElement.NamespaceURI == ns && childElement.LocalName == localName)
+                    {
+                        return childElement;
+                    }
+                }
+
+                return null;
             }
 
             private Location LocationOf(XmlElement element)

@@ -12,6 +12,9 @@ namespace Allors.Document.Tags
         /// <summary>A value at a path, with optional attributes: &lt;$path attr="value"&gt;.</summary>
         Binding,
 
+        /// <summary>The picture at a path, in the description of a picture frame: &lt;$path empty="remove|keep"&gt;.</summary>
+        Picture,
+
         /// <summary>A loop over the collection at a path, optionally ordered and counted: &lt;@for variable path sort="key, key desc" index="n"&gt;.</summary>
         For,
 
@@ -49,13 +52,13 @@ namespace Allors.Document.Tags
 
         public string Text { get; }
 
-        /// <summary>The path of a binding, a loop or a condition; null for an end tag.</summary>
+        /// <summary>The path of a binding, a picture, a loop or a condition; null for an end tag.</summary>
         public string Path { get; }
 
         /// <summary>The loop variable of a for tag; null otherwise.</summary>
         public string Variable { get; }
 
-        /// <summary>The attributes of a binding or a loop, by name (case-insensitive); empty otherwise.</summary>
+        /// <summary>The attributes of a binding, a picture or a loop, by name (case-insensitive); empty otherwise.</summary>
         public IReadOnlyDictionary<string, string> Attributes { get; }
 
         /// <summary>The sort keys of a loop, from its sort attribute, in order; empty otherwise.</summary>

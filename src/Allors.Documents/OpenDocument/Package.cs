@@ -46,7 +46,7 @@ namespace Allors.Document.OpenDocument
                             continue;
                         }
 
-                        Add(archive, file.Key, file.Value, CompressedImage.Is(file.Value) ? CompressionLevel.NoCompression : CompressionLevel.Optimal);
+                        Add(archive, file.Key, file.Value, PictureFormat.IsCompressedPicture(file.Value) ? CompressionLevel.NoCompression : CompressionLevel.Optimal);
                     }
                 }
 

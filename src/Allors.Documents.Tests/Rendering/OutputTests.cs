@@ -67,20 +67,21 @@ namespace Allos.Document.Rendering.Tests
         }
 
         [Fact]
-        public void PictureFramesPassThroughUntouched()
+        public void PlainPictureFramesPassThroughUntouched()
         {
             var placeholder = new byte[] { 0x89, 0x50, 0x4E, 0x47, 1, 2, 3 };
             var pictures = new Dictionary<string, byte[]> { ["placeholder.png"] = placeholder };
-            var package = Odt.Build(P(Odt.Frame("$Logo", "Pictures/placeholder.png")), pictures);
+            var package = Odt.Build(P(Odt.Frame("Logo", "Pictures/placeholder.png", "The company logo") + Odt.Frame("$Logo", "Pictures/placeholder.png")), pictures);
             var model = new Dictionary<string, object> { ["Logo"] = new byte[] { 9, 9, 9 } };
 
             var result = new OpenDocumentTemplate(package, string.Empty).Render(model, new RenderSettings());
 
-            var frame = Odt.Content(result.Document).Descendants(Odt.Draw + "frame").Single();
-            Assert.Equal("$Logo", (string)frame.Attribute(Odt.Draw + "name"));
-            Assert.Equal("Pictures/placeholder.png", (string)frame.Element(Odt.Draw + "image").Attribute(Odt.XLink + "href"));
+            // A frame binds by the tag in its description; a plain description or a name starting with $ binds nothing under this engine
+            Assert.Equal([("Logo", "Pictures/placeholder.png"), ("$Logo", "Pictures/placeholder.png")], Odt.Frames(Odt.Content(result.Document)));
+            Assert.Equal("The company logo", Odt.Content(result.Document).Descendants(Odt.Svg + "desc").Single().Value);
             Assert.Equal(placeholder, Odt.Entry(result.Document, "Pictures/placeholder.png").Bytes);
             Assert.True(Odt.Entry(result.Document, "Pictures/placeholder.png").Stored);
+            Assert.Equal(["Pictures/placeholder.png"], Odt.PictureFiles(result.Document));
             Assert.Equal(Odt.Entry(package, "META-INF/manifest.xml").Bytes, Odt.Entry(result.Document, "META-INF/manifest.xml").Bytes);
             Assert.Empty(result.Findings);
         }
@@ -140,8 +141,8 @@ namespace Allos.Document.Rendering.Tests
             Assert.Equal("<$p.LastName>", finding.Text);
             Assert.Equal("p has no member LastName", finding.Message);
 
-            // The frames bound by name repeat with the loop and keep their names until pictures bind by path
-            Assert.Equal(3, Odt.Content(result.Document).Descendants(Odt.Draw + "frame").Count(v => (string)v.Attribute(Odt.Draw + "name") == "$image"));
+            // The frame named $image is a plain frame under this engine; it repeats with the loop, and frame names are unique in a document
+            Assert.Equal(["$image", "$image 2", "$image 3"], Odt.Frames(Odt.Content(result.Document)).Select(v => v.Name).Where(v => v.StartsWith("$image")));
         }
 
         [Fact]

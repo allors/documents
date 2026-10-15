@@ -166,8 +166,9 @@ namespace Allors.Document.OpenDocument
         /// <summary>
         /// Renders the template for a model through a resolver. Every <c>&lt;$path&gt;</c> prints the value at its path, formatted by the
         /// settings, the template's document settings and the tag's attributes; <c>&lt;@if&gt;</c>, <c>&lt;@ifdef&gt;</c> and <c>&lt;@for&gt;</c>
-        /// keep, drop or repeat their blocks. The result carries the document and the findings: a member the model does not have prints
-        /// blank and is reported, a loop that cannot be ordered keeps its order and is reported. Picture frames pass through as they are.
+        /// keep, drop or repeat their blocks; a picture frame whose description is <c>&lt;$path&gt;</c> shows the picture at that path, or leaves
+        /// the document when there is none. The result carries the document and the findings: a member the model does not have prints
+        /// blank and is reported, a loop that cannot be ordered keeps its order and is reported, a value that is no picture is reported.
         /// Throws <see cref="TemplateException"/> when a block never ends, an end opens nothing or a block would cut a table.
         /// </summary>
         public RenderResult Render(object model, RenderSettings settings = null)
@@ -181,12 +182,14 @@ namespace Allors.Document.OpenDocument
             var resolver = settings.Resolver ?? DictionaryResolver.Instance;
             var formatting = settings.ToFormatting().With(this.documentSettings.Value);
 
-            var renderer = new Renderer(resolver, formatting, model);
+            var pictures = new Pictures(this.fileByFileName.Keys);
+            var renderer = new Renderer(resolver, formatting, model, pictures);
             var content = renderer.Render(this.contentProgram.Value);
             var styles = this.stylesProgram.Value == null ? null : renderer.Render(this.stylesProgram.Value);
 
+            var (files, manifest) = pictures.Files(this.fileByFileName, renderer.Hrefs, this.manifest);
             this.fileByFileName.TryGetValue(MimetypeFileName, out var mimetype);
-            var package = Package.Save(mimetype, content, styles, this.manifest, this.fileByFileName);
+            var package = Package.Save(mimetype, content, styles, manifest, files);
             return new RenderResult(package, renderer.Findings);
         }
     }

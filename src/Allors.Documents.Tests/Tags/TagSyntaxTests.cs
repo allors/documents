@@ -183,14 +183,54 @@ namespace Allos.Document.Tags.Tests
         }
 
         [Fact]
-        public void PictureFramesAreBoundByName()
+        public void APictureTagIsTheWholeDescriptionOfAFrame()
         {
-            Assert.True(TagSyntax.TryParsePicture("$Issuer.LogoImage", out var path, out var error), error);
-            Assert.Equal("Issuer.LogoImage", path);
+            Assert.True(TagSyntax.TryParsePicture(" <$Issuer.LogoImage empty=\"keep\"> ", out var tag, out var error), error);
 
-            Assert.False(TagSyntax.TryParsePicture("Logo", out _, out _));
-            Assert.False(TagSyntax.TryParsePicture("$", out _, out _));
-            Assert.False(TagSyntax.TryParsePicture("$item.Photo[0]", out _, out _));
+            Assert.Equal(TagKind.Picture, tag.Kind);
+            Assert.Equal("Issuer.LogoImage", tag.Path);
+            Assert.Equal("<$Issuer.LogoImage empty=\"keep\">", tag.Text);
+            Assert.Equal("keep", tag.Attributes["empty"]);
+            Assert.Null(tag.Variable);
+            Assert.Empty(tag.Sort);
+        }
+
+        [Theory]
+        [InlineData("Logo", "whole description")]
+        [InlineData("Company logo <$Logo>", "whole description")]
+        [InlineData("<$Logo> <$Barcode>", "one <$path> tag")]
+        [InlineData("<@for p Photos>", "not a block tag")]
+        [InlineData("<$item.Photo[0]>", "is not a path")]
+        [InlineData("<$>", "needs a path")]
+        [InlineData("<$Logo keep>", "unexpected text")]
+        public void ADescriptionThatIsNotOnePictureTagIsRefused(string description, string reason)
+        {
+            Assert.False(TagSyntax.TryParsePicture(description, out var tag, out var error));
+
+            Assert.Null(tag);
+            Assert.Contains(reason, error);
+        }
+
+        [Theory]
+        [InlineData("Company logo", false)]
+        [InlineData("", false)]
+        [InlineData(null, false)]
+        [InlineData("<$Logo>", true)]
+        [InlineData("see <$Logo> here", true)]
+        [InlineData("<@if Logo>", true)]
+        public void ADescriptionHoldsATagWhenATagStartsAnywhereInIt(string description, bool holdsTag) => Assert.Equal(holdsTag, TagSyntax.HoldsTag(description));
+
+        [Theory]
+        [InlineData("remove", true, false)]
+        [InlineData("keep", true, true)]
+        [InlineData("KEEP", true, true)]
+        [InlineData(" Keep ", true, true)]
+        [InlineData("maybe", false, false)]
+        [InlineData("", false, false)]
+        public void TheEmptyAttributeTakesRemoveOrKeepInAnyCase(string value, bool isValue, bool keeps)
+        {
+            Assert.Equal(isValue, TagSyntax.IsEmptyValue(value));
+            Assert.Equal(keeps, TagSyntax.KeepsWhenEmpty(value));
         }
     }
 }

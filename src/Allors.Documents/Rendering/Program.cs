@@ -16,7 +16,8 @@ namespace Allors.Document.Rendering
     /// <summary>
     /// A part of a template (content.xml or styles.xml) ready to render: its DOM with every tag replaced by an instruction element in the
     /// program's own namespace, a binding where its placeholder stood and a block around what sits between its two tags, with the paragraphs
-    /// or rows that held the block tags gone. Built once per template and never changed; every render walks it.
+    /// or rows that held the block tags gone; a bound picture frame stays where it is and is an instruction itself. Built once per template
+    /// and never changed; every render walks it.
     /// A block that never ends, an end that opens nothing, or a block that would cut a table throws <see cref="TemplateException"/>.
     /// </summary>
     internal sealed class Program
@@ -68,6 +69,11 @@ namespace Allors.Document.Rendering
             if (misplaced.Count > 0)
             {
                 throw new TemplateException(misplaced);
+            }
+
+            foreach (var picture in pictures)
+            {
+                instructions.Add(picture.Element, new Instruction(picture.Tag, picture.Location));
             }
 
             root.Rewrite(pair =>

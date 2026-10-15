@@ -68,10 +68,28 @@ namespace Allors.Document.Validation
             foreach (var picture in inspection.Pictures)
             {
                 var scope = picture.Block == null ? rootScope : this.scopeByBlock[picture.Block];
-                this.CheckPath(picture.Path, scope, picture.FrameName, picture.Location);
+                this.CheckPicture(picture, scope);
             }
 
             this.CheckSettings(inspection.Settings);
+        }
+
+        private void CheckPicture(InspectedPicture picture, Scope scope)
+        {
+            var tag = picture.Tag;
+            this.CheckPath(tag.Path, scope, tag.Text, picture.Location);
+
+            foreach (var attribute in tag.Attributes)
+            {
+                if (!TagSyntax.IsPictureAttribute(attribute.Key))
+                {
+                    this.Add(FindingKind.UnknownAttribute, FindingSeverity.Error, tag.Text, null, "a picture has no attribute '" + attribute.Key + "': use " + string.Join(", ", TagSyntax.PictureAttributes), picture.Location);
+                }
+                else if (!TagSyntax.IsEmptyValue(attribute.Value))
+                {
+                    this.Add(FindingKind.BadValue, FindingSeverity.Error, tag.Text, null, TagSyntax.EmptyAttribute + "=\"" + attribute.Value + "\": use " + TagSyntax.RemoveValue + " or " + TagSyntax.KeepValue, picture.Location);
+                }
+            }
         }
 
         private void Visit(InspectedTag tag, Scope scope)

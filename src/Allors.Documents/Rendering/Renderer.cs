@@ -7,56 +7,61 @@ namespace Allors.Document.Rendering
 {
     using System;
     using System.Collections.Generic;
-    using System.IO;
     using System.Linq;
-    using System.Text;
     using System.Xml;
     using Allors.Document.Models;
+    using Allors.Document.OpenDocument;
     using Allors.Document.Tags;
     using Allors.Document.Validation;
+    using Allors.Document.Xml;
     using Formatting = Allors.Document.Models.Formatting;
 
     /// <summary>
     /// Renders programs for one model: walks a program's DOM and writes it as XML, with every binding replaced by its formatted value,
-    /// every condition kept or dropped and every loop repeated, and reports what the template asks that the model cannot give.
-    /// One renderer serves one render; a program is shared between renders and never changed.
+    /// every condition kept or dropped, every loop repeated and every bound picture frame showing its picture, and reports what the
+    /// template asks that the model cannot give. One renderer serves one render, both parts; a program is shared between renders and never changed.
     /// The output reads as the template did: its declaration, no byte order mark, a full end tag on every element.
     /// </summary>
     internal sealed class Renderer
     {
-        private static readonly byte[] Declaration = Encoding.ASCII.GetBytes("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n");
-
-        private static readonly XmlWriterSettings WriterSettings = new XmlWriterSettings
-        {
-            Encoding = new UTF8Encoding(false),
-            OmitXmlDeclaration = true,
-            ConformanceLevel = ConformanceLevel.Fragment,
-            NewLineHandling = NewLineHandling.None,
-            CloseOutput = false,
-        };
+        private const string DrawingNamespace = "urn:oasis:names:tc:opendocument:xmlns:drawing:1.0";
+        private const string SvgNamespace = "urn:oasis:names:tc:opendocument:xmlns:svg-compatible:1.0";
+        private const string OfficeNamespace = "urn:oasis:names:tc:opendocument:xmlns:office:1.0";
+        private const string LoExtNamespace = "urn:org:documentfoundation:names:experimental:office:xmlns:loext:1.0";
+        private const string XLinkNamespace = "http://www.w3.org/1999/xlink";
 
         private readonly IResolver resolver;
         private readonly Formatting formatting;
         private readonly Formatting counterFormatting;
         private readonly object model;
+        private readonly Pictures pictures;
         private readonly List<Finding> findings = new List<Finding>();
-        private readonly HashSet<(Instruction, string)> reported = new HashSet<(Instruction, string)>();
+        private readonly HashSet<(Instruction, FindingKind, string)> reported = new HashSet<(Instruction, FindingKind, string)>();
+        private readonly HashSet<string> frameNames = new HashSet<string>();
+        private readonly HashSet<string> hrefs = new HashSet<string>();
 
         private Program program;
         private XmlWriter writer;
 
-        public Renderer(IResolver resolver, Formatting formatting, object model)
+        public Renderer(IResolver resolver, Formatting formatting, object model, Pictures pictures)
         {
             this.resolver = resolver;
             this.formatting = formatting;
             this.model = model;
+            this.pictures = pictures;
 
             // The number pattern is for the model's amounts; a loop counter prints as a plain integer unless its tag says otherwise
             this.counterFormatting = formatting.With(new[] { new KeyValuePair<string, string>(Formatting.NumberSetting, null) });
         }
 
-        /// <summary>Every finding of the parts rendered so far, in render order; a member or a loop is reported once per tag.</summary>
+        /// <summary>Every finding of the parts rendered so far, in render order; a member, a loop or a picture is reported once per tag.</summary>
         public IReadOnlyList<Finding> Findings => this.findings;
+
+        /// <summary>The pictures the parts rendered so far put into the package.</summary>
+        public Pictures Pictures => this.pictures;
+
+        /// <summary>Every file the parts rendered so far link to, by its xlink:href. A template picture outside this set is shown nowhere.</summary>
+        public ICollection<string> Hrefs => this.hrefs;
 
         /// <summary>The part as the document holds it, with every instruction executed for the model.</summary>
         public byte[] Render(Program program)
@@ -64,18 +69,20 @@ namespace Allors.Document.Rendering
             this.program = program;
             this.findings.AddRange(program.Findings);
 
-            using (var output = new MemoryStream())
+            return XmlOutput.Write(xmlWriter =>
             {
-                output.Write(Declaration, 0, Declaration.Length);
-                using (var xmlWriter = XmlWriter.Create(output, WriterSettings))
-                {
-                    this.writer = xmlWriter;
-                    this.Write(program.Document.DocumentElement, new Scope(this.model));
-                }
-
-                return output.ToArray();
-            }
+                this.writer = xmlWriter;
+                this.Write(program.Document.DocumentElement, new Scope(this.model));
+            });
         }
+
+        private static bool IsFrame(XmlElement element) => element.LocalName == "frame" && element.NamespaceURI == DrawingNamespace;
+
+        private static bool IsName(XmlAttribute attribute) => attribute.LocalName == "name" && attribute.NamespaceURI == DrawingNamespace;
+
+        private static bool IsHref(XmlAttribute attribute) => attribute.LocalName == "href" && attribute.NamespaceURI == XLinkNamespace;
+
+        private static bool Is(XmlNode node, string ns, string localName) => node is XmlElement element && element.LocalName == localName && element.NamespaceURI == ns;
 
         private void Write(XmlNode node, Scope scope)
         {
@@ -114,17 +121,35 @@ namespace Allors.Document.Rendering
         private void WriteElement(XmlElement element, Scope scope)
         {
             this.writer.WriteStartElement(element.Prefix, element.LocalName, element.NamespaceURI);
-
-            if (element.HasAttributes)
-            {
-                foreach (XmlAttribute attribute in element.Attributes)
-                {
-                    this.writer.WriteAttributeString(attribute.Prefix, attribute.LocalName, attribute.NamespaceURI, attribute.Value);
-                }
-            }
-
+            this.WriteAttributes(element, IsFrame(element));
             this.WriteChildren(element, scope);
             this.writer.WriteFullEndElement();
+        }
+
+        /// <summary>
+        /// Attributes pass as they are, except that a frame's name is made unique in the document, as Writer requires of frames; every link is noted.
+        /// </summary>
+        private void WriteAttributes(XmlElement element, bool isFrame)
+        {
+            if (!element.HasAttributes)
+            {
+                return;
+            }
+
+            foreach (XmlAttribute attribute in element.Attributes)
+            {
+                var value = attribute.Value;
+                if (isFrame && IsName(attribute))
+                {
+                    value = this.UniqueFrameName(value);
+                }
+                else if (IsHref(attribute))
+                {
+                    this.hrefs.Add(value);
+                }
+
+                this.writer.WriteAttributeString(attribute.Prefix, attribute.LocalName, attribute.NamespaceURI, value);
+            }
         }
 
         private void WriteChildren(XmlElement element, Scope scope)
@@ -141,6 +166,10 @@ namespace Allors.Document.Rendering
             {
                 case TagKind.Binding:
                     this.WriteBinding(instruction, scope);
+                    break;
+
+                case TagKind.Picture:
+                    this.WritePicture(instruction, element, scope);
                     break;
 
                 case TagKind.If:
@@ -188,6 +217,127 @@ namespace Allors.Document.Rendering
             ValueWriter.Write(this.writer, this.resolver.Format(value, effective));
         }
 
+        /// <summary>
+        /// A bound frame shows the picture at its path: the bytes go into the package once per distinct content and the frame's image links to
+        /// them, with the media type the bytes say. Without a picture the frame leaves the document, unless its tag says empty="keep", in which
+        /// case it keeps the template's picture. The description that held the tag leaves the output; the title and the rest of the frame stay.
+        /// </summary>
+        private void WritePicture(Instruction instruction, XmlElement frame, Scope scope)
+        {
+            var href = this.StorePicture(instruction, scope, out var mediaType);
+            if (href == null && !(instruction.Tag.Attributes.TryGetValue(TagSyntax.EmptyAttribute, out var empty) && TagSyntax.KeepsWhenEmpty(empty)))
+            {
+                return;
+            }
+
+            this.writer.WriteStartElement(frame.Prefix, frame.LocalName, frame.NamespaceURI);
+            this.WriteAttributes(frame, true);
+
+            var image = href == null ? null : frame.ChildNodes.Cast<XmlNode>().FirstOrDefault(v => Is(v, DrawingNamespace, "image"));
+            for (var child = frame.FirstChild; child != null; child = child.NextSibling)
+            {
+                if (child == image)
+                {
+                    this.WriteImage((XmlElement)child, href, mediaType, scope);
+                }
+                else if (!Is(child, SvgNamespace, "desc"))
+                {
+                    this.Write(child, scope);
+                }
+            }
+
+            this.writer.WriteFullEndElement();
+        }
+
+        /// <summary>
+        /// The file in the package that holds the picture at the tag's path, or null when there is none: a null value gives none in silence; an
+        /// unknown member, a value that is no picture and bytes in no format the library knows give none and are reported once per tag.
+        /// </summary>
+        private string StorePicture(Instruction instruction, Scope scope, out string mediaType)
+        {
+            mediaType = null;
+            var path = instruction.Tag.Path;
+            if (!this.TryResolve(instruction, path, scope, out var value) || value == null)
+            {
+                return null;
+            }
+
+            var bytes = this.resolver.Picture(value);
+            if (bytes == null)
+            {
+                this.Report(instruction, FindingKind.NotAPicture, FindingSeverity.Error, path, "'" + path + "' is not a picture: it is a " + value.GetType().Name);
+                return null;
+            }
+
+            var format = PictureFormat.Sniff(bytes);
+            if (format == null)
+            {
+                this.Report(instruction, FindingKind.NotAPicture, FindingSeverity.Error, path, "the bytes at '" + path + "' are in no picture format the library knows: use " + PictureFormat.Names);
+                return null;
+            }
+
+            mediaType = format.MediaType;
+            return this.pictures.Add(path, bytes, format);
+        }
+
+        /// <summary>The image links to the stored picture, with its media type, in place of the template's; a picture embedded in the element leaves with it.</summary>
+        private void WriteImage(XmlElement image, string href, string mediaType, Scope scope)
+        {
+            this.writer.WriteStartElement(image.Prefix, image.LocalName, image.NamespaceURI);
+
+            var linked = false;
+            foreach (XmlAttribute attribute in image.Attributes)
+            {
+                var value = attribute.Value;
+                if (IsHref(attribute))
+                {
+                    value = href;
+                    linked = true;
+                }
+                else if (attribute.LocalName == "mime-type" && (attribute.NamespaceURI == DrawingNamespace || attribute.NamespaceURI == LoExtNamespace))
+                {
+                    value = mediaType;
+                }
+
+                this.writer.WriteAttributeString(attribute.Prefix, attribute.LocalName, attribute.NamespaceURI, value);
+            }
+
+            if (!linked)
+            {
+                this.writer.WriteAttributeString("xlink", "href", XLinkNamespace, href);
+            }
+
+            this.hrefs.Add(href);
+
+            for (var child = image.FirstChild; child != null; child = child.NextSibling)
+            {
+                if (!Is(child, OfficeNamespace, "binary-data"))
+                {
+                    this.Write(child, scope);
+                }
+            }
+
+            this.writer.WriteFullEndElement();
+        }
+
+        /// <summary>The name as given when no frame written so far has it; else the name with the first free number from 2 after it.</summary>
+        private string UniqueFrameName(string name)
+        {
+            if (string.IsNullOrEmpty(name) || this.frameNames.Add(name))
+            {
+                return name;
+            }
+
+            for (var number = 2; ; number++)
+            {
+                var candidate = name + " " + number;
+                if (this.frameNames.Add(candidate))
+                {
+                    return candidate;
+                }
+            }
+        }
+
         /// <summary>The body repeats per item, with the loop variable and the counter in scope; a path that breaks loops over nothing.</summary>
         private void WriteLoop(Instruction instruction, XmlElement element, Scope scope)
         {
@@ -226,11 +376,7 @@ namespace Allors.Document.Rendering
             catch (Exception e) when (e is ArgumentException || e.InnerException is ArgumentException)
             {
                 var cause = (e as ArgumentException ?? e.InnerException).Message;
-                if (this.reported.Add((instruction, instruction.Tag.Path)))
-                {
-                    this.findings.Add(new Finding(FindingKind.CannotSort, FindingSeverity.Warning, instruction.Tag.Text, instruction.Tag.Path, "the items keep the collection's order, they cannot be ordered by sort=\"" + string.Join(", ", keys) + "\": " + cause, instruction.Location));
-                }
-
+                this.Report(instruction, FindingKind.CannotSort, FindingSeverity.Warning, instruction.Tag.Path, "the items keep the collection's order, they cannot be ordered by sort=\"" + string.Join(", ", keys) + "\": " + cause);
                 return items;
             }
         }
@@ -320,14 +466,18 @@ namespace Allors.Document.Rendering
 
         private void ReportUnknownMember(Instruction instruction, string path, string[] segments, int index, string variable)
         {
-            if (!this.reported.Add((instruction, path)))
-            {
-                return;
-            }
-
             var prefix = variable == null ? string.Empty : variable + ".";
             var holder = index == 0 ? variable ?? "the model" : prefix + string.Join(".", segments, 0, index);
-            this.findings.Add(new Finding(FindingKind.UnknownMember, FindingSeverity.Error, instruction.Tag.Text, path, holder + " has no member " + segments[index], instruction.Location));
+            this.Report(instruction, FindingKind.UnknownMember, FindingSeverity.Error, path, holder + " has no member " + segments[index]);
+        }
+
+        /// <summary>Adds a finding for the tag, once per tag, kind and path in a render.</summary>
+        private void Report(Instruction instruction, FindingKind kind, FindingSeverity severity, string path, string message)
+        {
+            if (this.reported.Add((instruction, kind, path)))
+            {
+                this.findings.Add(new Finding(kind, severity, instruction.Tag.Text, path, message, instruction.Location));
+            }
         }
 
         private sealed class Keyed

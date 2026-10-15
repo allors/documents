@@ -11,7 +11,7 @@ namespace Allors.Document.Tags
 
     /// <summary>
     /// The tag language of a template: <c>&lt;$path attr="value"&gt;</c>, <c>&lt;@for variable path sort="key desc" index="n"&gt;</c>, <c>&lt;@if path&gt;</c>, <c>&lt;@ifdef path&gt;</c> and <c>&lt;@end&gt;</c> in placeholder fields,
-    /// and <c>$path</c> as the name of a picture frame. A path is a chain of member names; keywords are not case-sensitive.
+    /// and <c>&lt;$path empty="keep"&gt;</c> as the description of a picture frame. A path is a chain of member names; keywords are not case-sensitive.
     /// </summary>
     public static class TagSyntax
     {
@@ -25,6 +25,18 @@ namespace Allors.Document.Tags
         /// <summary>The attribute that names a loop's counter.</summary>
         public const string IndexAttribute = "index";
 
+        /// <summary>The attribute that says what a picture frame does without a picture: <see cref="RemoveValue"/>, the default, or <see cref="KeepValue"/>.</summary>
+        public const string EmptyAttribute = "empty";
+
+        /// <summary>The frame leaves the document when there is no picture.</summary>
+        public const string RemoveValue = "remove";
+
+        /// <summary>The frame keeps the template's picture when there is no picture.</summary>
+        public const string KeepValue = "keep";
+
+        /// <summary>The attributes a picture tag takes.</summary>
+        public static readonly IReadOnlyCollection<string> PictureAttributes = new[] { EmptyAttribute };
+
         private static readonly Regex AttributeRegex = new Regex(@"\G\s+([A-Za-z_][A-Za-z0-9_-]*)\s*=\s*(?:""([^""]*)""|'([^']*)')");
 
         /// <summary>True when the text has the shape of a tag: it starts with <c>&lt;$</c> or <c>&lt;@</c> and ends with <c>&gt;</c>.</summary>
@@ -33,6 +45,18 @@ namespace Allors.Document.Tags
             var trimmed = text?.Trim();
             return trimmed != null && trimmed.Length >= 3 && trimmed[0] == '<' && (trimmed[1] == '$' || trimmed[1] == '@') && trimmed[trimmed.Length - 1] == '>';
         }
+
+        /// <summary>True when the text holds the start of a tag, <c>&lt;$</c> or <c>&lt;@</c>, anywhere: the author meant a tag, well-formed or not.</summary>
+        public static bool HoldsTag(string text) => text != null && (text.Contains("<$") || text.Contains("<@"));
+
+        /// <summary>True for an attribute a picture tag takes; names are not case-sensitive.</summary>
+        public static bool IsPictureAttribute(string name) => string.Equals(name, EmptyAttribute, StringComparison.OrdinalIgnoreCase);
+
+        /// <summary>True for a value the empty attribute takes: remove or keep, in any case.</summary>
+        public static bool IsEmptyValue(string value) => string.Equals(value?.Trim(), RemoveValue, StringComparison.OrdinalIgnoreCase) || KeepsWhenEmpty(value);
+
+        /// <summary>True when the value of the empty attribute says keep.</summary>
+        public static bool KeepsWhenEmpty(string value) => string.Equals(value?.Trim(), KeepValue, StringComparison.OrdinalIgnoreCase);
 
         /// <summary>True when the text is a plain path: member names separated by dots.</summary>
         public static bool IsPath(string text) => text != null && PathRegex.IsMatch(text);
@@ -118,27 +142,41 @@ namespace Allors.Document.Tags
             }
         }
 
-        /// <summary>The path a picture frame is bound to, when its name starts with <c>$</c>.</summary>
-        public static bool TryParsePicture(string frameName, out string path, out string error)
+        /// <summary>
+        /// Parses the description of a picture frame as a picture tag: one <c>&lt;$path attr="value"&gt;</c> and nothing else.
+        /// On failure the error says what is wrong, in the author's terms.
+        /// </summary>
+        public static bool TryParsePicture(string description, out Tag tag, out string error)
         {
-            path = null;
+            tag = null;
             error = null;
 
-            var trimmed = frameName?.Trim() ?? string.Empty;
-            if (trimmed.Length < 2 || trimmed[0] != '$')
+            var trimmed = description?.Trim() ?? string.Empty;
+            if (!IsTag(trimmed))
             {
-                error = "not a bound picture: the frame name starts with $";
+                error = "a picture tag is the whole description: <$Issuer.Logo>, with nothing before or after it";
                 return false;
             }
 
-            var candidate = trimmed.Substring(1).Trim();
-            if (!PathRegex.IsMatch(candidate))
+            if (trimmed[1] == '@')
             {
-                error = "'" + candidate + "' is not a path";
+                error = "a picture takes a <$path> tag, not a block tag";
                 return false;
             }
 
-            path = candidate;
+            if (trimmed.IndexOf('<', 1) >= 0 || trimmed.IndexOf('>') != trimmed.Length - 1)
+            {
+                error = "a picture takes one <$path> tag: the description holds more";
+                return false;
+            }
+
+            var inner = trimmed.Substring(2, trimmed.Length - 3).Trim();
+            if (!TryParsePathAndAttributes(inner, "<$> needs a path: <$Issuer.Logo>", out var path, out var attributes, out error))
+            {
+                return false;
+            }
+
+            tag = new Tag(TagKind.Picture, trimmed, path, null, attributes);
             return true;
         }
 
