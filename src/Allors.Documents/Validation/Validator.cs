@@ -25,6 +25,9 @@ namespace Allors.Document.Validation
 
         private static readonly Location SettingsLocation = new Location("meta.xml", 0, string.Empty);
 
+        /// <summary>A loop counter is a number: it has no members and is not a collection.</summary>
+        private static readonly IShape CounterShape = new DictionaryShape(new Dictionary<string, IShape>(), "the loop counter");
+
         private readonly IShape root;
         private readonly List<Finding> findings = new List<Finding>();
         private readonly Dictionary<InspectedTag, Scope> scopeByBlock = new Dictionary<InspectedTag, Scope>();
@@ -164,9 +167,9 @@ namespace Allors.Document.Validation
 
             foreach (var attribute in tag.Tag.Attributes)
             {
-                if (!string.Equals(attribute.Key, TagSyntax.SortAttribute, StringComparison.OrdinalIgnoreCase))
+                if (!string.Equals(attribute.Key, TagSyntax.SortAttribute, StringComparison.OrdinalIgnoreCase) && !string.Equals(attribute.Key, TagSyntax.IndexAttribute, StringComparison.OrdinalIgnoreCase))
                 {
-                    this.Add(FindingKind.UnknownAttribute, FindingSeverity.Error, tag.Tag.Text, null, "a loop has no attribute '" + attribute.Key + "': use sort", tag.Location);
+                    this.Add(FindingKind.UnknownAttribute, FindingSeverity.Error, tag.Tag.Text, null, "a loop has no attribute '" + attribute.Key + "': use sort or index", tag.Location);
                 }
             }
 
@@ -179,7 +182,18 @@ namespace Allors.Document.Validation
                 }
             }
 
-            return new Scope(scope, variable, variableShape);
+            var body = new Scope(scope, variable, variableShape);
+            if (tag.Tag.Index == null)
+            {
+                return body;
+            }
+
+            if (For.ReservedNames.Contains(tag.Tag.Index))
+            {
+                this.Add(FindingKind.ReservedName, FindingSeverity.Error, tag.Tag.Text, null, "'" + tag.Tag.Index + "' is reserved by the engine: name the loop counter differently", tag.Location);
+            }
+
+            return new Scope(body, tag.Tag.Index, CounterShape);
         }
 
         private void CheckPath(string path, Scope scope, string text, Location location)
@@ -275,27 +289,10 @@ namespace Allors.Document.Validation
                 return;
             }
 
-            string detail = null;
-            if (Is(begin, TableNamespace, "table-cell") || Is(finish, TableNamespace, "table-cell"))
+            var problem = BlockStructure.Problem(pair);
+            if (problem != null)
             {
-                detail = "the tags sit in two cells of one row, which removes those cells and breaks the row";
-            }
-            else if (Is(begin, TableNamespace, "table") && Is(finish, TableNamespace, "table"))
-            {
-                detail = "the tags sit in two tables, which removes both tables";
-            }
-            else if (Is(begin, TableNamespace, "table"))
-            {
-                detail = "the block begins in a table row and ends outside the table, which would repeat or remove the whole table";
-            }
-            else if (Is(finish, TableNamespace, "table"))
-            {
-                detail = "the block begins outside a table and ends in a table row, which would remove the whole table";
-            }
-
-            if (detail != null)
-            {
-                this.Add(FindingKind.BlockStructure, FindingSeverity.Error, block.Tag.Text, null, "a block begins and ends in paragraphs of one container or in rows of one table; " + detail, block.Location);
+                this.Add(FindingKind.BlockStructure, FindingSeverity.Error, block.Tag.Text, null, BlockStructure.Message(problem), block.Location);
                 return;
             }
 

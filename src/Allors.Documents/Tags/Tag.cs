@@ -12,7 +12,7 @@ namespace Allors.Document.Tags
         /// <summary>A value at a path, with optional attributes: &lt;$path attr="value"&gt;.</summary>
         Binding,
 
-        /// <summary>A loop over the collection at a path, optionally ordered: &lt;@for variable path sort="key, key desc"&gt;.</summary>
+        /// <summary>A loop over the collection at a path, optionally ordered and counted: &lt;@for variable path sort="key, key desc" index="n"&gt;.</summary>
         For,
 
         /// <summary>A block kept when the value at a path is true: &lt;@if path&gt;.</summary>
@@ -34,7 +34,7 @@ namespace Allors.Document.Tags
 
         private static readonly IReadOnlyList<SortKey> NoSort = new SortKey[0];
 
-        internal Tag(TagKind kind, string text, string path, string variable, IReadOnlyDictionary<string, string> attributes, IReadOnlyList<SortKey> sort = null)
+        internal Tag(TagKind kind, string text, string path, string variable, IReadOnlyDictionary<string, string> attributes, IReadOnlyList<SortKey> sort = null, string index = null)
         {
             this.Kind = kind;
             this.Text = text;
@@ -42,6 +42,7 @@ namespace Allors.Document.Tags
             this.Variable = variable;
             this.Attributes = attributes ?? NoAttributes;
             this.Sort = sort ?? NoSort;
+            this.Index = index;
         }
 
         public TagKind Kind { get; }
@@ -59,6 +60,9 @@ namespace Allors.Document.Tags
 
         /// <summary>The sort keys of a loop, from its sort attribute, in order; empty otherwise.</summary>
         public IReadOnlyList<SortKey> Sort { get; }
+
+        /// <summary>The name of a loop's counter, from its index attribute: 1 for the first item in the loop's order; null when the loop declares none.</summary>
+        public string Index { get; }
 
         public override string ToString() => this.Text;
     }

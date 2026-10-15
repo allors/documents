@@ -33,4 +33,7 @@
 		</PackageReference>
 		<PackageReference Include="StringTemplate4" Version="4.0.8" />
 	</ItemGroup>
+	<ItemGroup>
+		<InternalsVisibleTo Include="Allors.Documents.Tests" />
+	</ItemGroup>
 </Project>

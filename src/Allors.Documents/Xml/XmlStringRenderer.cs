@@ -5,6 +5,7 @@
 
 using System.Globalization;
 using System.Text;
+using Allors.Document.Rendering;
 using Antlr4.StringTemplate;
 
 namespace Allors.Document.Xml
@@ -66,7 +67,7 @@ namespace Allors.Document.Xml
         /// <summary>
         /// Escapes the value for paragraph text and writes its white space the way Writer saves typed text:
         /// a tab as text:tab, a line break as text:line-break and every space after the first of a run as text:s.
-        /// Other characters below U+0020 are dropped.
+        /// Characters XML cannot hold are dropped, as <see cref="ValueWriter"/> drops them.
         /// </summary>
         public static string XmlString(string text)
         {
@@ -75,60 +76,9 @@ namespace Allors.Document.Xml
                 return string.Empty;
             }
 
-            var stringBuilder = new StringBuilder(text.Length);
-            var spaces = 0;
-
-            for (var i = 0; i < text.Length; i++)
-            {
-                var chr = text[i];
-
-                if (chr == ' ')
-                {
-                    spaces++;
-                    continue;
-                }
-
-                AppendSpaces(stringBuilder, spaces);
-                spaces = 0;
-
-                switch (chr)
-                {
-                    case '<':
-                        stringBuilder.Append("&lt;");
-                        break;
-                    case '>':
-                        stringBuilder.Append("&gt;");
-                        break;
-                    case '&':
-                        stringBuilder.Append("&amp;");
-                        break;
-                    case '\t':
-                        stringBuilder.Append("<text:tab/>");
-                        break;
-                    case '\n':
-                        stringBuilder.Append("<text:line-break/>");
-                        break;
-                    case '\r':
-                        stringBuilder.Append("<text:line-break/>");
-                        if (i + 1 < text.Length && text[i + 1] == '\n')
-                        {
-                            i++;
-                        }
-
-                        break;
-                    default:
-                        if (chr >= ' ')
-                        {
-                            stringBuilder.Append(chr);
-                        }
-
-                        break;
-                }
-            }
-
-            AppendSpaces(stringBuilder, spaces);
-
-            return stringBuilder.ToString();
+            var sink = new StringSink(text.Length);
+            ValueWriter.Scan(text, sink);
+            return sink.ToString();
         }
 
         /// <summary>
@@ -172,23 +122,53 @@ namespace Allors.Document.Xml
             return stringBuilder.ToString();
         }
 
-        private static void AppendSpaces(StringBuilder stringBuilder, int count)
+        /// <summary>The pieces of a value as StringTemplate text: escaped, with the white space elements written out.</summary>
+        private sealed class StringSink : IValueSink
         {
-            if (count == 0)
+            private readonly StringBuilder stringBuilder;
+
+            public StringSink(int capacity) => this.stringBuilder = new StringBuilder(capacity);
+
+            public void Text(string text, int start, int length)
             {
-                return;
+                for (var i = start; i < start + length; i++)
+                {
+                    var chr = text[i];
+                    switch (chr)
+                    {
+                        case '<':
+                            this.stringBuilder.Append("&lt;");
+                            break;
+                        case '>':
+                            this.stringBuilder.Append("&gt;");
+                            break;
+                        case '&':
+                            this.stringBuilder.Append("&amp;");
+                            break;
+                        default:
+                            this.stringBuilder.Append(chr);
+                            break;
+                    }
+                }
             }
 
-            stringBuilder.Append(' ');
+            public void Spaces(int count)
+            {
+                if (count == 1)
+                {
+                    this.stringBuilder.Append("<text:s/>");
+                }
+                else
+                {
+                    this.stringBuilder.Append("<text:s text:c=\"").Append(count.ToString(CultureInfo.InvariantCulture)).Append("\"/>");
+                }
+            }
 
-            if (count == 2)
-            {
-                stringBuilder.Append("<text:s/>");
-            }
-            else if (count > 2)
-            {
-                stringBuilder.Append("<text:s text:c=\"").Append((count - 1).ToString(CultureInfo.InvariantCulture)).Append("\"/>");
-            }
+            public void Tab() => this.stringBuilder.Append("<text:tab/>");
+
+            public void LineBreak() => this.stringBuilder.Append("<text:line-break/>");
+
+            public override string ToString() => this.stringBuilder.ToString();
         }
     }
 }

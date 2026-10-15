@@ -10,7 +10,7 @@ namespace Allors.Document.Tags
     using System.Text.RegularExpressions;
 
     /// <summary>
-    /// The tag language of a template: <c>&lt;$path attr="value"&gt;</c>, <c>&lt;@for variable path sort="key desc"&gt;</c>, <c>&lt;@if path&gt;</c>, <c>&lt;@ifdef path&gt;</c> and <c>&lt;@end&gt;</c> in placeholder fields,
+    /// The tag language of a template: <c>&lt;$path attr="value"&gt;</c>, <c>&lt;@for variable path sort="key desc" index="n"&gt;</c>, <c>&lt;@if path&gt;</c>, <c>&lt;@ifdef path&gt;</c> and <c>&lt;@end&gt;</c> in placeholder fields,
     /// and <c>$path</c> as the name of a picture frame. A path is a chain of member names; keywords are not case-sensitive.
     /// </summary>
     public static class TagSyntax
@@ -21,6 +21,9 @@ namespace Allors.Document.Tags
 
         /// <summary>The attribute that orders a loop.</summary>
         public const string SortAttribute = "sort";
+
+        /// <summary>The attribute that names a loop's counter.</summary>
+        public const string IndexAttribute = "index";
 
         private static readonly Regex AttributeRegex = new Regex(@"\G\s+([A-Za-z_][A-Za-z0-9_-]*)\s*=\s*(?:""([^""]*)""|'([^']*)')");
 
@@ -86,7 +89,12 @@ namespace Allors.Document.Tags
                         return false;
                     }
 
-                    tag = new Tag(TagKind.For, trimmed, collection, variable, loopAttributes, sort);
+                    if (!TryParseIndex(loopAttributes, variable, out var index, out error))
+                    {
+                        return false;
+                    }
+
+                    tag = new Tag(TagKind.For, trimmed, collection, variable, loopAttributes, sort, index);
                     return true;
 
                 case "if":
@@ -220,6 +228,34 @@ namespace Allors.Document.Tags
             }
 
             sort = keys;
+            return true;
+        }
+
+        /// <summary>The index attribute of a loop: the name under which the body reads the item's position, 1 for the first item in the loop's order.</summary>
+        private static bool TryParseIndex(IReadOnlyDictionary<string, string> attributes, string variable, out string index, out string error)
+        {
+            index = null;
+            error = null;
+
+            if (!attributes.TryGetValue(IndexAttribute, out var text))
+            {
+                return true;
+            }
+
+            var name = text.Trim();
+            if (!NameRegex.IsMatch(name))
+            {
+                error = "index=\"" + text + "\": the counter's name '" + name + "' is not a name";
+                return false;
+            }
+
+            if (name == variable)
+            {
+                error = "index=\"" + text + "\": the counter needs a name other than the loop variable's";
+                return false;
+            }
+
+            index = name;
             return true;
         }
 

@@ -7,7 +7,6 @@ namespace Allors.Document.OpenDocument
 {
     using System.Collections.Generic;
     using System.IO;
-    using System.IO.Compression;
     using System.Linq;
     using System.Text;
     using System.Xml;
@@ -83,43 +82,8 @@ namespace Allors.Document.OpenDocument
                 }
             }
 
-            using (var zip = new MemoryStream())
-            {
-                using (var archive = new ZipArchive(zip, ZipArchiveMode.Create))
-                {
-                    // ODF 1.2 part 3, 3.3: the mimetype entry comes first, uncompressed and without an extra field, so that the media type sits at a fixed offset
-                    if (this.fileByFileName.TryGetValue(OpenDocumentTemplate.MimetypeFileName, out var mimetype))
-                    {
-                        Save(archive, OpenDocumentTemplate.MimetypeFileName, mimetype, CompressionLevel.NoCompression);
-                    }
-
-                    Save(archive, OpenDocumentTemplate.ContentFileName, Encoding.UTF8.GetBytes(contentGenerated), CompressionLevel.Optimal);
-                    Save(archive, OpenDocumentTemplate.StylesFileName, Encoding.UTF8.GetBytes(stylesGenerated), CompressionLevel.Optimal);
-                    Save(archive, OpenDocumentTemplate.MetaFileName, this.manifestFile, CompressionLevel.Optimal);
-
-                    foreach (var kvp in this.fileByFileName)
-                    {
-                        var fileName = kvp.Key;
-                        if (fileName.Equals(OpenDocumentTemplate.MimetypeFileName))
-                        {
-                            continue;
-                        }
-
-                        Save(archive, fileName, kvp.Value, CompressedImage.Is(kvp.Value) ? CompressionLevel.NoCompression : CompressionLevel.Optimal);
-                    }
-                }
-
-                return zip.ToArray();
-            }
-        }
-
-        private static void Save(ZipArchive archive, string fileName, byte[] file, CompressionLevel compressionLevel)
-        {
-            var entry = archive.CreateEntry(fileName, compressionLevel);
-            using (var zipStream = entry.Open())
-            {
-                zipStream.Write(file, 0, file.Length);
-            }
+            this.fileByFileName.TryGetValue(OpenDocumentTemplate.MimetypeFileName, out var mimetype);
+            return Package.Save(mimetype, Encoding.UTF8.GetBytes(contentGenerated), Encoding.UTF8.GetBytes(stylesGenerated), this.manifestFile, this.fileByFileName);
         }
 
         /// <summary>Loads a rendered part. Every white space character in it is the author's, so none is dropped.</summary>

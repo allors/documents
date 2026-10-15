@@ -8,7 +8,6 @@ namespace Allors.Document.Inspection
     using System.Collections.Generic;
     using System.IO;
     using System.IO.Compression;
-    using System.Text;
     using System.Text.RegularExpressions;
     using System.Xml;
     using Allors.Document.Tags;
@@ -58,23 +57,13 @@ namespace Allors.Document.Inspection
                 }
             }
 
-            var settings = new Dictionary<string, string>();
-            if (parts.TryGetValue("meta.xml", out var meta))
-            {
-                foreach (XmlElement element in Load(meta).GetElementsByTagName("user-defined", MetaNamespace))
-                {
-                    var name = element.GetAttribute("name", MetaNamespace);
-                    if (!string.IsNullOrEmpty(name))
-                    {
-                        settings[name] = element.InnerText;
-                    }
-                }
-            }
+            var settings = parts.TryGetValue("meta.xml", out var meta) ? Settings(Load(meta)) : new Dictionary<string, string>();
 
             return new TemplateInspection(tags, pictures, settings, problems);
         }
 
-        private static XmlDocument Load(byte[] xml)
+        /// <summary>Loads a part with every white space character kept: Writer saves a part without indentation, so every one is the author's.</summary>
+        internal static XmlDocument Load(byte[] xml)
         {
             var document = new XmlDocument { PreserveWhitespace = true };
             using (var stream = new MemoryStream(xml))
@@ -85,7 +74,24 @@ namespace Allors.Document.Inspection
             return document;
         }
 
-        private sealed class PartWalker
+        /// <summary>The custom document properties of meta.xml (File, Properties, Custom Properties), by name.</summary>
+        internal static IReadOnlyDictionary<string, string> Settings(XmlDocument meta)
+        {
+            var settings = new Dictionary<string, string>();
+            foreach (XmlElement element in meta.GetElementsByTagName("user-defined", MetaNamespace))
+            {
+                var name = element.GetAttribute("name", MetaNamespace);
+                if (!string.IsNullOrEmpty(name))
+                {
+                    settings[name] = element.InnerText;
+                }
+            }
+
+            return settings;
+        }
+
+        /// <summary>Walks one part and collects its tags as a tree, its bound frames and what cannot be read. The part is not changed.</summary>
+        internal sealed class PartWalker
         {
             private readonly string part;
             private readonly XmlDocument document;

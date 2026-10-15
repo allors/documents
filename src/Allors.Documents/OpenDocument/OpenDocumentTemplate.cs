@@ -12,6 +12,7 @@ namespace Allors.Document.OpenDocument
     using System.Linq;
     using Allors.Document.Inspection;
     using Allors.Document.Models;
+    using Allors.Document.Rendering;
     using Allors.Document.Validation;
     using Allors.Document.Xml;
     using Antlr4.StringTemplate;
@@ -27,9 +28,11 @@ namespace Allors.Document.OpenDocument
 
         internal const string MimetypeFileName = "mimetype";
 
-        protected const char DefaultLeftDelimiter = '\u02C2';
+        private const string DocumentMetaFileName = "meta.xml";
 
-        protected const char DefaultRightDelimiter = '\u02C3';
+        protected const char DefaultLeftDelimiter = '˂';
+
+        protected const char DefaultRightDelimiter = '˃';
 
         private const string MainTemplateName = "main";
 
@@ -41,9 +44,18 @@ namespace Allors.Document.OpenDocument
 
         private readonly byte[] manifest;
 
+        private readonly Lazy<Program> contentProgram;
+
+        private readonly Lazy<Program> stylesProgram;
+
+        private readonly Lazy<IReadOnlyDictionary<string, string>> documentSettings;
+
         public OpenDocumentTemplate(byte[] document, string arguments, char leftDelimiter = DefaultLeftDelimiter, char rightDelimiter = DefaultRightDelimiter)
         {
             this.fileByFileName = new Dictionary<string, byte[]>();
+
+            byte[] contentXml = null;
+            byte[] stylesXml = null;
 
             using (var zip = new MemoryStream(document))
             {
@@ -62,6 +74,8 @@ namespace Allors.Document.OpenDocument
 
                                 if (entry.FullName.Equals(ContentFileName))
                                 {
+                                    contentXml = file;
+
                                     var errorBuffer = new ErrorBuffer();
 
                                     var content = new OpenDocumentTemplateContent(file, leftDelimiter, rightDelimiter);
@@ -83,6 +97,8 @@ namespace Allors.Document.OpenDocument
                                 }
                                 else if (entry.FullName.Equals(StylesFileName))
                                 {
+                                    stylesXml = file;
+
                                     var errorBuffer = new ErrorBuffer();
 
                                     var content = new OpenDocumentTemplateContent(file, leftDelimiter, rightDelimiter);
@@ -115,6 +131,11 @@ namespace Allors.Document.OpenDocument
                     }
                 }
             }
+
+            // The programs of the resolver engine are built on the first Render(object, RenderSettings) and kept; a template that cannot render throws there
+            this.contentProgram = new Lazy<Program>(() => contentXml == null ? throw new InvalidDataException("the package has no content.xml: it is not an OpenDocument text") : Program.Build(ContentFileName, contentXml));
+            this.stylesProgram = new Lazy<Program>(() => stylesXml == null ? null : Program.Build(StylesFileName, stylesXml));
+            this.documentSettings = new Lazy<IReadOnlyDictionary<string, string>>(() => this.fileByFileName.TryGetValue(DocumentMetaFileName, out var meta) ? Inspector.Settings(Inspector.Load(meta)) : new Dictionary<string, string>());
         }
 
 #if NET
@@ -140,6 +161,33 @@ namespace Allors.Document.OpenDocument
             var clonedFileByFileName = new Dictionary<string, byte[]>(this.fileByFileName);
             var render = new OpenDocumentRendering(model, this.manifest, imageByName, this.ContentTemplateGroup, this.StylesTemplateGroup, clonedFileByFileName);
             return render.Execute();
+        }
+
+        /// <summary>
+        /// Renders the template for a model through a resolver. Every <c>&lt;$path&gt;</c> prints the value at its path, formatted by the
+        /// settings, the template's document settings and the tag's attributes; <c>&lt;@if&gt;</c>, <c>&lt;@ifdef&gt;</c> and <c>&lt;@for&gt;</c>
+        /// keep, drop or repeat their blocks. The result carries the document and the findings: a member the model does not have prints
+        /// blank and is reported, a loop that cannot be ordered keeps its order and is reported. Picture frames pass through as they are.
+        /// Throws <see cref="TemplateException"/> when a block never ends, an end opens nothing or a block would cut a table.
+        /// </summary>
+        public RenderResult Render(object model, RenderSettings settings = null)
+        {
+            if (model == null)
+            {
+                throw new ArgumentNullException(nameof(model));
+            }
+
+            settings = settings ?? new RenderSettings();
+            var resolver = settings.Resolver ?? DictionaryResolver.Instance;
+            var formatting = settings.ToFormatting().With(this.documentSettings.Value);
+
+            var renderer = new Renderer(resolver, formatting, model);
+            var content = renderer.Render(this.contentProgram.Value);
+            var styles = this.stylesProgram.Value == null ? null : renderer.Render(this.stylesProgram.Value);
+
+            this.fileByFileName.TryGetValue(MimetypeFileName, out var mimetype);
+            var package = Package.Save(mimetype, content, styles, this.manifest, this.fileByFileName);
+            return new RenderResult(package, renderer.Findings);
         }
     }
 }

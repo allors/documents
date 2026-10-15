@@ -40,5 +40,11 @@ namespace Allors.Document.Validation
 
         /// <summary>A document setting the library does not know.</summary>
         UnknownSetting,
+
+        /// <summary>A loop whose sort keys cannot be ordered against each other at render time; it keeps the collection's order.</summary>
+        CannotSort,
+
+        /// <summary>A value bound to a picture frame that is not a picture.</summary>
+        NotAPicture,
     }
 }

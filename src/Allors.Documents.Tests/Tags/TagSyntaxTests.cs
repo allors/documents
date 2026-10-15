@@ -77,6 +77,23 @@ namespace Allos.Document.Tags.Tests
             Assert.Empty(tag.Sort);
         }
 
+        [Fact]
+        public void LoopsCarryACounterName()
+        {
+            Assert.True(TagSyntax.TryParse("<@for line Invoice.Lines index=\"n\" sort=\"Quantity\">", out var tag, out var error), error);
+
+            Assert.Equal("n", tag.Index);
+            Assert.Equal("n", tag.Attributes["INDEX"]);
+            Assert.Single(tag.Sort);
+        }
+
+        [Fact]
+        public void LoopsWithoutAnIndexHaveNoCounter()
+        {
+            Assert.True(TagSyntax.TryParse("<@for item Lines>", out var tag, out _));
+            Assert.Null(tag.Index);
+        }
+
         [Theory]
         [InlineData("<@for item Lines sort=\"Name down\">", "expected asc or desc after 'Name', not 'down'")]
         [InlineData("<@for item Lines sort=\"Name,,Date\">", "a key is missing between the commas")]
@@ -84,6 +101,8 @@ namespace Allos.Document.Tags.Tests
         [InlineData("<@for item Lines sort=\"1st\">", "'1st' is not a path")]
         [InlineData("<@for item Lines sort=\"a b c\">", "expected asc or desc after 'a', not 'b c'")]
         [InlineData("<@for item Lines extra>", "unexpected text after the path")]
+        [InlineData("<@for item Lines index=\"1st\">", "the counter's name '1st' is not a name")]
+        [InlineData("<@for item Lines index=\"item\">", "a name other than the loop variable's")]
         [InlineData("<@for item>", "needs a variable and a path")]
         [InlineData("<@for item  >", "needs a variable and a path")]
         public void BadLoopAttributesAreRefusedWithAReason(string text, string reason)

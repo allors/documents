@@ -14,14 +14,16 @@ namespace Allos.Document.OpenDocument.Tests
     using Allors.Document.OpenDocument;
     using Xunit;
 
+    /// <summary>The package both engines write, and the pictures the StringTemplate engine binds by name.</summary>
     public class PackageTests
     {
-        [Fact]
-        public void MimetypeIsTheFirstEntryStoredWithoutAnExtraField()
+        [Theory]
+        [MemberData(nameof(Engine.Both), MemberType = typeof(Engine))]
+        public void MimetypeIsTheFirstEntryStoredWithoutAnExtraField(Engine engine)
         {
             var package = Odt.Build("<text:p>body</text:p>");
 
-            var rendered = new OpenDocumentTemplate(package, string.Empty).Render(new Dictionary<string, object>());
+            var rendered = engine.Render(package, string.Empty, new Dictionary<string, object>());
 
             var first = Odt.Entries(rendered)[0];
             Assert.Equal("mimetype", first.Name);
@@ -37,12 +39,13 @@ namespace Allos.Document.OpenDocument.Tests
             Assert.Equal(Odt.MediaType, Encoding.ASCII.GetString(rendered, 38, Odt.MediaType.Length));
         }
 
-        [Fact]
-        public void TemplateWithoutMimetypeStillRenders()
+        [Theory]
+        [MemberData(nameof(Engine.Both), MemberType = typeof(Engine))]
+        public void TemplateWithoutMimetypeStillRenders(Engine engine)
         {
             var package = Odt.Build("<text:p>body</text:p>", withMimetype: false);
 
-            var rendered = new OpenDocumentTemplate(package, string.Empty).Render(new Dictionary<string, object>());
+            var rendered = engine.Render(package, string.Empty, new Dictionary<string, object>());
 
             Assert.DoesNotContain(Odt.Entries(rendered), v => v.Name == "mimetype");
             Assert.Equal("body", Odt.Paragraphs(Odt.Content(rendered)));
@@ -103,6 +106,23 @@ namespace Allos.Document.OpenDocument.Tests
             Assert.False(Odt.Entry(rendered, "Pictures/drawing.svg").Stored);
             Assert.False(Odt.Entry(rendered, "content.xml").Stored);
             Assert.False(Odt.Entry(rendered, "styles.xml").Stored);
+        }
+
+        [Fact]
+        public void TemplatePicturesKeepTheirCompressionUnderTheResolverEngine()
+        {
+            var png = new byte[] { 0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16 };
+            var svg = Encoding.ASCII.GetBytes("<svg xmlns='http://www.w3.org/2000/svg'><rect width='1' height='1'/></svg>");
+            var pictures = new Dictionary<string, byte[]> { ["placeholder.png"] = png, ["drawing.svg"] = svg };
+            var package = Odt.Build("<text:p>" + Odt.Frame("Image1", "Pictures/placeholder.png") + "</text:p>", pictures);
+
+            var rendered = new OpenDocumentTemplate(package, string.Empty).Render(new Dictionary<string, object>(), new RenderSettings()).Document;
+
+            Assert.True(Odt.Entry(rendered, "Pictures/placeholder.png").Stored);
+            Assert.False(Odt.Entry(rendered, "Pictures/drawing.svg").Stored);
+            Assert.False(Odt.Entry(rendered, "content.xml").Stored);
+            Assert.False(Odt.Entry(rendered, "styles.xml").Stored);
+            Assert.False(Odt.Entry(rendered, "META-INF/manifest.xml").Stored);
         }
 
         [Fact]
