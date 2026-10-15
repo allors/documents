@@ -35,7 +35,7 @@ A template over a model type sees the public properties of `T` by their exact na
 ```csharp
 var template = new OpenDocumentTemplate(templateBytes);
 var model = new Dictionary<string, object> { ["Invoice"] = invoice, ["Issuer"] = issuer };
-var settings = new RenderSettings { Resolver = ReflectionResolver.Instance, Culture = new CultureInfo("nl-BE"), Number = "N2" };
+var settings = new RenderSettings { Resolver = ReflectionResolver.Instance, Culture = new CultureInfo("nl-BE"), DateCulture = CultureInfo.InvariantCulture, Number = "N2", Date = "dd-MMM-yyyy" };
 RenderResult result = template.Render(model, settings);
 ```
 
@@ -61,7 +61,7 @@ A tag takes attributes after its path, with values quoted by `"` or `'`:
 | Tag | Attribute |
 |---|---|
 | `<$Invoice.Date format="yyyy-MM-dd">` | `format`: a .NET format string, or one of `date`, `time`, `datetime`, `number` to use the document's pattern for that kind. |
-| `<$Total culture="en-GB">` | `culture`: the culture this value prints in. |
+| `<$Total culture="en-GB">` | `culture`: the culture this value prints in, whatever its kind: a name like `nl-BE`, or `invariant`. |
 | `<$Paid true="yes" false="no">` | `true`, `false`: the words a boolean prints. |
 | `<@for line Invoice.Lines sort="Product.Name, Quantity desc">` | `sort`: paths relative to the item, comma separated, each optionally followed by `asc` or `desc`. The sort is stable. |
 | `<@for line Invoice.Lines index="n">` | `index`: the name of a counter, read as `<$n>`: 1 for the first item in the loop's order. It prints as a plain integer unless its tag carries a `format`. |
@@ -71,7 +71,9 @@ An attribute a tag of that kind does not know is a validation error.
 
 ## Document settings
 
-A template carries its own defaults as custom document properties (File, Properties, Custom Properties): `culture`, `date`, `time`, `datetime`, `number`, `true` and `false`. `RenderSettings` carries the same settings for the caller. Formatting layers from the library's defaults (the invariant culture, no patterns, the words `true` and `false`) up through the caller's settings, the template's properties and the tag's attributes; the last layer wins, so a template whose `number` property says `#,##0.00` prints its numbers that way whatever the caller passed.
+A template carries its own defaults as custom document properties (File, Properties, Custom Properties): `culture`, `number-culture`, `date-culture`, `date`, `time`, `datetime`, `number`, `true` and `false`. `RenderSettings` carries the same settings for the caller. Formatting layers from the library's defaults (the invariant culture, no patterns, the words `true` and `false`) up through the caller's settings, the template's properties and the tag's attributes; the last layer wins, so a template whose `number` property says `#,##0.00` prints its numbers that way whatever the caller passed.
+
+A culture is a .NET name such as `nl-BE` or `en-GB`, or `invariant` for the invariant culture, whose month names and separators are the same on every machine. `number-culture` and `date-culture` set one kind apart from `culture`: numbers print in `number-culture`, dates, times and date-times in `date-culture`, and the rest follows `culture`, sorting included; a kind without a culture of its own follows `culture` too. The layers combine the cultures as style sheets do: a layer that sets `culture` resets the cultures per kind of the layers below it, and within one layer a culture per kind wins over `culture`, whatever the order of the properties. So a caller that prints `1.250,50` and `14-Sep-2026` with `Culture = nl-BE` and `DateCulture = invariant` is overridden as a whole by a template whose `culture` says `en-GB`, while a template whose `date-culture` says `nl-BE` changes only the dates. A tag's `culture` prints that one value in that culture whatever its kind, and is the only culture attribute a tag takes.
 
 ## Values
 
@@ -82,7 +84,7 @@ A template carries its own defaults as custom document properties (File, Propert
 - An enum prints its name. A collection bound as a value prints its items one after the other, formatted, with nothing between them; a loop is what separates them.
 - Everything else prints through `ToString()`.
 
-Patterns are .NET format strings, applied with the effective culture.
+Patterns are .NET format strings, applied in the culture of the value's kind: `number-culture` for a number, `date-culture` for a date or a time, and `culture` unless they say otherwise.
 
 ## Loops
 
@@ -180,7 +182,7 @@ A `Finding` says what is wrong in the author's terms: the kind, the severity, th
 | `NotACollection` | warning | A loop over a value that is not a collection; it runs once. | Validate |
 | `UnknownAttribute` | error | An attribute a tag of that kind does not know. | Validate |
 | `BadValue` | error | A value an attribute does not take, such as `empty="maybe"`. | Validate |
-| `BadCulture` | error | A culture name that is no culture. | Validate |
+| `BadCulture` | error | A culture name that is no culture, in a tag's `culture` or in a document setting. | Validate |
 | `BadPattern` | error | A date, time or number pattern .NET rejects, in a tag or a document setting. | Validate |
 | `MixedText` | warning | Text or tags in the paragraph or row that holds a block tag; they are removed with it. | Validate |
 | `UnknownSetting` | warning | A document setting the library does not know. | Validate |

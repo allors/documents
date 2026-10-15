@@ -2,6 +2,18 @@
 
 All notable changes to this project are documented in this file. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses [semantic versioning](https://semver.org/).
 
+## [3.1.0] - unreleased
+
+Numbers and dates can print in cultures of their own. An installation that prints `1.250,50` the Belgian way and `14-Sep-2026` with English month names sets `Culture = nl-BE` and `DateCulture = invariant`; it needs no culture of its own, whose names would follow the operating system's data.
+
+### Added
+
+- The document settings `number-culture` and `date-culture`, and `RenderSettings.NumberCulture` and `RenderSettings.DateCulture`: the culture numbers print in, and the culture dates, times and date-times print in, apart from `culture`, which the rest follows, sorting included. A kind without a culture of its own follows `culture`.
+- `invariant` as a culture name, in `culture`, `number-culture` and `date-culture` and in a tag's `culture` attribute: the invariant culture, whose names and separators are the same on every machine.
+- The layers combine the cultures as style sheets do: a layer that sets `culture` resets the cultures per kind of the layers below it, and within one layer the culture per kind wins over `culture`, whatever the order of the properties. A tag's `culture` prints the value in that culture whatever its kind, and stays the only culture attribute a tag takes.
+- `Formatting.NumberCulture`, `Formatting.DateCulture` and `Formatting.CultureOf(kind)` for resolvers that format their own values; `Formatting.WithCulture(culture, numberCulture, dateCulture)`, `Formatting.IsCultureSetting` and `Formatting.InvariantCultureName`.
+- `Validate` reports `BadCulture` for a `number-culture` or `date-culture` that is no culture, and tries a document's date and number patterns in the culture of their kind.
+
 ## [3.0.0] - 2026-10-15
 
 The StringTemplate engine is gone. A template renders through the resolver and the tag language of 2.1, which this version applies in full: attributes, `sort`, document settings and `<@ifdef>`. The package has no dependencies. To upgrade: take the document from `Render`'s result, move each picture binding from the frame's name and the image dictionary to a tag in the picture's description, pass `Culture = CultureInfo.CurrentCulture` to keep printing in the current culture, and add `using Allors.Document.Reflection` for `OpenDocumentTemplate<T>`.
