@@ -2,7 +2,7 @@
 
 All notable changes to this project are documented in this file. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses [semantic versioning](https://semver.org/).
 
-## [3.1.0] - unreleased
+## [3.1.0] - 2026-10-16
 
 Numbers and dates can print in cultures of their own. An installation that prints `1.250,50` the Belgian way and `14-Sep-2026` with English month names sets `Culture = nl-BE` and `DateCulture = invariant`; it needs no culture of its own, whose names would follow the operating system's data.
 
