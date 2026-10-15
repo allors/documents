@@ -159,16 +159,6 @@ namespace Allos.Document.Validation.Tests
         }
 
         [Fact]
-        public void AReservedLoopVariableIsAnError()
-        {
-            var validation = Validate(P("<@for i Invoice.Lines>") + P("<@end>"));
-
-            var finding = Assert.Single(validation.Findings);
-            Assert.Equal(FindingKind.ReservedName, finding.Kind);
-            Assert.Contains("'i' is reserved", finding.Message);
-        }
-
-        [Fact]
         public void TheLoopCounterIsInScopeInsideTheLoopAndHasNoMembers()
         {
             var validation = Validate(P("<@for line Invoice.Lines index=\"n\">") + Tags("<$n>", "<$n.Value>", "<$line.Product>") + P("<@end>") + P("<$n>"));
@@ -177,17 +167,6 @@ namespace Allos.Document.Validation.Tests
             Assert.All(validation.Findings, v => Assert.Equal(FindingKind.UnknownMember, v.Kind));
             Assert.Equal("the loop counter has no member Value", validation.Findings[0].Message);
             Assert.Equal("Model has no member n", validation.Findings[1].Message);
-        }
-
-        [Fact]
-        public void AReservedCounterNameIsAnError()
-        {
-            var validation = Validate(P("<@for line Invoice.Lines index=\"i\">") + P("<@end>"));
-
-            var finding = Assert.Single(validation.Findings);
-            Assert.Equal(FindingKind.ReservedName, finding.Kind);
-            Assert.Contains("'i' is reserved", finding.Message);
-            Assert.Contains("loop counter", finding.Message);
         }
 
         [Fact]

@@ -17,7 +17,7 @@ namespace Allos.Document.Rendering.Tests
             Template(body, documentSettings, styles, pictures).Render(model, settings);
 
         public static OpenDocumentTemplate Template(string body, IDictionary<string, string> documentSettings = null, string styles = null, IDictionary<string, byte[]> pictures = null) =>
-            new OpenDocumentTemplate(Odt.Build(body, pictures, styles, settings: documentSettings), string.Empty);
+            new OpenDocumentTemplate(Odt.Build(body, pictures, styles, settings: documentSettings));
 
         public static string Paragraphs(RenderResult result) => Odt.Paragraphs(Odt.Content(result.Document));
 

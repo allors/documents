@@ -219,30 +219,52 @@ namespace Allos.Document.Rendering.Tests
         }
 
         [Fact]
-        public void ABlockThatWouldCutATableThrowsAtTheFirstRender()
+        public void ABlockThatWouldCutATableThrowsWhenTheTemplateIsRead()
         {
-            var template = Template(Table(Row(P("<@if Flag>"), P("<@end>"))));
-
-            var exception = Assert.Throws<TemplateException>(() => template.Render(new Dictionary<string, object>(), new RenderSettings()));
+            var exception = Assert.Throws<TemplateException>(() => Template(Table(Row(P("<@if Flag>"), P("<@end>")))));
 
             var finding = Assert.Single(exception.Findings);
             Assert.Equal(FindingKind.BlockStructure, finding.Kind);
             Assert.Equal("<@if Flag>", finding.Text);
             Assert.Contains("two cells of one row", finding.Message);
             Assert.Contains("two cells of one row", exception.Message);
-            Assert.Empty(exception.TemplateMessages);
         }
 
         [Fact]
-        public void ATemplateThatCannotRenderThrowsAgainOnEveryRender()
+        public void ABlockThatEndsOutsideItsTableThrowsWhenTheTemplateIsRead()
         {
-            var template = Template(Table(Row(P("<@for line Lines>"))) + P("<@end>"));
+            var exception = Assert.Throws<TemplateException>(() => Template(Table(Row(P("<@for line Lines>"))) + P("<@end>")));
 
-            var first = Assert.Throws<TemplateException>(() => template.Render(new Dictionary<string, object>(), new RenderSettings()));
-            var second = Assert.Throws<TemplateException>(() => template.Render(new Dictionary<string, object>(), new RenderSettings()));
+            var finding = Assert.Single(exception.Findings);
+            Assert.Equal(FindingKind.BlockStructure, finding.Kind);
+            Assert.Contains("ends outside the table", exception.Message);
+        }
 
-            Assert.Contains("ends outside the table", first.Message);
-            Assert.Same(first, second);
+        [Theory]
+        [InlineData("<@for line Lines>", "this block never ends")]
+        [InlineData("<@end>", "closes nothing")]
+        public void AnUnbalancedBlockThrowsWhenTheTemplateIsRead(string tag, string message)
+        {
+            var exception = Assert.Throws<TemplateException>(() => Template(P("x") + P(tag)));
+
+            var finding = Assert.Single(exception.Findings);
+            Assert.Equal(FindingKind.UnbalancedBlock, finding.Kind);
+            Assert.Equal(tag, finding.Text);
+            Assert.Contains(message, finding.Message);
+            Assert.Equal(2, finding.Location.Paragraph);
+            Assert.Contains(tag, exception.Message);
+        }
+
+        [Fact]
+        public void AnUnbalancedBlockInAHeaderThrowsWhenTheTemplateIsRead()
+        {
+            var header = "<office:master-styles><style:master-page style:name=\"Standard\"><style:header>" + P("<@if Flag>") + "</style:header></style:master-page></office:master-styles>";
+
+            var exception = Assert.Throws<TemplateException>(() => Template(P("x"), styles: header));
+
+            var finding = Assert.Single(exception.Findings);
+            Assert.Equal(FindingKind.UnbalancedBlock, finding.Kind);
+            Assert.Equal("styles.xml", finding.Location.Part);
         }
     }
 }

@@ -11,6 +11,7 @@ namespace Allos.Document.OpenDocument.Tests
     using System.Linq;
     using System.Text;
     using System.Xml.Linq;
+    using Allors.Document.OpenDocument;
 
     /// <summary>
     /// Builds minimal OpenDocument text packages in code, and reads rendered packages back.
@@ -42,8 +43,7 @@ namespace Allos.Document.OpenDocument.Tests
 
         /// <summary>
         /// A frame showing the picture at <paramref name="href"/>, as Writer saves one: the image first, then the alternative text (svg:title) and
-        /// the description (svg:desc) from the image's Options. A description that is a tag binds the picture to the model; under the
-        /// StringTemplate engine a name starting with $ does.
+        /// the description (svg:desc) from the image's Options. A description that is a tag binds the picture to the model.
         /// </summary>
         public static string Frame(string name, string href, string description = null, string title = null, string mimeType = null) =>
             "<draw:frame draw:name=\"" + name + "\" text:anchor-type=\"paragraph\" svg:width=\"2cm\" svg:height=\"1cm\">" +
@@ -54,6 +54,10 @@ namespace Allos.Document.OpenDocument.Tests
 
         /// <summary>A frame bound to the model by the picture tag in its description, showing the template's placeholder picture until it renders.</summary>
         public static string Picture(string tag, string name = "Image1", string href = "Pictures/placeholder.png", string title = null) => Frame(name, href, tag, title, "image/png");
+
+        /// <summary>Renders a package for a dictionary model, an empty one when null, and gives the document back.</summary>
+        public static byte[] Render(byte[] package, IDictionary<string, object> model = null, RenderSettings settings = null) =>
+            new OpenDocumentTemplate(package).Render(model ?? new Dictionary<string, object>(), settings).Document;
 
         /// <summary>The manifest's entries: the media type by full path.</summary>
         public static IReadOnlyDictionary<string, string> ManifestEntries(byte[] package) =>
@@ -160,11 +164,12 @@ namespace Allos.Document.OpenDocument.Tests
 
         public static XDocument Manifest(byte[] package) => Xml(Entry(package, "META-INF/manifest.xml").Bytes);
 
-        /// <summary>The text of the paragraphs as a reader shows it, one paragraph per line.</summary>
-        public static string Paragraphs(XDocument document) => string.Join("\n", document.Descendants(Text + "p").Select(ReaderText));
+        /// <summary>The text of the paragraphs of a document or an element as a reader shows it, one paragraph per line.</summary>
+        public static string Paragraphs(XContainer container) => string.Join("\n", container.Descendants(Text + "p").Select(ReaderText));
 
         /// <summary>
         /// The text a reader shows for an element: a text:tab reads as a tab, a text:line-break as a line break and a text:s as its spaces.
+        /// What sits directly in a drawing element or in embedded binary data, white space or base64, is no text.
         /// </summary>
         public static string ReaderText(XElement element)
         {
@@ -173,7 +178,10 @@ namespace Allos.Document.OpenDocument.Tests
             {
                 if (node is XText value)
                 {
-                    text.Append(value.Value);
+                    if (value.Parent.Name.Namespace != Draw && value.Parent.Name.Namespace != Office)
+                    {
+                        text.Append(value.Value);
+                    }
                 }
                 else if (node is XElement child)
                 {
@@ -198,7 +206,7 @@ namespace Allos.Document.OpenDocument.Tests
         private static byte[] Bytes(string text) => new UTF8Encoding(false).GetBytes(text);
 
         /// <summary>
-        /// Parses XML with every white space character kept, as a reader does. The rendering writes the manifest with a byte order mark, which the stream reader detects.
+        /// Parses XML with every white space character kept, as a reader does; a byte order mark, should a part carry one, is detected.
         /// </summary>
         private static XDocument Xml(byte[] bytes)
         {

@@ -15,7 +15,7 @@ namespace Allors.Document.OpenDocument
     /// </summary>
     public sealed class RenderSettings
     {
-        /// <summary>Binds paths to the model's members; <see cref="DictionaryResolver"/> when null.</summary>
+        /// <summary>Binds paths to the model's members; the template's own resolver when null: <see cref="DictionaryResolver"/>, or the reflection resolver of a template over a model type.</summary>
         public IResolver Resolver { get; set; }
 
         /// <summary>The culture dates and numbers print in; the invariant culture when null.</summary>
@@ -38,6 +38,12 @@ namespace Allors.Document.OpenDocument
 
         /// <summary>The word a false value prints; "false" when null.</summary>
         public string False { get; set; }
+
+        /// <summary>
+        /// True to render a flat document (.fodt): one XML file with the pictures embedded, which LibreOffice opens as it does a package.
+        /// False, the default, renders a package (.odt). Either way the template may be a package or a flat document.
+        /// </summary>
+        public bool Flat { get; set; }
 
         /// <summary>The caller's layer over the library's defaults.</summary>
         internal Formatting ToFormatting() => Formatting.Default.WithCulture(this.Culture).With(this.Settings());

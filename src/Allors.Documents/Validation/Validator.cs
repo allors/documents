@@ -168,11 +168,6 @@ namespace Allors.Document.Validation
         private Scope CheckLoop(InspectedTag tag, Scope scope)
         {
             var variable = tag.Tag.Variable;
-            if (For.ReservedNames.Contains(variable))
-            {
-                this.Add(FindingKind.ReservedName, FindingSeverity.Error, tag.Tag.Text, null, "'" + variable + "' is reserved by the engine: name the loop variable differently", tag.Location);
-            }
-
             var walk = this.Resolve(tag.Tag.Path, scope, null);
             IShape variableShape;
             if (walk.Failed)
@@ -211,11 +206,6 @@ namespace Allors.Document.Validation
             if (tag.Tag.Index == null)
             {
                 return body;
-            }
-
-            if (For.ReservedNames.Contains(tag.Tag.Index))
-            {
-                this.Add(FindingKind.ReservedName, FindingSeverity.Error, tag.Tag.Text, null, "'" + tag.Tag.Index + "' is reserved by the engine: name the loop counter differently", tag.Location);
             }
 
             return new Scope(body, tag.Tag.Index, CounterShape);

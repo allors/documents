@@ -32,9 +32,6 @@ namespace Allors.Document.Validation
         /// <summary>A value an attribute does not take, such as empty="maybe" on a picture.</summary>
         BadValue,
 
-        /// <summary>A loop variable the engine reserves.</summary>
-        ReservedName,
-
         /// <summary>A block whose begin and end are not in paragraphs of one container or in rows of one table.</summary>
         BlockStructure,
 

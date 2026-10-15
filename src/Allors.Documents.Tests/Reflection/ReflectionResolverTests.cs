@@ -7,7 +7,6 @@ namespace Allos.Document.Reflection.Tests
 {
     using System.Collections.Generic;
     using Allors.Document.Reflection;
-    using Antlr4.StringTemplate.Misc;
     using Xunit;
 
     public class ReflectionResolverTests
@@ -91,51 +90,13 @@ namespace Allos.Document.Reflection.Tests
             Assert.Equal("Jane", after);
         }
 
-        /// <summary>The engine of 1.x and 2.x and the resolver find the same members with the same values, or both find nothing.</summary>
         [Theory]
-        [InlineData("FirstName")]
-        [InlineData("firstName")]
-        [InlineData("FIRSTNAME")]
-        [InlineData("lower")]
-        [InlineData("Lower")]
-        [InlineData("FullName")]
-        [InlineData("fullName")]
-        [InlineData("field")]
-        [InlineData("Field")]
-        [InlineData("underscored")]
         [InlineData("Age")]
         [InlineData("age")]
-        [InlineData("Missing")]
-        [InlineData("With")]
-        public void TheResolverAgreesWithStringTemplate(string name)
+        public void ANumberResolvesAsItself(string name)
         {
-            var person = new Person();
-
-            var found = Resolver.TryGetMember(person, name, out var value);
-
-            object expected;
-            bool expectedFound;
-            try
-            {
-                expected = new ObjectModelAdaptor().GetProperty(null, null, person, name, name);
-                expectedFound = true;
-            }
-            catch (TemplateNoSuchPropertyException)
-            {
-                expected = null;
-                expectedFound = false;
-            }
-
-            Assert.Equal(expectedFound, found);
-            Assert.Equal(expected, value);
-        }
-
-        [Fact]
-        public void TheResolverAgreesWithStringTemplateOnIndexers()
-        {
-            var indexed = new Indexed();
-
-            Assert.Equal(new ObjectModelAdaptor().GetProperty(null, null, indexed, "whatever", "whatever"), Resolver.TryGetMember(indexed, "whatever", out var value) ? value : null);
+            Assert.True(Resolver.TryGetMember(new Person(), name, out var value));
+            Assert.Equal(42, value);
         }
     }
 }

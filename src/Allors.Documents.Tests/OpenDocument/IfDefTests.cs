@@ -10,10 +10,7 @@ namespace Allos.Document.OpenDocument.Tests
     using Allors.Document.Tags;
     using Xunit;
 
-    /// <summary>
-    /// Until 3.0 the StringTemplate engine renders &lt;@ifdef&gt; as &lt;@if&gt;: it cannot tell a missing member from a null one.
-    /// The resolver engine keeps the block whenever the member exists.
-    /// </summary>
+    /// <summary>An ifdef keeps its block whenever the member exists, null included, and drops it in silence when it does not.</summary>
     public class IfDefTests
     {
         private static readonly byte[] Template = Odt.Build(
@@ -35,43 +32,27 @@ namespace Allos.Document.OpenDocument.Tests
         }
 
         [Fact]
-        public void UnderTheStringTemplateEngineItKeepsTheBlockForAValue()
+        public void ItKeepsTheBlockForAValue()
         {
-            var document = new OpenDocumentTemplate(Template, "Name").Render(new Dictionary<string, object> { ["Name"] = "John" });
-
-            Assert.Equal("Name: John\nafter", Odt.Paragraphs(Odt.Content(document)));
-        }
-
-        [Fact]
-        public void UnderTheStringTemplateEngineItDropsTheBlockForNull()
-        {
-            var document = new OpenDocumentTemplate(Template, "Name").Render(new Dictionary<string, object> { ["Name"] = null });
-
-            Assert.Equal("after", Odt.Paragraphs(Odt.Content(document)));
-        }
-
-        [Fact]
-        public void UnderTheResolverEngineItKeepsTheBlockForAValue()
-        {
-            var result = new OpenDocumentTemplate(Template, "Name").Render(new Dictionary<string, object> { ["Name"] = "John" }, new RenderSettings());
+            var result = new OpenDocumentTemplate(Template).Render(new Dictionary<string, object> { ["Name"] = "John" });
 
             Assert.Equal("Name: John\nafter", Odt.Paragraphs(Odt.Content(result.Document)));
             Assert.Empty(result.Findings);
         }
 
         [Fact]
-        public void UnderTheResolverEngineItKeepsTheBlockForNull()
+        public void ItKeepsTheBlockForNull()
         {
-            var result = new OpenDocumentTemplate(Template, "Name").Render(new Dictionary<string, object> { ["Name"] = null }, new RenderSettings());
+            var result = new OpenDocumentTemplate(Template).Render(new Dictionary<string, object> { ["Name"] = null });
 
             Assert.Equal("Name: \nafter", Odt.Paragraphs(Odt.Content(result.Document)));
             Assert.Empty(result.Findings);
         }
 
         [Fact]
-        public void UnderTheResolverEngineItDropsTheBlockForAMissingMemberWithoutAFinding()
+        public void ItDropsTheBlockForAMissingMemberWithoutAFinding()
         {
-            var result = new OpenDocumentTemplate(Template, "Name").Render(new Dictionary<string, object>(), new RenderSettings());
+            var result = new OpenDocumentTemplate(Template).Render(new Dictionary<string, object>());
 
             Assert.Equal("after", Odt.Paragraphs(Odt.Content(result.Document)));
             Assert.Empty(result.Findings);

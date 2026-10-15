@@ -1,0 +1,2 @@
+# A flat OpenDocument text is a test fixture whose bytes matter: keep it as LibreOffice wrote it on every platform
+*.fodt text eol=lf
