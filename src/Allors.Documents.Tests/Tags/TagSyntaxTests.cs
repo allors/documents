@@ -196,6 +196,35 @@ namespace Allos.Document.Tags.Tests
         }
 
         [Theory]
+        [InlineData("fill", PictureFit.Fill)]
+        [InlineData("contain", PictureFit.Contain)]
+        [InlineData(" Width ", PictureFit.Width)]
+        [InlineData("HEIGHT", PictureFit.Height)]
+        public void TheFitAttributeTakesFourValuesInAnyCase(string value, PictureFit expected)
+        {
+            Assert.True(TagSyntax.TryParseFit(value, out var fit));
+            Assert.Equal(expected, fit);
+
+            Assert.True(TagSyntax.TryParsePicture("<$Logo fit='" + value + "'>", out var tag, out var error), error);
+            Assert.Equal(expected, TagSyntax.FitOf(tag));
+        }
+
+        [Theory]
+        [InlineData("cover")]
+        [InlineData("")]
+        [InlineData(null)]
+        public void AValueTheFitAttributeDoesNotTakeIsRefusedAndReadsAsFill(string value)
+        {
+            Assert.False(TagSyntax.TryParseFit(value, out var fit));
+            Assert.Equal(PictureFit.Fill, fit);
+
+            Assert.True(TagSyntax.TryParsePicture("<$Logo fit=\"" + value + "\">", out var tag, out var error), error);
+            Assert.Equal(PictureFit.Fill, TagSyntax.FitOf(tag));
+            Assert.True(TagSyntax.TryParsePicture("<$Logo>", out var plain, out error), error);
+            Assert.Equal(PictureFit.Fill, TagSyntax.FitOf(plain));
+        }
+
+        [Theory]
         [InlineData("Logo", "whole description")]
         [InlineData("Company logo <$Logo>", "whole description")]
         [InlineData("<$Logo> <$Barcode>", "one <$path> tag")]

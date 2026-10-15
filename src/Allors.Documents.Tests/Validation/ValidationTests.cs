@@ -388,17 +388,32 @@ namespace Allos.Document.Validation.Tests
         [Fact]
         public void PictureAttributesAndTheirValuesAreChecked()
         {
-            var body = P(Odt.Frame("Logo", "Pictures/a.png", "<$Logo fit=\"contain\">")) + P(Odt.Frame("Logo", "Pictures/a.png", "<$Logo empty=\"maybe\">")) + P(Odt.Frame("Logo", "Pictures/a.png", "<$Logo empty=\"KEEP\">"));
+            var body = P(Odt.Frame("Logo", "Pictures/a.png", "<$Logo size=\"contain\">")) + P(Odt.Frame("Logo", "Pictures/a.png", "<$Logo empty=\"maybe\">")) +
+                       P(Odt.Frame("Logo", "Pictures/a.png", "<$Logo empty=\"KEEP\" FIT=\"Contain\">")) + P(Odt.Frame("Logo", "Pictures/a.png", "<$Logo fit=\"cover\">"));
 
             var validation = Validate(body);
 
-            Assert.Equal(2, validation.Findings.Count);
+            Assert.Equal(3, validation.Findings.Count);
             Assert.Equal(FindingKind.UnknownAttribute, validation.Findings[0].Kind);
-            Assert.Equal("a picture has no attribute 'fit': use empty", validation.Findings[0].Message);
-            Assert.Equal("<$Logo fit=\"contain\">", validation.Findings[0].Text);
+            Assert.Equal("a picture has no attribute 'size': use empty, fit", validation.Findings[0].Message);
+            Assert.Equal("<$Logo size=\"contain\">", validation.Findings[0].Text);
             Assert.Equal(FindingKind.BadValue, validation.Findings[1].Kind);
             Assert.Equal("empty=\"maybe\": use remove or keep", validation.Findings[1].Message);
             Assert.Equal(2, validation.Findings[1].Location.Paragraph);
+            Assert.Equal(FindingKind.BadValue, validation.Findings[2].Kind);
+            Assert.Equal("fit=\"cover\": use fill, contain, width or height", validation.Findings[2].Message);
+            Assert.Equal("<$Logo fit=\"cover\">", validation.Findings[2].Text);
+            Assert.Equal(4, validation.Findings[2].Location.Paragraph);
+        }
+
+        [Fact]
+        public void FitIsNoAttributeOfATextBinding()
+        {
+            var validation = Validate(P("<$Logo fit=\"contain\">"));
+
+            var finding = Assert.Single(validation.Findings);
+            Assert.Equal(FindingKind.UnknownAttribute, finding.Kind);
+            Assert.Equal("a binding has no attribute 'fit': use format, culture, true, false", finding.Message);
         }
 
         [Fact]

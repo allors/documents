@@ -85,6 +85,13 @@ namespace Allors.Document.Validation
                 {
                     this.Add(FindingKind.UnknownAttribute, FindingSeverity.Error, tag.Text, null, "a picture has no attribute '" + attribute.Key + "': use " + string.Join(", ", TagSyntax.PictureAttributes), picture.Location);
                 }
+                else if (string.Equals(attribute.Key, TagSyntax.FitAttribute, StringComparison.OrdinalIgnoreCase))
+                {
+                    if (!TagSyntax.TryParseFit(attribute.Value, out _))
+                    {
+                        this.Add(FindingKind.BadValue, FindingSeverity.Error, tag.Text, null, TagSyntax.FitAttribute + "=\"" + attribute.Value + "\": use " + TagSyntax.FillValue + ", " + TagSyntax.ContainValue + ", " + TagSyntax.WidthValue + " or " + TagSyntax.HeightValue, picture.Location);
+                    }
+                }
                 else if (!TagSyntax.IsEmptyValue(attribute.Value))
                 {
                     this.Add(FindingKind.BadValue, FindingSeverity.Error, tag.Text, null, TagSyntax.EmptyAttribute + "=\"" + attribute.Value + "\": use " + TagSyntax.RemoveValue + " or " + TagSyntax.KeepValue, picture.Location);

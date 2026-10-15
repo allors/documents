@@ -28,6 +28,7 @@ namespace Allors.Document.Rendering
         private const string SvgNamespace = "urn:oasis:names:tc:opendocument:xmlns:svg-compatible:1.0";
         private const string OfficeNamespace = "urn:oasis:names:tc:opendocument:xmlns:office:1.0";
         private const string LoExtNamespace = "urn:org:documentfoundation:names:experimental:office:xmlns:loext:1.0";
+        private const string StyleNamespace = "urn:oasis:names:tc:opendocument:xmlns:style:1.0";
         private const string XLinkNamespace = "http://www.w3.org/1999/xlink";
 
         private readonly IResolver resolver;
@@ -84,6 +85,8 @@ namespace Allors.Document.Rendering
 
         private static bool Is(XmlNode node, string ns, string localName) => node is XmlElement element && element.LocalName == localName && element.NamespaceURI == ns;
 
+        private static bool Is(XmlAttribute attribute, string ns, string localName) => attribute.LocalName == localName && attribute.NamespaceURI == ns;
+
         private void Write(XmlNode node, Scope scope)
         {
             switch (node.NodeType)
@@ -127,9 +130,10 @@ namespace Allors.Document.Rendering
         }
 
         /// <summary>
-        /// Attributes pass as they are, except that a frame's name is made unique in the document, as Writer requires of frames; every link is noted.
+        /// Attributes pass as they are, except that a frame's name is made unique in the document, as Writer requires of frames, and that a side of a
+        /// frame a fit changed takes its new length and loses its relative size, which the length replaces; every link is noted.
         /// </summary>
-        private void WriteAttributes(XmlElement element, bool isFrame)
+        private void WriteAttributes(XmlElement element, bool isFrame, string width = null, string height = null)
         {
             if (!element.HasAttributes)
             {
@@ -146,6 +150,18 @@ namespace Allors.Document.Rendering
                 else if (IsHref(attribute))
                 {
                     this.hrefs.Add(value);
+                }
+                else if (width != null && Is(attribute, SvgNamespace, "width"))
+                {
+                    value = width;
+                }
+                else if (height != null && Is(attribute, SvgNamespace, "height"))
+                {
+                    value = height;
+                }
+                else if ((width != null && Is(attribute, StyleNamespace, "rel-width")) || (height != null && Is(attribute, StyleNamespace, "rel-height")))
+                {
+                    continue;
                 }
 
                 this.writer.WriteAttributeString(attribute.Prefix, attribute.LocalName, attribute.NamespaceURI, value);
@@ -219,26 +235,34 @@ namespace Allors.Document.Rendering
 
         /// <summary>
         /// A bound frame shows the picture at its path: the bytes go into the package once per distinct content and the frame's image links to
-        /// them, with the media type the bytes say. Without a picture the frame leaves the document, unless its tag says empty="keep", in which
-        /// case it keeps the template's picture. The description that held the tag leaves the output; the title and the rest of the frame stay.
+        /// them, with the media type the bytes say; the frame takes the size the tag's fit gives it for the picture's proportions. Without a picture
+        /// the frame leaves the document, unless its tag says empty="keep", in which case it keeps the template's picture as the author drew it.
+        /// The description that held the tag leaves the output; the title and the rest of the frame stay.
         /// </summary>
         private void WritePicture(Instruction instruction, XmlElement frame, Scope scope)
         {
-            var href = this.StorePicture(instruction, scope, out var mediaType);
-            if (href == null && !(instruction.Tag.Attributes.TryGetValue(TagSyntax.EmptyAttribute, out var empty) && TagSyntax.KeepsWhenEmpty(empty)))
+            var stored = this.TryStorePicture(instruction, scope, out var href, out var format, out var bytes);
+            if (!stored && !(instruction.Tag.Attributes.TryGetValue(TagSyntax.EmptyAttribute, out var empty) && TagSyntax.KeepsWhenEmpty(empty)))
             {
                 return;
             }
 
-            this.writer.WriteStartElement(frame.Prefix, frame.LocalName, frame.NamespaceURI);
-            this.WriteAttributes(frame, true);
+            string width = null;
+            string height = null;
+            if (stored)
+            {
+                this.Fit(instruction, frame, format, bytes, out width, out height);
+            }
 
-            var image = href == null ? null : frame.ChildNodes.Cast<XmlNode>().FirstOrDefault(v => Is(v, DrawingNamespace, "image"));
+            this.writer.WriteStartElement(frame.Prefix, frame.LocalName, frame.NamespaceURI);
+            this.WriteAttributes(frame, true, width, height);
+
+            var image = stored ? frame.ChildNodes.Cast<XmlNode>().FirstOrDefault(v => Is(v, DrawingNamespace, "image")) : null;
             for (var child = frame.FirstChild; child != null; child = child.NextSibling)
             {
                 if (child == image)
                 {
-                    this.WriteImage((XmlElement)child, href, mediaType, scope);
+                    this.WriteImage((XmlElement)child, href, format.MediaType, scope);
                 }
                 else if (!Is(child, SvgNamespace, "desc"))
                 {
@@ -250,34 +274,63 @@ namespace Allors.Document.Rendering
         }
 
         /// <summary>
-        /// The file in the package that holds the picture at the tag's path, or null when there is none: a null value gives none in silence; an
-        /// unknown member, a value that is no picture and bytes in no format the library knows give none and are reported once per tag.
+        /// Stores the picture at the tag's path and gives the name of its file in the package, its format and its bytes; false when there is none: a null
+        /// value gives none in silence; an unknown member, a value that is no picture and bytes in no format the library knows give none and are reported once per tag.
         /// </summary>
-        private string StorePicture(Instruction instruction, Scope scope, out string mediaType)
+        private bool TryStorePicture(Instruction instruction, Scope scope, out string href, out PictureFormat format, out byte[] bytes)
         {
-            mediaType = null;
+            href = null;
+            format = null;
+            bytes = null;
+
             var path = instruction.Tag.Path;
             if (!this.TryResolve(instruction, path, scope, out var value) || value == null)
             {
-                return null;
+                return false;
             }
 
-            var bytes = this.resolver.Picture(value);
+            bytes = this.resolver.Picture(value);
             if (bytes == null)
             {
                 this.Report(instruction, FindingKind.NotAPicture, FindingSeverity.Error, path, "'" + path + "' is not a picture: it is a " + value.GetType().Name);
-                return null;
+                return false;
             }
 
-            var format = PictureFormat.Sniff(bytes);
+            format = PictureFormat.Sniff(bytes);
             if (format == null)
             {
                 this.Report(instruction, FindingKind.NotAPicture, FindingSeverity.Error, path, "the bytes at '" + path + "' are in no picture format the library knows: use " + PictureFormat.Names);
-                return null;
+                return false;
             }
 
-            mediaType = format.MediaType;
-            return this.pictures.Add(path, bytes, format);
+            href = this.pictures.Add(path, bytes, format);
+            return true;
+        }
+
+        /// <summary>
+        /// The frame's size under the tag's fit, for the picture's proportions: null for a side that stays. A picture whose bytes do not tell its size,
+        /// and a frame without a width and a height, are reported once per tag, and the picture fills the frame as the author drew it.
+        /// </summary>
+        private void Fit(Instruction instruction, XmlElement frame, PictureFormat format, byte[] bytes, out string width, out string height)
+        {
+            width = null;
+            height = null;
+
+            var fit = TagSyntax.FitOf(instruction.Tag);
+            if (fit == PictureFit.Fill)
+            {
+                return;
+            }
+
+            var path = instruction.Tag.Path;
+            if (!PictureSize.TryRead(format, bytes, out var pictureWidth, out var pictureHeight))
+            {
+                this.Report(instruction, FindingKind.CannotFit, FindingSeverity.Warning, path, "the picture at '" + path + "' fills its frame instead of fitting it: its " + format.Name + " bytes do not tell its size");
+            }
+            else if (!Fitting.TryFit(fit, frame.GetAttribute("width", SvgNamespace), frame.GetAttribute("height", SvgNamespace), pictureWidth, pictureHeight, out width, out height))
+            {
+                this.Report(instruction, FindingKind.CannotFit, FindingSeverity.Warning, path, "the picture at '" + path + "' fills its frame instead of fitting it: the frame has no width and height");
+            }
         }
 
         /// <summary>The image links to the stored picture, with its media type, in place of the template's; a picture embedded in the element leaves with it.</summary>

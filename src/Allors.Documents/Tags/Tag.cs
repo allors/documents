@@ -12,7 +12,7 @@ namespace Allors.Document.Tags
         /// <summary>A value at a path, with optional attributes: &lt;$path attr="value"&gt;.</summary>
         Binding,
 
-        /// <summary>The picture at a path, in the description of a picture frame: &lt;$path empty="remove|keep"&gt;.</summary>
+        /// <summary>The picture at a path, in the description of a picture frame: &lt;$path empty="remove|keep" fit="fill|contain|width|height"&gt;.</summary>
         Picture,
 
         /// <summary>A loop over the collection at a path, optionally ordered and counted: &lt;@for variable path sort="key, key desc" index="n"&gt;.</summary>

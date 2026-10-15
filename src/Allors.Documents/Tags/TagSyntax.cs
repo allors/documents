@@ -11,7 +11,7 @@ namespace Allors.Document.Tags
 
     /// <summary>
     /// The tag language of a template: <c>&lt;$path attr="value"&gt;</c>, <c>&lt;@for variable path sort="key desc" index="n"&gt;</c>, <c>&lt;@if path&gt;</c>, <c>&lt;@ifdef path&gt;</c> and <c>&lt;@end&gt;</c> in placeholder fields,
-    /// and <c>&lt;$path empty="keep"&gt;</c> as the description of a picture frame. A path is a chain of member names; keywords are not case-sensitive.
+    /// and <c>&lt;$path empty="keep" fit="contain"&gt;</c> as the description of a picture frame. A path is a chain of member names; keywords are not case-sensitive.
     /// </summary>
     public static class TagSyntax
     {
@@ -34,8 +34,23 @@ namespace Allors.Document.Tags
         /// <summary>The frame keeps the template's picture when there is no picture.</summary>
         public const string KeepValue = "keep";
 
+        /// <summary>The attribute that says how a picture takes its frame: <see cref="FillValue"/>, the default, <see cref="ContainValue"/>, <see cref="WidthValue"/> or <see cref="HeightValue"/>.</summary>
+        public const string FitAttribute = "fit";
+
+        /// <summary>The picture is stretched to the frame as the author drew it.</summary>
+        public const string FillValue = "fill";
+
+        /// <summary>The picture keeps its proportions inside the frame; the side that would overflow shrinks.</summary>
+        public const string ContainValue = "contain";
+
+        /// <summary>The frame keeps its width; its height follows the picture's proportions.</summary>
+        public const string WidthValue = "width";
+
+        /// <summary>The frame keeps its height; its width follows the picture's proportions.</summary>
+        public const string HeightValue = "height";
+
         /// <summary>The attributes a picture tag takes.</summary>
-        public static readonly IReadOnlyCollection<string> PictureAttributes = new[] { EmptyAttribute };
+        public static readonly IReadOnlyCollection<string> PictureAttributes = new[] { EmptyAttribute, FitAttribute };
 
         private static readonly Regex AttributeRegex = new Regex(@"\G\s+([A-Za-z_][A-Za-z0-9_-]*)\s*=\s*(?:""([^""]*)""|'([^']*)')");
 
@@ -50,13 +65,39 @@ namespace Allors.Document.Tags
         public static bool HoldsTag(string text) => text != null && (text.Contains("<$") || text.Contains("<@"));
 
         /// <summary>True for an attribute a picture tag takes; names are not case-sensitive.</summary>
-        public static bool IsPictureAttribute(string name) => string.Equals(name, EmptyAttribute, StringComparison.OrdinalIgnoreCase);
+        public static bool IsPictureAttribute(string name) => string.Equals(name, EmptyAttribute, StringComparison.OrdinalIgnoreCase) || string.Equals(name, FitAttribute, StringComparison.OrdinalIgnoreCase);
 
         /// <summary>True for a value the empty attribute takes: remove or keep, in any case.</summary>
         public static bool IsEmptyValue(string value) => string.Equals(value?.Trim(), RemoveValue, StringComparison.OrdinalIgnoreCase) || KeepsWhenEmpty(value);
 
         /// <summary>True when the value of the empty attribute says keep.</summary>
         public static bool KeepsWhenEmpty(string value) => string.Equals(value?.Trim(), KeepValue, StringComparison.OrdinalIgnoreCase);
+
+        /// <summary>Reads a value of the fit attribute, in any case: fill, contain, width or height; false for a value the attribute does not take.</summary>
+        public static bool TryParseFit(string value, out PictureFit fit)
+        {
+            switch (value?.Trim().ToLowerInvariant())
+            {
+                case FillValue:
+                    fit = PictureFit.Fill;
+                    return true;
+                case ContainValue:
+                    fit = PictureFit.Contain;
+                    return true;
+                case WidthValue:
+                    fit = PictureFit.Width;
+                    return true;
+                case HeightValue:
+                    fit = PictureFit.Height;
+                    return true;
+                default:
+                    fit = PictureFit.Fill;
+                    return false;
+            }
+        }
+
+        /// <summary>The fit a picture tag asks for: the value of its fit attribute; fill without one, or with a value the attribute does not take.</summary>
+        public static PictureFit FitOf(Tag tag) => tag.Attributes.TryGetValue(FitAttribute, out var value) && TryParseFit(value, out var fit) ? fit : PictureFit.Fill;
 
         /// <summary>True when the text is a plain path: member names separated by dots.</summary>
         public static bool IsPath(string text) => text != null && PathRegex.IsMatch(text);

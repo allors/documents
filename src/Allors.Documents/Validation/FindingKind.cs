@@ -49,5 +49,8 @@ namespace Allors.Document.Validation
 
         /// <summary>A value bound to a picture frame that is not a picture, or bytes in a format the library does not know; the frame leaves the document.</summary>
         NotAPicture,
+
+        /// <summary>A picture that fills its frame instead of fitting it as its tag asks, because its bytes do not tell its size or the frame has no size.</summary>
+        CannotFit,
     }
 }

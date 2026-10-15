@@ -8,7 +8,7 @@ namespace Allors.Document.Inspection
     using System.Xml;
     using Allors.Document.Tags;
 
-    /// <summary>A picture frame bound to the model: its description is a picture tag, <c>&lt;$path empty="keep"&gt;</c>, and the frame shows the picture at that path.</summary>
+    /// <summary>A picture frame bound to the model: its description is a picture tag, <c>&lt;$path empty="keep" fit="contain"&gt;</c>, and the frame shows the picture at that path.</summary>
     public sealed class InspectedPicture
     {
         internal InspectedPicture(string frameName, Tag tag, Location location, InspectedTag block, XmlElement element)
