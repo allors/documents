@@ -21,8 +21,10 @@ namespace Allos.Document.OpenDocument.Tests
 
         public static readonly XNamespace Office = "urn:oasis:names:tc:opendocument:xmlns:office:1.0";
         public static readonly XNamespace Text = "urn:oasis:names:tc:opendocument:xmlns:text:1.0";
+        public static readonly XNamespace Table = "urn:oasis:names:tc:opendocument:xmlns:table:1.0";
         public static readonly XNamespace Draw = "urn:oasis:names:tc:opendocument:xmlns:drawing:1.0";
         public static readonly XNamespace XLink = "http://www.w3.org/1999/xlink";
+        public static readonly XNamespace Svg = "urn:oasis:names:tc:opendocument:xmlns:svg-compatible:1.0";
         public static readonly XNamespace ManifestNs = "urn:oasis:names:tc:opendocument:xmlns:manifest:1.0";
 
         private const string Namespaces =
@@ -38,10 +40,35 @@ namespace Allos.Document.OpenDocument.Tests
         /// <summary>A text placeholder carrying a template tag, as LibreOffice writes one (Insert, Field, More Fields, Functions, Placeholder).</summary>
         public static string Placeholder(string tag) => "<text:placeholder text:placeholder-type=\"text\">" + new XText(tag).ToString() + "</text:placeholder>";
 
-        /// <summary>A frame showing the picture at <paramref name="href"/>; a name starting with $ binds the picture to the model.</summary>
-        public static string Frame(string name, string href) =>
+        /// <summary>
+        /// A frame showing the picture at <paramref name="href"/>, as Writer saves one: the image first, then the alternative text (svg:title) and
+        /// the description (svg:desc) from the image's Options. A description that is a tag binds the picture to the model; under the
+        /// StringTemplate engine a name starting with $ does.
+        /// </summary>
+        public static string Frame(string name, string href, string description = null, string title = null, string mimeType = null) =>
             "<draw:frame draw:name=\"" + name + "\" text:anchor-type=\"paragraph\" svg:width=\"2cm\" svg:height=\"1cm\">" +
-            "<draw:image xlink:href=\"" + href + "\" xlink:type=\"simple\" xlink:show=\"embed\" xlink:actuate=\"onLoad\"/></draw:frame>";
+            "<draw:image xlink:href=\"" + href + "\" xlink:type=\"simple\" xlink:show=\"embed\" xlink:actuate=\"onLoad\"" + (mimeType == null ? string.Empty : " draw:mime-type=\"" + mimeType + "\"") + "/>" +
+            (title == null ? string.Empty : "<svg:title>" + new XText(title) + "</svg:title>") +
+            (description == null ? string.Empty : "<svg:desc>" + new XText(description) + "</svg:desc>") +
+            "</draw:frame>";
+
+        /// <summary>A frame bound to the model by the picture tag in its description, showing the template's placeholder picture until it renders.</summary>
+        public static string Picture(string tag, string name = "Image1", string href = "Pictures/placeholder.png", string title = null) => Frame(name, href, tag, title, "image/png");
+
+        /// <summary>The manifest's entries: the media type by full path.</summary>
+        public static IReadOnlyDictionary<string, string> ManifestEntries(byte[] package) =>
+            Manifest(package).Descendants(ManifestNs + "file-entry").ToDictionary(v => (string)v.Attribute(ManifestNs + "full-path"), v => (string)v.Attribute(ManifestNs + "media-type"));
+
+        /// <summary>The full paths of the manifest's picture entries, in manifest order.</summary>
+        public static IReadOnlyList<string> ManifestPictures(byte[] package) =>
+            Manifest(package).Descendants(ManifestNs + "file-entry").Select(v => (string)v.Attribute(ManifestNs + "full-path")).Where(v => v.StartsWith("Pictures/")).ToList();
+
+        /// <summary>The names of the package's picture files, in package order.</summary>
+        public static IReadOnlyList<string> PictureFiles(byte[] package) => Entries(package).Select(v => v.Name).Where(v => v.StartsWith("Pictures/")).ToList();
+
+        /// <summary>The frames of a part in document order: the name and the href of the picture each shows, null for a frame without one.</summary>
+        public static IReadOnlyList<(string Name, string Href)> Frames(XDocument part) =>
+            part.Descendants(Draw + "frame").Select(v => ((string)v.Attribute(Draw + "name"), (string)v.Element(Draw + "image")?.Attribute(XLink + "href"))).ToList();
 
         /// <summary>
         /// A package with the given office:text body, optional pictures (added under Pictures/ and to the manifest) and optional master styles.

@@ -105,6 +105,17 @@ namespace Allos.Document.Models.Tests
 
         [Theory]
         [MemberData(nameof(Resolvers))]
+        public void ACollectionPrintsItsItemsRunTogether(IResolver resolver)
+        {
+            // What StringTemplate printed for a collection bound as a value: every item, formatted, nothing between them, nulls skipped
+            Assert.Equal("firstsecond", resolver.Format(new[] { "first", null, "second" }, Formatting.Default));
+            Assert.Equal("12.5", resolver.Format(new object[] { 1, 2.5m }, Formatting.Default));
+            Assert.Equal("ab", resolver.Format(new Dictionary<string, object> { ["a"] = 1, ["b"] = 2 }, Formatting.Default));
+            Assert.Equal(string.Empty, resolver.Format(Array.Empty<string>(), Formatting.Default));
+        }
+
+        [Theory]
+        [MemberData(nameof(Resolvers))]
         public void ANullFormattingMeansTheDefault(IResolver resolver) => Assert.Equal("2.5", resolver.Format(2.5m, null));
 
         [Theory]

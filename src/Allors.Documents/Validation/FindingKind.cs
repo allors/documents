@@ -8,7 +8,7 @@ namespace Allors.Document.Validation
     /// <summary>What a finding is about.</summary>
     public enum FindingKind
     {
-        /// <summary>A tag or a bound frame name that cannot be read.</summary>
+        /// <summary>A tag, or the description of a picture, that cannot be read as a tag.</summary>
         MalformedTag,
 
         /// <summary>A block without an end, or an end without a block.</summary>
@@ -29,6 +29,9 @@ namespace Allors.Document.Validation
         /// <summary>A date, time or number pattern .NET rejects.</summary>
         BadPattern,
 
+        /// <summary>A value an attribute does not take, such as empty="maybe" on a picture.</summary>
+        BadValue,
+
         /// <summary>A loop variable the engine reserves.</summary>
         ReservedName,
 
@@ -40,5 +43,14 @@ namespace Allors.Document.Validation
 
         /// <summary>A document setting the library does not know.</summary>
         UnknownSetting,
+
+        /// <summary>A loop whose sort keys cannot be ordered against each other at render time; it keeps the collection's order.</summary>
+        CannotSort,
+
+        /// <summary>A value bound to a picture frame that is not a picture, or bytes in a format the library does not know; the frame leaves the document.</summary>
+        NotAPicture,
+
+        /// <summary>A picture that fills its frame instead of fitting it as its tag asks, because its bytes do not tell its size or the frame has no size.</summary>
+        CannotFit,
     }
 }

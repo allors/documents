@@ -26,7 +26,7 @@ namespace Allors.Document.Inspection
         /// <summary>Every tag of content.xml then styles.xml, in document order. Block tags carry their children too.</summary>
         public IReadOnlyList<InspectedTag> Tags { get; }
 
-        /// <summary>The picture frames whose name starts with $.</summary>
+        /// <summary>The picture frames whose description is a picture tag.</summary>
         public IReadOnlyList<InspectedPicture> Pictures { get; }
 
         /// <summary>The custom document properties of the template (File, Properties, Custom Properties), by name.</summary>

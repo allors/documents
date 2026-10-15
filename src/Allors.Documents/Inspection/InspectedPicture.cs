@@ -5,26 +5,38 @@
 
 namespace Allors.Document.Inspection
 {
-    /// <summary>A picture frame bound to the model: its name starts with $ and the rest is the path of the picture to show.</summary>
+    using System.Xml;
+    using Allors.Document.Tags;
+
+    /// <summary>A picture frame bound to the model: its description is a picture tag, <c>&lt;$path empty="keep" fit="contain"&gt;</c>, and the frame shows the picture at that path.</summary>
     public sealed class InspectedPicture
     {
-        internal InspectedPicture(string frameName, string path, Location location, InspectedTag block)
+        internal InspectedPicture(string frameName, Tag tag, Location location, InspectedTag block, XmlElement element)
         {
             this.FrameName = frameName;
-            this.Path = path;
+            this.Tag = tag;
             this.Location = location;
             this.Block = block;
+            this.Element = element;
         }
 
+        /// <summary>The frame element, for the program that renders it.</summary>
+        internal XmlElement Element { get; }
+
+        /// <summary>The name of the frame, as the author gave it.</summary>
         public string FrameName { get; }
 
-        public string Path { get; }
+        /// <summary>The picture tag from the frame's description: its path and attributes.</summary>
+        public Tag Tag { get; }
+
+        /// <summary>The path of the picture to show.</summary>
+        public string Path => this.Tag.Path;
 
         public Location Location { get; }
 
         /// <summary>The loop or condition the frame sits in; null at the top level.</summary>
         public InspectedTag Block { get; }
 
-        public override string ToString() => this.FrameName + " in " + this.Location;
+        public override string ToString() => this.Tag.Text + " in " + this.Location;
     }
 }

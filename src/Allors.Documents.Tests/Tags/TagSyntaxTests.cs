@@ -77,6 +77,23 @@ namespace Allos.Document.Tags.Tests
             Assert.Empty(tag.Sort);
         }
 
+        [Fact]
+        public void LoopsCarryACounterName()
+        {
+            Assert.True(TagSyntax.TryParse("<@for line Invoice.Lines index=\"n\" sort=\"Quantity\">", out var tag, out var error), error);
+
+            Assert.Equal("n", tag.Index);
+            Assert.Equal("n", tag.Attributes["INDEX"]);
+            Assert.Single(tag.Sort);
+        }
+
+        [Fact]
+        public void LoopsWithoutAnIndexHaveNoCounter()
+        {
+            Assert.True(TagSyntax.TryParse("<@for item Lines>", out var tag, out _));
+            Assert.Null(tag.Index);
+        }
+
         [Theory]
         [InlineData("<@for item Lines sort=\"Name down\">", "expected asc or desc after 'Name', not 'down'")]
         [InlineData("<@for item Lines sort=\"Name,,Date\">", "a key is missing between the commas")]
@@ -84,6 +101,8 @@ namespace Allos.Document.Tags.Tests
         [InlineData("<@for item Lines sort=\"1st\">", "'1st' is not a path")]
         [InlineData("<@for item Lines sort=\"a b c\">", "expected asc or desc after 'a', not 'b c'")]
         [InlineData("<@for item Lines extra>", "unexpected text after the path")]
+        [InlineData("<@for item Lines index=\"1st\">", "the counter's name '1st' is not a name")]
+        [InlineData("<@for item Lines index=\"item\">", "a name other than the loop variable's")]
         [InlineData("<@for item>", "needs a variable and a path")]
         [InlineData("<@for item  >", "needs a variable and a path")]
         public void BadLoopAttributesAreRefusedWithAReason(string text, string reason)
@@ -164,14 +183,83 @@ namespace Allos.Document.Tags.Tests
         }
 
         [Fact]
-        public void PictureFramesAreBoundByName()
+        public void APictureTagIsTheWholeDescriptionOfAFrame()
         {
-            Assert.True(TagSyntax.TryParsePicture("$Issuer.LogoImage", out var path, out var error), error);
-            Assert.Equal("Issuer.LogoImage", path);
+            Assert.True(TagSyntax.TryParsePicture(" <$Issuer.LogoImage empty=\"keep\"> ", out var tag, out var error), error);
 
-            Assert.False(TagSyntax.TryParsePicture("Logo", out _, out _));
-            Assert.False(TagSyntax.TryParsePicture("$", out _, out _));
-            Assert.False(TagSyntax.TryParsePicture("$item.Photo[0]", out _, out _));
+            Assert.Equal(TagKind.Picture, tag.Kind);
+            Assert.Equal("Issuer.LogoImage", tag.Path);
+            Assert.Equal("<$Issuer.LogoImage empty=\"keep\">", tag.Text);
+            Assert.Equal("keep", tag.Attributes["empty"]);
+            Assert.Null(tag.Variable);
+            Assert.Empty(tag.Sort);
+        }
+
+        [Theory]
+        [InlineData("fill", PictureFit.Fill)]
+        [InlineData("contain", PictureFit.Contain)]
+        [InlineData(" Width ", PictureFit.Width)]
+        [InlineData("HEIGHT", PictureFit.Height)]
+        public void TheFitAttributeTakesFourValuesInAnyCase(string value, PictureFit expected)
+        {
+            Assert.True(TagSyntax.TryParseFit(value, out var fit));
+            Assert.Equal(expected, fit);
+
+            Assert.True(TagSyntax.TryParsePicture("<$Logo fit='" + value + "'>", out var tag, out var error), error);
+            Assert.Equal(expected, TagSyntax.FitOf(tag));
+        }
+
+        [Theory]
+        [InlineData("cover")]
+        [InlineData("")]
+        [InlineData(null)]
+        public void AValueTheFitAttributeDoesNotTakeIsRefusedAndReadsAsFill(string value)
+        {
+            Assert.False(TagSyntax.TryParseFit(value, out var fit));
+            Assert.Equal(PictureFit.Fill, fit);
+
+            Assert.True(TagSyntax.TryParsePicture("<$Logo fit=\"" + value + "\">", out var tag, out var error), error);
+            Assert.Equal(PictureFit.Fill, TagSyntax.FitOf(tag));
+            Assert.True(TagSyntax.TryParsePicture("<$Logo>", out var plain, out error), error);
+            Assert.Equal(PictureFit.Fill, TagSyntax.FitOf(plain));
+        }
+
+        [Theory]
+        [InlineData("Logo", "whole description")]
+        [InlineData("Company logo <$Logo>", "whole description")]
+        [InlineData("<$Logo> <$Barcode>", "one <$path> tag")]
+        [InlineData("<@for p Photos>", "not a block tag")]
+        [InlineData("<$item.Photo[0]>", "is not a path")]
+        [InlineData("<$>", "needs a path")]
+        [InlineData("<$Logo keep>", "unexpected text")]
+        public void ADescriptionThatIsNotOnePictureTagIsRefused(string description, string reason)
+        {
+            Assert.False(TagSyntax.TryParsePicture(description, out var tag, out var error));
+
+            Assert.Null(tag);
+            Assert.Contains(reason, error);
+        }
+
+        [Theory]
+        [InlineData("Company logo", false)]
+        [InlineData("", false)]
+        [InlineData(null, false)]
+        [InlineData("<$Logo>", true)]
+        [InlineData("see <$Logo> here", true)]
+        [InlineData("<@if Logo>", true)]
+        public void ADescriptionHoldsATagWhenATagStartsAnywhereInIt(string description, bool holdsTag) => Assert.Equal(holdsTag, TagSyntax.HoldsTag(description));
+
+        [Theory]
+        [InlineData("remove", true, false)]
+        [InlineData("keep", true, true)]
+        [InlineData("KEEP", true, true)]
+        [InlineData(" Keep ", true, true)]
+        [InlineData("maybe", false, false)]
+        [InlineData("", false, false)]
+        public void TheEmptyAttributeTakesRemoveOrKeepInAnyCase(string value, bool isValue, bool keeps)
+        {
+            Assert.Equal(isValue, TagSyntax.IsEmptyValue(value));
+            Assert.Equal(keeps, TagSyntax.KeepsWhenEmpty(value));
         }
     }
 }

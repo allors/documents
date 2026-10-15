@@ -10,8 +10,8 @@ namespace Allors.Document.Tags
     using System.Text.RegularExpressions;
 
     /// <summary>
-    /// The tag language of a template: <c>&lt;$path attr="value"&gt;</c>, <c>&lt;@for variable path sort="key desc"&gt;</c>, <c>&lt;@if path&gt;</c>, <c>&lt;@ifdef path&gt;</c> and <c>&lt;@end&gt;</c> in placeholder fields,
-    /// and <c>$path</c> as the name of a picture frame. A path is a chain of member names; keywords are not case-sensitive.
+    /// The tag language of a template: <c>&lt;$path attr="value"&gt;</c>, <c>&lt;@for variable path sort="key desc" index="n"&gt;</c>, <c>&lt;@if path&gt;</c>, <c>&lt;@ifdef path&gt;</c> and <c>&lt;@end&gt;</c> in placeholder fields,
+    /// and <c>&lt;$path empty="keep" fit="contain"&gt;</c> as the description of a picture frame. A path is a chain of member names; keywords are not case-sensitive.
     /// </summary>
     public static class TagSyntax
     {
@@ -22,6 +22,36 @@ namespace Allors.Document.Tags
         /// <summary>The attribute that orders a loop.</summary>
         public const string SortAttribute = "sort";
 
+        /// <summary>The attribute that names a loop's counter.</summary>
+        public const string IndexAttribute = "index";
+
+        /// <summary>The attribute that says what a picture frame does without a picture: <see cref="RemoveValue"/>, the default, or <see cref="KeepValue"/>.</summary>
+        public const string EmptyAttribute = "empty";
+
+        /// <summary>The frame leaves the document when there is no picture.</summary>
+        public const string RemoveValue = "remove";
+
+        /// <summary>The frame keeps the template's picture when there is no picture.</summary>
+        public const string KeepValue = "keep";
+
+        /// <summary>The attribute that says how a picture takes its frame: <see cref="FillValue"/>, the default, <see cref="ContainValue"/>, <see cref="WidthValue"/> or <see cref="HeightValue"/>.</summary>
+        public const string FitAttribute = "fit";
+
+        /// <summary>The picture is stretched to the frame as the author drew it.</summary>
+        public const string FillValue = "fill";
+
+        /// <summary>The picture keeps its proportions inside the frame; the side that would overflow shrinks.</summary>
+        public const string ContainValue = "contain";
+
+        /// <summary>The frame keeps its width; its height follows the picture's proportions.</summary>
+        public const string WidthValue = "width";
+
+        /// <summary>The frame keeps its height; its width follows the picture's proportions.</summary>
+        public const string HeightValue = "height";
+
+        /// <summary>The attributes a picture tag takes.</summary>
+        public static readonly IReadOnlyCollection<string> PictureAttributes = new[] { EmptyAttribute, FitAttribute };
+
         private static readonly Regex AttributeRegex = new Regex(@"\G\s+([A-Za-z_][A-Za-z0-9_-]*)\s*=\s*(?:""([^""]*)""|'([^']*)')");
 
         /// <summary>True when the text has the shape of a tag: it starts with <c>&lt;$</c> or <c>&lt;@</c> and ends with <c>&gt;</c>.</summary>
@@ -30,6 +60,44 @@ namespace Allors.Document.Tags
             var trimmed = text?.Trim();
             return trimmed != null && trimmed.Length >= 3 && trimmed[0] == '<' && (trimmed[1] == '$' || trimmed[1] == '@') && trimmed[trimmed.Length - 1] == '>';
         }
+
+        /// <summary>True when the text holds the start of a tag, <c>&lt;$</c> or <c>&lt;@</c>, anywhere: the author meant a tag, well-formed or not.</summary>
+        public static bool HoldsTag(string text) => text != null && (text.Contains("<$") || text.Contains("<@"));
+
+        /// <summary>True for an attribute a picture tag takes; names are not case-sensitive.</summary>
+        public static bool IsPictureAttribute(string name) => string.Equals(name, EmptyAttribute, StringComparison.OrdinalIgnoreCase) || string.Equals(name, FitAttribute, StringComparison.OrdinalIgnoreCase);
+
+        /// <summary>True for a value the empty attribute takes: remove or keep, in any case.</summary>
+        public static bool IsEmptyValue(string value) => string.Equals(value?.Trim(), RemoveValue, StringComparison.OrdinalIgnoreCase) || KeepsWhenEmpty(value);
+
+        /// <summary>True when the value of the empty attribute says keep.</summary>
+        public static bool KeepsWhenEmpty(string value) => string.Equals(value?.Trim(), KeepValue, StringComparison.OrdinalIgnoreCase);
+
+        /// <summary>Reads a value of the fit attribute, in any case: fill, contain, width or height; false for a value the attribute does not take.</summary>
+        public static bool TryParseFit(string value, out PictureFit fit)
+        {
+            switch (value?.Trim().ToLowerInvariant())
+            {
+                case FillValue:
+                    fit = PictureFit.Fill;
+                    return true;
+                case ContainValue:
+                    fit = PictureFit.Contain;
+                    return true;
+                case WidthValue:
+                    fit = PictureFit.Width;
+                    return true;
+                case HeightValue:
+                    fit = PictureFit.Height;
+                    return true;
+                default:
+                    fit = PictureFit.Fill;
+                    return false;
+            }
+        }
+
+        /// <summary>The fit a picture tag asks for: the value of its fit attribute; fill without one, or with a value the attribute does not take.</summary>
+        public static PictureFit FitOf(Tag tag) => tag.Attributes.TryGetValue(FitAttribute, out var value) && TryParseFit(value, out var fit) ? fit : PictureFit.Fill;
 
         /// <summary>True when the text is a plain path: member names separated by dots.</summary>
         public static bool IsPath(string text) => text != null && PathRegex.IsMatch(text);
@@ -86,7 +154,12 @@ namespace Allors.Document.Tags
                         return false;
                     }
 
-                    tag = new Tag(TagKind.For, trimmed, collection, variable, loopAttributes, sort);
+                    if (!TryParseIndex(loopAttributes, variable, out var index, out error))
+                    {
+                        return false;
+                    }
+
+                    tag = new Tag(TagKind.For, trimmed, collection, variable, loopAttributes, sort, index);
                     return true;
 
                 case "if":
@@ -110,27 +183,41 @@ namespace Allors.Document.Tags
             }
         }
 
-        /// <summary>The path a picture frame is bound to, when its name starts with <c>$</c>.</summary>
-        public static bool TryParsePicture(string frameName, out string path, out string error)
+        /// <summary>
+        /// Parses the description of a picture frame as a picture tag: one <c>&lt;$path attr="value"&gt;</c> and nothing else.
+        /// On failure the error says what is wrong, in the author's terms.
+        /// </summary>
+        public static bool TryParsePicture(string description, out Tag tag, out string error)
         {
-            path = null;
+            tag = null;
             error = null;
 
-            var trimmed = frameName?.Trim() ?? string.Empty;
-            if (trimmed.Length < 2 || trimmed[0] != '$')
+            var trimmed = description?.Trim() ?? string.Empty;
+            if (!IsTag(trimmed))
             {
-                error = "not a bound picture: the frame name starts with $";
+                error = "a picture tag is the whole description: <$Issuer.Logo>, with nothing before or after it";
                 return false;
             }
 
-            var candidate = trimmed.Substring(1).Trim();
-            if (!PathRegex.IsMatch(candidate))
+            if (trimmed[1] == '@')
             {
-                error = "'" + candidate + "' is not a path";
+                error = "a picture takes a <$path> tag, not a block tag";
                 return false;
             }
 
-            path = candidate;
+            if (trimmed.IndexOf('<', 1) >= 0 || trimmed.IndexOf('>') != trimmed.Length - 1)
+            {
+                error = "a picture takes one <$path> tag: the description holds more";
+                return false;
+            }
+
+            var inner = trimmed.Substring(2, trimmed.Length - 3).Trim();
+            if (!TryParsePathAndAttributes(inner, "<$> needs a path: <$Issuer.Logo>", out var path, out var attributes, out error))
+            {
+                return false;
+            }
+
+            tag = new Tag(TagKind.Picture, trimmed, path, null, attributes);
             return true;
         }
 
@@ -220,6 +307,34 @@ namespace Allors.Document.Tags
             }
 
             sort = keys;
+            return true;
+        }
+
+        /// <summary>The index attribute of a loop: the name under which the body reads the item's position, 1 for the first item in the loop's order.</summary>
+        private static bool TryParseIndex(IReadOnlyDictionary<string, string> attributes, string variable, out string index, out string error)
+        {
+            index = null;
+            error = null;
+
+            if (!attributes.TryGetValue(IndexAttribute, out var text))
+            {
+                return true;
+            }
+
+            var name = text.Trim();
+            if (!NameRegex.IsMatch(name))
+            {
+                error = "index=\"" + text + "\": the counter's name '" + name + "' is not a name";
+                return false;
+            }
+
+            if (name == variable)
+            {
+                error = "index=\"" + text + "\": the counter needs a name other than the loop variable's";
+                return false;
+            }
+
+            index = name;
             return true;
         }
 

@@ -12,7 +12,7 @@ namespace Allos.Document.OpenDocument.Tests
 
     /// <summary>
     /// Until 3.0 the StringTemplate engine renders &lt;@ifdef&gt; as &lt;@if&gt;: it cannot tell a missing member from a null one.
-    /// The exact semantics, keep the block whenever the member exists, come with the 3.0 renderer.
+    /// The resolver engine keeps the block whenever the member exists.
     /// </summary>
     public class IfDefTests
     {
@@ -48,6 +48,33 @@ namespace Allos.Document.OpenDocument.Tests
             var document = new OpenDocumentTemplate(Template, "Name").Render(new Dictionary<string, object> { ["Name"] = null });
 
             Assert.Equal("after", Odt.Paragraphs(Odt.Content(document)));
+        }
+
+        [Fact]
+        public void UnderTheResolverEngineItKeepsTheBlockForAValue()
+        {
+            var result = new OpenDocumentTemplate(Template, "Name").Render(new Dictionary<string, object> { ["Name"] = "John" }, new RenderSettings());
+
+            Assert.Equal("Name: John\nafter", Odt.Paragraphs(Odt.Content(result.Document)));
+            Assert.Empty(result.Findings);
+        }
+
+        [Fact]
+        public void UnderTheResolverEngineItKeepsTheBlockForNull()
+        {
+            var result = new OpenDocumentTemplate(Template, "Name").Render(new Dictionary<string, object> { ["Name"] = null }, new RenderSettings());
+
+            Assert.Equal("Name: \nafter", Odt.Paragraphs(Odt.Content(result.Document)));
+            Assert.Empty(result.Findings);
+        }
+
+        [Fact]
+        public void UnderTheResolverEngineItDropsTheBlockForAMissingMemberWithoutAFinding()
+        {
+            var result = new OpenDocumentTemplate(Template, "Name").Render(new Dictionary<string, object>(), new RenderSettings());
+
+            Assert.Equal("after", Odt.Paragraphs(Odt.Content(result.Document)));
+            Assert.Empty(result.Findings);
         }
     }
 }

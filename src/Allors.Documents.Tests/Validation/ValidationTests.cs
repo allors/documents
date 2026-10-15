@@ -30,7 +30,7 @@ namespace Allos.Document.Validation.Tests
                 P("<@if Invoice.BillTo>") + P("<$Invoice.BillTo.Name true=\"Ja\" false=\"Nee\">") + P("<@end>") +
                 P("<@ifdef Invoice.BillTo.Name>") + P("<$Invoice.BillTo.Name>") + P("<@end>") +
                 P("<@for line Invoice.Lines sort=\"Product, Quantity desc\">") + Tags("<$line.Product>", "<$line.Quantity format=\"number\">") + P("<@end>") +
-                P(Odt.Frame("$Logo", "Pictures/logo.png"));
+                P(Odt.Frame("Logo", "Pictures/logo.png", "<$Logo empty=\"keep\">", "The logo"));
             var settings = new Dictionary<string, string> { ["culture"] = "nl-BE", ["date"] = "dd-MMM-yyyy", ["datetime"] = "yyyy-MM-dd HH:mm", ["number"] = "N2", ["true"] = "Ja" };
 
             var validation = Validate(body, settings);
@@ -135,7 +135,7 @@ namespace Allos.Document.Validation.Tests
             Assert.Equal(2, validation.Findings.Count);
             Assert.All(validation.Findings, v => Assert.Equal(FindingKind.UnknownAttribute, v.Kind));
             Assert.Equal("a binding has no attribute 'colour': use format, culture, true, false", validation.Findings[0].Message);
-            Assert.Equal("a loop has no attribute 'where': use sort", validation.Findings[1].Message);
+            Assert.Equal("a loop has no attribute 'where': use sort or index", validation.Findings[1].Message);
         }
 
         [Fact]
@@ -166,6 +166,28 @@ namespace Allos.Document.Validation.Tests
             var finding = Assert.Single(validation.Findings);
             Assert.Equal(FindingKind.ReservedName, finding.Kind);
             Assert.Contains("'i' is reserved", finding.Message);
+        }
+
+        [Fact]
+        public void TheLoopCounterIsInScopeInsideTheLoopAndHasNoMembers()
+        {
+            var validation = Validate(P("<@for line Invoice.Lines index=\"n\">") + Tags("<$n>", "<$n.Value>", "<$line.Product>") + P("<@end>") + P("<$n>"));
+
+            Assert.Equal(2, validation.Findings.Count);
+            Assert.All(validation.Findings, v => Assert.Equal(FindingKind.UnknownMember, v.Kind));
+            Assert.Equal("the loop counter has no member Value", validation.Findings[0].Message);
+            Assert.Equal("Model has no member n", validation.Findings[1].Message);
+        }
+
+        [Fact]
+        public void AReservedCounterNameIsAnError()
+        {
+            var validation = Validate(P("<@for line Invoice.Lines index=\"i\">") + P("<@end>"));
+
+            var finding = Assert.Single(validation.Findings);
+            Assert.Equal(FindingKind.ReservedName, finding.Kind);
+            Assert.Contains("'i' is reserved", finding.Message);
+            Assert.Contains("loop counter", finding.Message);
         }
 
         [Fact]
@@ -351,14 +373,60 @@ namespace Allos.Document.Validation.Tests
         [Fact]
         public void PicturesAreCheckedInTheirScope()
         {
-            var body = P(Odt.Frame("$Lgoo", "Pictures/a.png")) + P("<@for line Invoice.Lines>") + P(Odt.Frame("$line.Picture", "Pictures/b.png") + Odt.Frame("$line.Pitcure", "Pictures/c.png")) + P("<@end>");
+            var body = P(Odt.Frame("Logo", "Pictures/a.png", "<$Lgoo>")) + P("<@for line Invoice.Lines>") + P(Odt.Frame("Picture", "Pictures/b.png", "<$line.Picture>") + Odt.Frame("Picture", "Pictures/c.png", "<$line.Pitcure>")) + P("<@end>");
 
             var validation = Validate(body);
 
             Assert.Equal(2, validation.Findings.Count);
             Assert.Equal("Model has no member Lgoo", validation.Findings[0].Message);
-            Assert.Equal("$Lgoo", validation.Findings[0].Text);
+            Assert.Equal("<$Lgoo>", validation.Findings[0].Text);
+            Assert.Equal(FindingKind.UnknownMember, validation.Findings[0].Kind);
             Assert.Equal("Line has no member Pitcure", validation.Findings[1].Message);
+            Assert.Equal("<$line.Pitcure>", validation.Findings[1].Text);
+        }
+
+        [Fact]
+        public void PictureAttributesAndTheirValuesAreChecked()
+        {
+            var body = P(Odt.Frame("Logo", "Pictures/a.png", "<$Logo size=\"contain\">")) + P(Odt.Frame("Logo", "Pictures/a.png", "<$Logo empty=\"maybe\">")) +
+                       P(Odt.Frame("Logo", "Pictures/a.png", "<$Logo empty=\"KEEP\" FIT=\"Contain\">")) + P(Odt.Frame("Logo", "Pictures/a.png", "<$Logo fit=\"cover\">"));
+
+            var validation = Validate(body);
+
+            Assert.Equal(3, validation.Findings.Count);
+            Assert.Equal(FindingKind.UnknownAttribute, validation.Findings[0].Kind);
+            Assert.Equal("a picture has no attribute 'size': use empty, fit", validation.Findings[0].Message);
+            Assert.Equal("<$Logo size=\"contain\">", validation.Findings[0].Text);
+            Assert.Equal(FindingKind.BadValue, validation.Findings[1].Kind);
+            Assert.Equal("empty=\"maybe\": use remove or keep", validation.Findings[1].Message);
+            Assert.Equal(2, validation.Findings[1].Location.Paragraph);
+            Assert.Equal(FindingKind.BadValue, validation.Findings[2].Kind);
+            Assert.Equal("fit=\"cover\": use fill, contain, width or height", validation.Findings[2].Message);
+            Assert.Equal("<$Logo fit=\"cover\">", validation.Findings[2].Text);
+            Assert.Equal(4, validation.Findings[2].Location.Paragraph);
+        }
+
+        [Fact]
+        public void FitIsNoAttributeOfATextBinding()
+        {
+            var validation = Validate(P("<$Logo fit=\"contain\">"));
+
+            var finding = Assert.Single(validation.Findings);
+            Assert.Equal(FindingKind.UnknownAttribute, finding.Kind);
+            Assert.Equal("a binding has no attribute 'fit': use format, culture, true, false", finding.Message);
+        }
+
+        [Fact]
+        public void ADescriptionThatIsNotOnePictureTagIsAMalformedTag()
+        {
+            var body = P(Odt.Frame("Logo", "Pictures/a.png", "Logo: <$Logo>"));
+
+            var validation = Validate(body);
+
+            var finding = Assert.Single(validation.Findings);
+            Assert.Equal(FindingKind.MalformedTag, finding.Kind);
+            Assert.Equal("Logo: <$Logo>", finding.Text);
+            Assert.Contains("whole description", finding.Message);
         }
 
         [Fact]

@@ -9,6 +9,7 @@ namespace Allors.Document.Models
     using System.Collections;
     using System.Collections.Generic;
     using System.Globalization;
+    using System.Text;
 
     /// <summary>
     /// The parts of a resolver that do not depend on how members are read: iteration, truthiness, formatting, ordering and pictures.
@@ -62,6 +63,7 @@ namespace Allors.Document.Models
         /// <summary>
         /// Null prints blank and text prints as is. A boolean prints the true or false word. A date prints with the date pattern at midnight
         /// and the datetime pattern otherwise, a number with the number pattern, and the tag's format wins over both. Enums print their name.
+        /// A collection prints its items one after the other, each formatted, with nothing between them: a loop is what separates them.
         /// Everything else prints through <see cref="IFormattable"/> with the culture, or ToString.
         /// </summary>
         public virtual string Format(object value, Formatting formatting)
@@ -78,6 +80,14 @@ namespace Allors.Document.Models
                     return flag ? formatting.True : formatting.False;
                 case Enum _:
                     return value.ToString();
+                case IEnumerable _:
+                    var items = new StringBuilder();
+                    foreach (var item in this.Items(value))
+                    {
+                        items.Append(this.Format(item, formatting));
+                    }
+
+                    return items.ToString();
                 case DateTime dateTime:
                     return dateTime.ToString(formatting.Pattern(dateTime.TimeOfDay == TimeSpan.Zero ? Formatting.DateSetting : Formatting.DateTimeSetting), formatting.Culture);
                 case DateTimeOffset dateTimeOffset:

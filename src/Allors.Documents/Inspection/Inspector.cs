@@ -8,7 +8,6 @@ namespace Allors.Document.Inspection
     using System.Collections.Generic;
     using System.IO;
     using System.IO.Compression;
-    using System.Text;
     using System.Text.RegularExpressions;
     using System.Xml;
     using Allors.Document.Tags;
@@ -18,6 +17,7 @@ namespace Allors.Document.Inspection
     {
         private const string TextNamespace = "urn:oasis:names:tc:opendocument:xmlns:text:1.0";
         private const string DrawingNamespace = "urn:oasis:names:tc:opendocument:xmlns:drawing:1.0";
+        private const string SvgNamespace = "urn:oasis:names:tc:opendocument:xmlns:svg-compatible:1.0";
         private const string MetaNamespace = "urn:oasis:names:tc:opendocument:xmlns:meta:1.0";
 
         private static readonly Regex WhitespaceRegex = new Regex(@"\s+");
@@ -58,23 +58,13 @@ namespace Allors.Document.Inspection
                 }
             }
 
-            var settings = new Dictionary<string, string>();
-            if (parts.TryGetValue("meta.xml", out var meta))
-            {
-                foreach (XmlElement element in Load(meta).GetElementsByTagName("user-defined", MetaNamespace))
-                {
-                    var name = element.GetAttribute("name", MetaNamespace);
-                    if (!string.IsNullOrEmpty(name))
-                    {
-                        settings[name] = element.InnerText;
-                    }
-                }
-            }
+            var settings = parts.TryGetValue("meta.xml", out var meta) ? Settings(Load(meta)) : new Dictionary<string, string>();
 
             return new TemplateInspection(tags, pictures, settings, problems);
         }
 
-        private static XmlDocument Load(byte[] xml)
+        /// <summary>Loads a part with every white space character kept: Writer saves a part without indentation, so every one is the author's.</summary>
+        internal static XmlDocument Load(byte[] xml)
         {
             var document = new XmlDocument { PreserveWhitespace = true };
             using (var stream = new MemoryStream(xml))
@@ -85,7 +75,24 @@ namespace Allors.Document.Inspection
             return document;
         }
 
-        private sealed class PartWalker
+        /// <summary>The custom document properties of meta.xml (File, Properties, Custom Properties), by name.</summary>
+        internal static IReadOnlyDictionary<string, string> Settings(XmlDocument meta)
+        {
+            var settings = new Dictionary<string, string>();
+            foreach (XmlElement element in meta.GetElementsByTagName("user-defined", MetaNamespace))
+            {
+                var name = element.GetAttribute("name", MetaNamespace);
+                if (!string.IsNullOrEmpty(name))
+                {
+                    settings[name] = element.InnerText;
+                }
+            }
+
+            return settings;
+        }
+
+        /// <summary>Walks one part and collects its tags as a tree, its bound frames and what cannot be read. The part is not changed.</summary>
+        internal sealed class PartWalker
         {
             private readonly string part;
             private readonly XmlDocument document;
@@ -188,22 +195,43 @@ namespace Allors.Document.Inspection
                 }
             }
 
+            /// <summary>A frame whose description holds a tag is a bound picture (Image, Properties, Options, Description); its name stays the author's.</summary>
             private void VisitFrame(XmlElement element)
             {
-                var name = element.GetAttribute("name", DrawingNamespace).Trim();
-                if (!name.StartsWith("$"))
+                var description = Child(element, SvgNamespace, "desc")?.InnerText;
+                if (!TagSyntax.HoldsTag(description))
                 {
                     return;
                 }
 
                 var location = this.LocationOf(element);
-                if (!TagSyntax.TryParsePicture(name, out var path, out var error))
+                if (Child(element, DrawingNamespace, "image") == null)
                 {
-                    this.problems.Add(new InspectionProblem(name, error, location));
+                    this.problems.Add(new InspectionProblem(description.Trim(), "this frame holds no picture: a picture tag goes in the description of a picture", location));
                     return;
                 }
 
-                this.pictures.Add(new InspectedPicture(name, path, location, this.blocks.Count > 0 ? this.blocks.Peek() : null));
+                if (!TagSyntax.TryParsePicture(description, out var tag, out var error))
+                {
+                    this.problems.Add(new InspectionProblem(description.Trim(), error, location));
+                    return;
+                }
+
+                var name = element.GetAttribute("name", DrawingNamespace).Trim();
+                this.pictures.Add(new InspectedPicture(name, tag, location, this.blocks.Count > 0 ? this.blocks.Peek() : null, element));
+            }
+
+            private static XmlElement Child(XmlElement element, string ns, string localName)
+            {
+                foreach (XmlNode child in element.ChildNodes)
+                {
+                    if (child is XmlElement childElement && childElement.NamespaceURI == ns && childElement.LocalName == localName)
+                    {
+                        return childElement;
+                    }
+                }
+
+                return null;
             }
 
             private Location LocationOf(XmlElement element)
