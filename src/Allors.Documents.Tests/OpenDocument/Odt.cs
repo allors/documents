@@ -164,11 +164,12 @@ namespace Allos.Document.OpenDocument.Tests
 
         public static XDocument Manifest(byte[] package) => Xml(Entry(package, "META-INF/manifest.xml").Bytes);
 
-        /// <summary>The text of the paragraphs as a reader shows it, one paragraph per line.</summary>
-        public static string Paragraphs(XDocument document) => string.Join("\n", document.Descendants(Text + "p").Select(ReaderText));
+        /// <summary>The text of the paragraphs of a document or an element as a reader shows it, one paragraph per line.</summary>
+        public static string Paragraphs(XContainer container) => string.Join("\n", container.Descendants(Text + "p").Select(ReaderText));
 
         /// <summary>
         /// The text a reader shows for an element: a text:tab reads as a tab, a text:line-break as a line break and a text:s as its spaces.
+        /// What sits directly in a drawing element or in embedded binary data, white space or base64, is no text.
         /// </summary>
         public static string ReaderText(XElement element)
         {
@@ -177,7 +178,10 @@ namespace Allos.Document.OpenDocument.Tests
             {
                 if (node is XText value)
                 {
-                    text.Append(value.Value);
+                    if (value.Parent.Name.Namespace != Draw && value.Parent.Name.Namespace != Office)
+                    {
+                        text.Append(value.Value);
+                    }
                 }
                 else if (node is XElement child)
                 {

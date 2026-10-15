@@ -51,7 +51,7 @@ namespace Allors.Document.Rendering
         /// The files of the rendered package and its manifest: the template's files without the pictures no link shows any more, plus the
         /// pictures this render added, each with a manifest entry. Both pass through untouched when nothing changed.
         /// </summary>
-        public (IEnumerable<KeyValuePair<string, byte[]>> Files, byte[] Manifest) Files(IReadOnlyDictionary<string, byte[]> template, ICollection<string> hrefs, byte[] manifest)
+        public (IReadOnlyDictionary<string, byte[]> Files, byte[] Manifest) Files(IReadOnlyDictionary<string, byte[]> template, ICollection<string> hrefs, byte[] manifest)
         {
             var unreferenced = template.Keys.Where(v => IsPictureFile(v) && !hrefs.Contains(v)).ToList();
             if (unreferenced.Count == 0 && this.added.Count == 0)

@@ -39,6 +39,12 @@ namespace Allors.Document.OpenDocument
         /// <summary>The word a false value prints; "false" when null.</summary>
         public string False { get; set; }
 
+        /// <summary>
+        /// True to render a flat document (.fodt): one XML file with the pictures embedded, which LibreOffice opens as it does a package.
+        /// False, the default, renders a package (.odt). Either way the template may be a package or a flat document.
+        /// </summary>
+        public bool Flat { get; set; }
+
         /// <summary>The caller's layer over the library's defaults.</summary>
         internal Formatting ToFormatting() => Formatting.Default.WithCulture(this.Culture).With(this.Settings());
 

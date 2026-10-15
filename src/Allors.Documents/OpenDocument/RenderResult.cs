@@ -17,7 +17,7 @@ namespace Allors.Document.OpenDocument
             this.Findings = findings;
         }
 
-        /// <summary>The rendered OpenDocument package.</summary>
+        /// <summary>The rendered document: an OpenDocument package, or a flat document when the settings of the render asked for one.</summary>
         public byte[] Document { get; }
 
         /// <summary>

@@ -7,9 +7,9 @@ namespace Allors.Document.Inspection
 {
     using System.Collections.Generic;
     using System.IO;
-    using System.IO.Compression;
     using System.Text.RegularExpressions;
     using System.Xml;
+    using Allors.Document.OpenDocument;
     using Allors.Document.Tags;
 
     /// <summary>Reads the tags, bound pictures and settings of a template package without rendering it.</summary>
@@ -22,43 +22,21 @@ namespace Allors.Document.Inspection
 
         private static readonly Regex WhitespaceRegex = new Regex(@"\s+");
 
-        public static TemplateInspection Inspect(byte[] package)
+        public static TemplateInspection Inspect(byte[] document)
         {
-            var parts = new Dictionary<string, byte[]>();
-            using (var archive = new ZipArchive(new MemoryStream(package), ZipArchiveMode.Read))
-            {
-                foreach (var entry in archive.Entries)
-                {
-                    if (entry.FullName == "content.xml" || entry.FullName == "styles.xml" || entry.FullName == "meta.xml")
-                    {
-                        using (var stream = entry.Open())
-                        using (var buffer = new MemoryStream())
-                        {
-                            stream.CopyTo(buffer);
-                            parts[entry.FullName] = buffer.ToArray();
-                        }
-                    }
-                }
-            }
-
-            if (!parts.ContainsKey("content.xml"))
-            {
-                throw new InvalidDataException("the package has no content.xml: it is not an OpenDocument text");
-            }
+            var parts = Parts.Read(document);
 
             var tags = new List<InspectedTag>();
             var pictures = new List<InspectedPicture>();
             var problems = new List<InspectionProblem>();
 
-            foreach (var part in new[] { "content.xml", "styles.xml" })
+            new PartWalker(OpenDocumentTemplate.ContentFileName, Load(parts.Content), tags, pictures, problems).Walk();
+            if (parts.Styles != null)
             {
-                if (parts.TryGetValue(part, out var xml))
-                {
-                    new PartWalker(part, Load(xml), tags, pictures, problems).Walk();
-                }
+                new PartWalker(OpenDocumentTemplate.StylesFileName, Load(parts.Styles), tags, pictures, problems).Walk();
             }
 
-            var settings = parts.TryGetValue("meta.xml", out var meta) ? Settings(Load(meta)) : new Dictionary<string, string>();
+            var settings = parts.Files.TryGetValue(OpenDocumentTemplate.DocumentMetaFileName, out var meta) ? Settings(Load(meta)) : new Dictionary<string, string>();
 
             return new TemplateInspection(tags, pictures, settings, problems);
         }

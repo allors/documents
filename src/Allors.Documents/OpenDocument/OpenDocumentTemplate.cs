@@ -8,15 +8,15 @@ namespace Allors.Document.OpenDocument
     using System;
     using System.Collections.Generic;
     using System.IO;
-    using System.IO.Compression;
     using Allors.Document.Inspection;
     using Allors.Document.Models;
     using Allors.Document.Rendering;
     using Allors.Document.Validation;
 
     /// <summary>
-    /// An OpenDocument text with template tags, read once and rendered any number of times, from any thread. Reading it prepares its
-    /// parts: a template whose blocks are unbalanced or would cut a table throws <see cref="TemplateException"/> there, not at a render.
+    /// An OpenDocument text with template tags, read once and rendered any number of times, from any thread. The template is a package (.odt)
+    /// or a flat document (.fodt), one XML file with the pictures embedded; a render gives a package, or a flat document when asked. Reading
+    /// the template prepares its parts: a template whose blocks are unbalanced or would cut a table throws <see cref="TemplateException"/> there, not at a render.
     /// </summary>
     public class OpenDocumentTemplate
     {
@@ -28,9 +28,11 @@ namespace Allors.Document.OpenDocument
 
         internal const string MimetypeFileName = "mimetype";
 
-        private const string DocumentMetaFileName = "meta.xml";
+        internal const string DocumentMetaFileName = "meta.xml";
 
-        private readonly Dictionary<string, byte[]> fileByFileName = new Dictionary<string, byte[]>();
+        internal const string SettingsFileName = "settings.xml";
+
+        private readonly Dictionary<string, byte[]> fileByFileName;
 
         private readonly byte[] manifest;
 
@@ -43,8 +45,9 @@ namespace Allors.Document.OpenDocument
         private readonly IResolver defaultResolver;
 
         /// <summary>
-        /// Reads a template. Throws <see cref="InvalidDataException"/> when the package is not an OpenDocument text, and
-        /// <see cref="TemplateException"/> when a block never ends, an end opens nothing or a block would cut a table.
+        /// Reads a template, a package or a flat document. Throws <see cref="InvalidDataException"/> when the bytes are neither an OpenDocument
+        /// package with a content.xml nor a flat OpenDocument text, and <see cref="TemplateException"/> when a block never ends, an end opens
+        /// nothing or a block would cut a table.
         /// </summary>
         public OpenDocumentTemplate(byte[] document)
             : this(document, null)
@@ -61,59 +64,20 @@ namespace Allors.Document.OpenDocument
 
             this.defaultResolver = defaultResolver ?? DictionaryResolver.Instance;
 
-            byte[] contentXml = null;
-            byte[] stylesXml = null;
-
-            using (var zip = new MemoryStream(document))
-            using (var archive = new ZipArchive(zip, ZipArchiveMode.Read))
-            {
-                foreach (var entry in archive.Entries)
-                {
-                    byte[] file;
-                    using (var memoryStream = new MemoryStream())
-                    using (var zipStream = entry.Open())
-                    {
-                        zipStream.CopyTo(memoryStream);
-                        file = memoryStream.ToArray();
-                    }
-
-                    switch (entry.FullName)
-                    {
-                        case ContentFileName:
-                            contentXml = file;
-                            break;
-
-                        case StylesFileName:
-                            stylesXml = file;
-                            break;
-
-                        case MetaFileName:
-                            this.manifest = file;
-                            break;
-
-                        default:
-                            this.fileByFileName.Add(entry.FullName, file);
-                            break;
-                    }
-                }
-            }
-
-            if (contentXml == null)
-            {
-                throw new InvalidDataException("the package has no content.xml: it is not an OpenDocument text");
-            }
-
-            this.contentProgram = Program.Build(ContentFileName, contentXml);
-            this.stylesProgram = stylesXml == null ? null : Program.Build(StylesFileName, stylesXml);
+            var parts = Parts.Read(document);
+            this.fileByFileName = parts.Files;
+            this.manifest = parts.Manifest;
+            this.contentProgram = Program.Build(ContentFileName, parts.Content);
+            this.stylesProgram = parts.Styles == null ? null : Program.Build(StylesFileName, parts.Styles);
             this.documentSettings = this.fileByFileName.TryGetValue(DocumentMetaFileName, out var meta) ? Inspector.Settings(Inspector.Load(meta)) : new Dictionary<string, string>();
         }
 
-        /// <summary>Reads the tags, bound pictures and document settings of a template without rendering it.</summary>
+        /// <summary>Reads the tags, bound pictures and document settings of a template, a package or a flat document, without rendering it.</summary>
         public static TemplateInspection Inspect(byte[] document) => Inspector.Inspect(document);
 
         /// <summary>
         /// Checks a template against the shape of its model without rendering it: every path, attribute, block and document setting.
-        /// Never throws for what the template says; throws only when the package is not an OpenDocument text.
+        /// Never throws for what the template says; throws only when the bytes are neither an OpenDocument package nor a flat OpenDocument text.
         /// </summary>
         public static TemplateValidation Validate(byte[] document, IShape root) => Validator.Validate(document, root);
 
@@ -122,8 +86,9 @@ namespace Allors.Document.OpenDocument
         /// document settings and the tag's attributes; <c>&lt;@if&gt;</c>, <c>&lt;@ifdef&gt;</c> and <c>&lt;@for&gt;</c> keep, drop or repeat
         /// their blocks; a picture frame whose description is <c>&lt;$path&gt;</c> shows the picture at that path, or leaves the document when
         /// there is none. Paths resolve through the settings' resolver, or the template's own when the settings name none. The result carries
-        /// the document and the findings: a member the model does not have prints blank and is reported, a loop that cannot be ordered keeps
-        /// its order and is reported, a value that is no picture is reported, a tag that cannot be read prints as typed and is reported.
+        /// the document, a package unless the settings ask for a flat document, and the findings: a member the model does not have prints blank
+        /// and is reported, a loop that cannot be ordered keeps its order and is reported, a value that is no picture is reported, a tag that
+        /// cannot be read prints as typed and is reported.
         /// </summary>
         public RenderResult Render(object model, RenderSettings settings = null)
         {
@@ -143,8 +108,8 @@ namespace Allors.Document.OpenDocument
 
             var (files, manifest) = pictures.Files(this.fileByFileName, renderer.Hrefs, this.manifest);
             this.fileByFileName.TryGetValue(MimetypeFileName, out var mimetype);
-            var package = Package.Save(mimetype, content, styles, manifest, files);
-            return new RenderResult(package, renderer.Findings);
+            var document = settings.Flat ? Flat.Write(mimetype, content, styles, files) : Package.Save(mimetype, content, styles, manifest, files);
+            return new RenderResult(document, renderer.Findings);
         }
     }
 }
