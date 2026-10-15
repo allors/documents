@@ -2,7 +2,7 @@
 
 All notable changes to this project are documented in this file. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses [semantic versioning](https://semver.org/).
 
-## [3.0.0] - unreleased
+## [3.0.0] - 2026-10-15
 
 The StringTemplate engine is gone. A template renders through the resolver and the tag language of 2.1, which this version applies in full: attributes, `sort`, document settings and `<@ifdef>`. The package has no dependencies. To upgrade: take the document from `Render`'s result, move each picture binding from the frame's name and the image dictionary to a tag in the picture's description, pass `Culture = CultureInfo.CurrentCulture` to keep printing in the current culture, and add `using Allors.Document.Reflection` for `OpenDocumentTemplate<T>`.
 
