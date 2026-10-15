@@ -111,13 +111,16 @@ namespace Allos.Document.Rendering.Tests
         }
 
         [Fact]
-        public void TheCounterIsANumberThatTheTagFormats()
+        public void TheCounterPrintsAsAPlainIntegerUnlessTheTagFormatsIt()
         {
-            var model = new Dictionary<string, object> { ["Items"] = new object[] { Item("a"), Item("b") } };
+            var settings = new RenderSettings { Number = "N2" };
+            var model = new Dictionary<string, object> { ["Items"] = new object[] { Item("a", 1), Item("b", 2) } };
+            var body = P("<@for item Items index=\"n\">") + P("<$n>", " ", "<$n format=\"00\">", " ", "<$n format=\"number\">", " ", "<$item.Id>") + P("<@end>");
 
-            var text = Text(P("<@for item Items index=\"n\">") + P("<$n format=\"00\">") + P("<@end>"), model);
+            var text = Text(body, model, settings);
 
-            Assert.Equal("01\n02", text);
+            // The number pattern is for the model's numbers; the counter takes it only when its tag asks for it
+            Assert.Equal("1 01 1.00 1.00\n2 02 2.00 2.00", text);
         }
 
         [Fact]

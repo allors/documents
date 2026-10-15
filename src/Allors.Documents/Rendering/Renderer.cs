@@ -37,6 +37,7 @@ namespace Allors.Document.Rendering
 
         private readonly IResolver resolver;
         private readonly Formatting formatting;
+        private readonly Formatting counterFormatting;
         private readonly object model;
         private readonly List<Finding> findings = new List<Finding>();
         private readonly HashSet<(Instruction, string)> reported = new HashSet<(Instruction, string)>();
@@ -49,6 +50,9 @@ namespace Allors.Document.Rendering
             this.resolver = resolver;
             this.formatting = formatting;
             this.model = model;
+
+            // The number pattern is for the model's amounts; a loop counter prints as a plain integer unless its tag says otherwise
+            this.counterFormatting = formatting.With(new[] { new KeyValuePair<string, string>(Formatting.NumberSetting, null) });
         }
 
         /// <summary>Every finding of the parts rendered so far, in render order; a member or a loop is reported once per tag.</summary>
@@ -162,16 +166,25 @@ namespace Allors.Document.Rendering
             }
         }
 
-        /// <summary>A value prints as the resolver formats it under the tag's formatting; a path that breaks prints nothing.</summary>
+        /// <summary>
+        /// A value prints as the resolver formats it under the tag's formatting; a path that breaks prints nothing.
+        /// A loop counter prints as a plain integer, unless the tag carries a format of its own.
+        /// </summary>
         private void WriteBinding(Instruction instruction, Scope scope)
         {
-            if (!this.TryResolve(instruction, instruction.Tag.Path, scope, out var value))
+            var tag = instruction.Tag;
+            if (!this.TryResolve(instruction, tag.Path, scope, out var value))
             {
                 return;
             }
 
-            var attributes = instruction.Tag.Attributes;
-            var effective = attributes.Count == 0 ? this.formatting : this.formatting.With(attributes);
+            var attributes = tag.Attributes;
+            var effective = scope.IsCounter(tag.Path) && !attributes.ContainsKey(Formatting.FormatAttribute) ? this.counterFormatting : this.formatting;
+            if (attributes.Count > 0)
+            {
+                effective = effective.With(attributes);
+            }
+
             ValueWriter.Write(this.writer, this.resolver.Format(value, effective));
         }
 
@@ -193,7 +206,7 @@ namespace Allors.Document.Rendering
                 var body = scope.Push(tag.Variable, item);
                 if (tag.Index != null)
                 {
-                    body = body.Push(tag.Index, counter);
+                    body = body.Push(tag.Index, counter, counter: true);
                 }
 
                 this.WriteChildren(element, body);
