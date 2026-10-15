@@ -15,7 +15,7 @@ namespace Allors.Document.OpenDocument
     /// </summary>
     public sealed class RenderSettings
     {
-        /// <summary>Binds paths to the model's members; <see cref="DictionaryResolver"/> when null.</summary>
+        /// <summary>Binds paths to the model's members; the template's own resolver when null: <see cref="DictionaryResolver"/>, or the reflection resolver of a template over a model type.</summary>
         public IResolver Resolver { get; set; }
 
         /// <summary>The culture dates and numbers print in; the invariant culture when null.</summary>

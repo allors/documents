@@ -8,19 +8,6 @@ namespace Allors.Document.Rendering
     using System.Globalization;
     using System.Xml;
 
-    /// <summary>Where the pieces of a value go: literal text, the spaces of a run after its first, a tab and a line break.</summary>
-    internal interface IValueSink
-    {
-        void Text(string text, int start, int length);
-
-        /// <summary>The spaces of a run after its first, which went out as text; at least one.</summary>
-        void Spaces(int count);
-
-        void Tab();
-
-        void LineBreak();
-    }
-
     /// <summary>
     /// Writes a value the way Writer saves typed text, so that the document shows it as typed: a tab as text:tab, a line break as
     /// text:line-break and every space after the first of a run as text:s. Characters XML cannot hold are dropped: the other characters
@@ -32,15 +19,11 @@ namespace Allors.Document.Rendering
 
         public static void Write(XmlWriter writer, string text)
         {
-            if (!string.IsNullOrEmpty(text))
+            if (string.IsNullOrEmpty(text))
             {
-                Scan(text, new XmlWriterSink(writer));
+                return;
             }
-        }
 
-        /// <summary>Cuts a value into the pieces a sink writes, in order.</summary>
-        public static void Scan(string text, IValueSink sink)
-        {
             var start = 0;
             var i = 0;
             while (i < text.Length)
@@ -55,10 +38,11 @@ namespace Allors.Document.Rendering
                             end++;
                         }
 
-                        Flush(text, start, i + 1, sink);
+                        // The first space of a run goes out as text; the rest as one text:s
+                        Flush(writer, text, start, i + 1);
                         if (end > i + 1)
                         {
-                            sink.Spaces(end - i - 1);
+                            Spaces(writer, end - i - 1);
                         }
 
                         i = end;
@@ -66,22 +50,22 @@ namespace Allors.Document.Rendering
                         break;
 
                     case '\t':
-                        Flush(text, start, i, sink);
-                        sink.Tab();
+                        Flush(writer, text, start, i);
+                        Element(writer, "tab");
                         i++;
                         start = i;
                         break;
 
                     case '\n':
-                        Flush(text, start, i, sink);
-                        sink.LineBreak();
+                        Flush(writer, text, start, i);
+                        Element(writer, "line-break");
                         i++;
                         start = i;
                         break;
 
                     case '\r':
-                        Flush(text, start, i, sink);
-                        sink.LineBreak();
+                        Flush(writer, text, start, i);
+                        Element(writer, "line-break");
                         i += i + 1 < text.Length && text[i + 1] == '\n' ? 2 : 1;
                         start = i;
                         break;
@@ -93,7 +77,7 @@ namespace Allors.Document.Rendering
                         }
                         else if (chr < ' ' || char.IsSurrogate(chr) || chr == '￾' || chr == '￿')
                         {
-                            Flush(text, start, i, sink);
+                            Flush(writer, text, start, i);
                             i++;
                             start = i;
                         }
@@ -106,47 +90,32 @@ namespace Allors.Document.Rendering
                 }
             }
 
-            Flush(text, start, text.Length, sink);
+            Flush(writer, text, start, text.Length);
         }
 
-        private static void Flush(string text, int start, int end, IValueSink sink)
+        private static void Flush(XmlWriter writer, string text, int start, int end)
         {
             if (end > start)
             {
-                sink.Text(text, start, end - start);
+                writer.WriteString(start == 0 && end == text.Length ? text : text.Substring(start, end - start));
             }
         }
 
-        private sealed class XmlWriterSink : IValueSink
+        private static void Spaces(XmlWriter writer, int count)
         {
-            private readonly XmlWriter writer;
-
-            public XmlWriterSink(XmlWriter writer) => this.writer = writer;
-
-            public void Text(string text, int start, int length) => this.writer.WriteString(start == 0 && length == text.Length ? text : text.Substring(start, length));
-
-            public void Spaces(int count)
+            writer.WriteStartElement("text", "s", TextNamespace);
+            if (count > 1)
             {
-                this.writer.WriteStartElement("text", "s", TextNamespace);
-                if (count > 1)
-                {
-                    this.writer.WriteAttributeString("text", "c", TextNamespace, count.ToString(CultureInfo.InvariantCulture));
-                }
-
-                this.writer.WriteEndElement();
+                writer.WriteAttributeString("text", "c", TextNamespace, count.ToString(CultureInfo.InvariantCulture));
             }
 
-            public void Tab()
-            {
-                this.writer.WriteStartElement("text", "tab", TextNamespace);
-                this.writer.WriteEndElement();
-            }
+            writer.WriteEndElement();
+        }
 
-            public void LineBreak()
-            {
-                this.writer.WriteStartElement("text", "line-break", TextNamespace);
-                this.writer.WriteEndElement();
-            }
+        private static void Element(XmlWriter writer, string localName)
+        {
+            writer.WriteStartElement("text", localName, TextNamespace);
+            writer.WriteEndElement();
         }
     }
 }

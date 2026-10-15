@@ -157,7 +157,7 @@ namespace Allos.Document.Inspection.Tests
             Assert.Contains(inspection.Blocks, v => v.Tag.Kind == TagKind.For && v.Tag.Variable == "p" && v.Children.Any(c => c.Tag.Kind == TagKind.For && c.Tag.Variable == "p2"));
             Assert.All(inspection.Tags, v => Assert.True(v.Location.Paragraph > 0));
 
-            // The template binds its frame by the name $image, which the StringTemplate engine reads; a picture is bound by its description now
+            // The template names its frame $image, which bound a picture in 2.x; a picture is bound by its description now
             Assert.Empty(inspection.Pictures);
         }
 

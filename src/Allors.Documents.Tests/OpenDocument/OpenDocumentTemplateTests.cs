@@ -6,120 +6,127 @@
 namespace Allos.Document.OpenDocument.Tests
 {
     using System;
-    using System.Collections.Generic;
+    using System.Globalization;
     using System.IO;
     using System.Linq;
     using System.Reflection;
+    using Allors.Document.Models;
     using Allors.Document.OpenDocument;
-
+    using Allors.Document.Reflection;
+    using Allors.Document.Validation;
     using Xunit;
 
-    public partial class OpenDocumentTemplateTests
+    /// <summary>
+    /// A template over a model type: the render sees the model's public properties by their exact names and reads what is below them
+    /// through the reflection resolver, the root and the rules <see cref="ReflectionShape.Arguments{T}"/> gives Validate.
+    /// </summary>
+    public class OpenDocumentTemplateTests
     {
-        [Fact]
-        public void Render()
+        private static readonly Model Model = new Model
         {
-            var model = new Model
-            {
-                Person = new ModelPerson { FirstName = "Jane" },
-                People =
-                [
-                    new ModelPerson { FirstName = "John" },
-                             new ModelPerson { FirstName = "Jenny" }
-                ],
-                Images =
-                [
-                    "number1",
-                                 "number2",
-                                 "number3"
-                ],
-            };
+            Person = new ModelPerson { FirstName = "Jane" },
+            People = [new ModelPerson { FirstName = "John" }, new ModelPerson { FirstName = "Jenny" }],
+            Images = ["number1", "number2", "number3"],
+        };
 
-            var document = this.GetResource("EmbeddedTemplate.odt");
-            var template = new OpenDocumentTemplate<Model>(document);
+        [Fact]
+        public void TheWriterTemplateOfTheSuiteRenders()
+        {
+            var template = new OpenDocumentTemplate<Model>(Resource("EmbeddedTemplate.odt"));
 
-            var images = new Dictionary<string, byte[]>
-                             {
-                                 { "logo", this.GetResource("logo.png") },
-                                 { "logo2", this.GetResource("logo.png") },
-                                 { "number1", this.GetResource("1.png") },
-                                 { "number2", this.GetResource("2.png") },
-                                 { "number3", this.GetResource("3.png") },
-                             };
+            var result = template.Render(Model);
 
-            var result = template.Render(model, images);
+            var paragraphs = Odt.Paragraphs(Odt.Content(result.Document));
+            Assert.Contains("Jane", paragraphs);
+            Assert.Contains("John", paragraphs);
+            Assert.Contains("Jenny", paragraphs);
 
-            //var desktopDir = Environment.GetFolderPath(Environment.SpecialFolder.Desktop);
-            //File.WriteAllBytes(Path.Combine(desktopDir, "generated.odt"), result);
-
-            // TODO: Check in generated document if it worked!
+            // The template asks for a last name the model does not have
+            var finding = Assert.Single(result.Findings);
+            Assert.Equal(FindingKind.UnknownMember, finding.Kind);
+            Assert.Equal("<$p.LastName>", finding.Text);
         }
 
         [Fact]
-        public void Rerender()
+        public void TheRootHasThePropertiesAsWrittenAndTheRestFollowsTheReflectionRules()
         {
-            var model = new Model
-            {
-                Person = new ModelPerson { FirstName = "Jane" },
-                People =
-                [
-                    new ModelPerson { FirstName = "John" },
-                                                 new ModelPerson { FirstName = "Jenny" }
-                ],
-                Images =
-                [
-                    "number1",
-                                 "number2",
-                                 "number3"
-                ],
-            };
+            var package = Odt.Build("<text:p>" + Odt.Placeholder("<$Person.firstName>") + "</text:p><text:p>" + Odt.Placeholder("<$person.FirstName>") + "</text:p>");
+            var template = new OpenDocumentTemplate<Model>(package);
 
-            var document = this.GetResource("EmbeddedTemplate.odt");
-            var template = new OpenDocumentTemplate<Model>(document);
-            var images = new Dictionary<string, byte[]>
-                             {
-                                 { "logo", this.GetResource("logo.png") },
-                                 { "logo2", this.GetResource("logo.png") },
-                                 { "number1", this.GetResource("1.png") },
-                                 { "number2", this.GetResource("2.png") },
-                                 { "number3", this.GetResource("3.png") },
-                             };
+            var result = template.Render(Model);
 
-            // warmup
-            for(var i=0; i<10; i++)
-            {
-                template.Render(model, images);
-            }
+            // Below the root a name may start with a lower-case letter; the root takes the property names as they are, and Validate judges the same way
+            Assert.Equal("Jane\n", Odt.Paragraphs(Odt.Content(result.Document)));
+            var finding = Assert.Single(result.Findings);
+            Assert.Equal("<$person.FirstName>", finding.Text);
+            Assert.Equal("the model has no member person", finding.Message);
 
-            // run 1
-            var watch = System.Diagnostics.Stopwatch.StartNew();
-
-            template.Render(model, images);
-
-            watch.Stop();
-            var run1 = watch.ElapsedMilliseconds;
-
-            // run 2
-            watch = System.Diagnostics.Stopwatch.StartNew();
-
-            template.Render(model, images);
-
-            watch.Stop();
-            var run2 = watch.ElapsedMilliseconds;
-
-            Assert.InRange(run2, 0, run1 * 2);
+            var validation = OpenDocumentTemplate.Validate(package, ReflectionShape.Arguments<Model>());
+            var error = Assert.Single(validation.Findings);
+            Assert.Equal(FindingKind.UnknownMember, error.Kind);
+            Assert.Equal("<$person.FirstName>", error.Text);
         }
 
-        private byte[] GetResource(string name)
+        [Fact]
+        public void TheSettingsOfARenderApply()
         {
-            var assembly = this.GetType().GetTypeInfo().Assembly;
+            var package = Odt.Build("<text:p>" + Odt.Placeholder("<$Total>") + "</text:p>");
+            var template = new OpenDocumentTemplate<Invoice>(package);
 
-            var resourceName = assembly.GetManifestResourceNames().First(v => v.Contains(name));
-            var resource = assembly.GetManifestResourceStream(resourceName);
+            var plain = template.Render(new Invoice());
+            var formatted = template.Render(new Invoice(), new RenderSettings { Culture = new CultureInfo("nl-BE"), Number = "N2" });
 
+            Assert.Equal("1234.5", Odt.Paragraphs(Odt.Content(plain.Document)));
+            Assert.Equal("1.234,50", Odt.Paragraphs(Odt.Content(formatted.Document)));
+        }
+
+        [Fact]
+        public void AResolverInTheSettingsReplacesTheReflectionResolver()
+        {
+            var package = Odt.Build("<text:p>" + Odt.Placeholder("<$Person.FirstName>") + "</text:p>");
+            var template = new OpenDocumentTemplate<Model>(package);
+
+            var result = template.Render(Model, new RenderSettings { Resolver = DictionaryResolver.Instance });
+
+            // The dictionary resolver reads the root, which is a dictionary, and nothing of the person, which is not
+            Assert.Equal(string.Empty, Odt.Paragraphs(Odt.Content(result.Document)));
+            var finding = Assert.Single(result.Findings);
+            Assert.Equal("Person has no member FirstName", finding.Message);
+        }
+
+        [Fact]
+        public void ANullModelIsRefused()
+        {
+            var template = new OpenDocumentTemplate<Model>(Odt.Build("<text:p>x</text:p>"));
+
+            Assert.Throws<ArgumentNullException>(() => template.Render((Model)null));
+        }
+
+        [Fact]
+        public void ATemplateRendersAgainToTheSameDocument()
+        {
+            var template = new OpenDocumentTemplate<Model>(Resource("EmbeddedTemplate.odt"));
+
+            var first = template.Render(Model);
+            var second = template.Render(Model);
+
+            Assert.Equal(Odt.Entry(first.Document, "content.xml").Bytes, Odt.Entry(second.Document, "content.xml").Bytes);
+            Assert.Equal(Odt.Entry(first.Document, "styles.xml").Bytes, Odt.Entry(second.Document, "styles.xml").Bytes);
+        }
+
+        private static byte[] Resource(string name)
+        {
+            var assembly = typeof(OpenDocumentTemplateTests).GetTypeInfo().Assembly;
+            var resourceName = assembly.GetManifestResourceNames().First(v => v.EndsWith("." + name));
+            using var resource = assembly.GetManifestResourceStream(resourceName);
             using var output = new MemoryStream();
-            resource?.CopyTo(output);
+            resource.CopyTo(output);
             return output.ToArray();
+        }
+
+        private sealed class Invoice
+        {
+            public decimal Total { get; set; } = 1234.5m;
         }
     }
 }

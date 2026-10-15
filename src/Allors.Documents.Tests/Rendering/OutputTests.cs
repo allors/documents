@@ -10,7 +10,6 @@ namespace Allos.Document.Rendering.Tests
     using System.Linq;
     using System.Reflection;
     using System.Text;
-    using System.Text.RegularExpressions;
     using System.Threading.Tasks;
     using System.Xml.Linq;
     using Allors.Document.OpenDocument;
@@ -51,7 +50,7 @@ namespace Allos.Document.Rendering.Tests
             var package = Odt.Build(P("x"));
             var template = Encoding.UTF8.GetString(Odt.Entry(package, "content.xml").Bytes);
 
-            var result = new OpenDocumentTemplate(package, string.Empty).Render(new Dictionary<string, object>(), new RenderSettings());
+            var result = new OpenDocumentTemplate(package).Render(new Dictionary<string, object>(), new RenderSettings());
 
             var rendered = Encoding.UTF8.GetString(Odt.Entry(result.Document, "content.xml").Bytes);
             Assert.Equal(StartTag(template, "office:document-content"), StartTag(rendered, "office:document-content"));
@@ -75,7 +74,7 @@ namespace Allos.Document.Rendering.Tests
             var package = Odt.Build(P(Odt.Frame("Logo", "Pictures/placeholder.png", "The company logo") + Odt.Frame("$Logo", "Pictures/placeholder.png")), pictures);
             var model = new Dictionary<string, object> { ["Logo"] = new byte[] { 9, 9, 9 } };
 
-            var result = new OpenDocumentTemplate(package, string.Empty).Render(model, new RenderSettings());
+            var result = new OpenDocumentTemplate(package).Render(model, new RenderSettings());
 
             // A frame binds by the tag in its description; a plain description or a name starting with $ binds nothing under this engine
             Assert.Equal([("Logo", "Pictures/placeholder.png"), ("$Logo", "Pictures/placeholder.png")], Odt.Frames(Odt.Content(result.Document)));
@@ -104,7 +103,7 @@ namespace Allos.Document.Rendering.Tests
         [Fact]
         public void ThePackageStartsWithTheMimetypeAndKeepsTheOtherFiles()
         {
-            var template = new OpenDocumentTemplate(Resource("EmbeddedTemplate.odt"), string.Empty);
+            var template = new OpenDocumentTemplate(Resource("EmbeddedTemplate.odt"));
 
             var result = template.Render(new Model(), new RenderSettings { Resolver = ReflectionResolver.Instance });
 
@@ -128,7 +127,7 @@ namespace Allos.Document.Rendering.Tests
                 People = [new ModelPerson { FirstName = "John" }, new ModelPerson { FirstName = "Jenny" }],
                 Images = ["number1", "number2", "number3"],
             };
-            var template = new OpenDocumentTemplate(Resource("EmbeddedTemplate.odt"), string.Empty);
+            var template = new OpenDocumentTemplate(Resource("EmbeddedTemplate.odt"));
 
             var result = template.Render(model, new RenderSettings { Resolver = ReflectionResolver.Instance });
 
@@ -137,7 +136,7 @@ namespace Allos.Document.Rendering.Tests
             Assert.Contains("John", paragraphs);
             Assert.Contains("Jenny", paragraphs);
 
-            // The template asks for a last name the model does not have: StringTemplate printed it blank in silence
+            // The template asks for a last name the model does not have: the engine of 2.x printed it blank in silence
             var finding = Assert.Single(result.Findings);
             Assert.Equal("<$p.LastName>", finding.Text);
             Assert.Equal("p has no member LastName", finding.Message);
@@ -145,47 +144,6 @@ namespace Allos.Document.Rendering.Tests
             // The frame named $image is a plain frame under this engine; it repeats with the loop, and frame names are unique in a document
             Assert.Equal(["$image", "$image 2", "$image 3"], Odt.Frames(Odt.Content(result.Document)).Select(v => v.Name).Where(v => v.StartsWith("$image")));
         }
-
-        [Fact]
-        public void BothEnginesRenderTheSameDocumentFromTheLibreOfficeTemplate()
-        {
-            var model = new Model
-            {
-                Person = new ModelPerson { FirstName = "Jane" },
-                People = [new ModelPerson { FirstName = "John" }, new ModelPerson { FirstName = "Jenny" }],
-                Images = ["number1", "number2", "number3"],
-            };
-            var package = Resource("EmbeddedTemplate.odt");
-
-            var stringTemplate = new OpenDocumentTemplate<Model>(package).Render(model);
-            var resolver = new OpenDocumentTemplate(package, string.Empty).Render(model, new RenderSettings { Resolver = ReflectionResolver.Instance }).Document;
-
-            // The parts are the same text once the pictures are set aside: this engine makes frame names unique and binds pictures by their description
-            Assert.Equal(Odt.Paragraphs(Odt.Content(stringTemplate)), Odt.Paragraphs(Odt.Content(resolver)));
-            Assert.Equal(Canonical(stringTemplate, "content.xml"), Canonical(resolver, "content.xml"));
-            Assert.Equal(Canonical(stringTemplate, "styles.xml"), Canonical(resolver, "styles.xml"));
-
-            // The package holds the same files in the same order and compression, and the manifest the same entries, pictures aside
-            Assert.Equal(Files(stringTemplate), Files(resolver));
-            Assert.Equal(ManifestEntries(stringTemplate), ManifestEntries(resolver));
-        }
-
-        /// <summary>
-        /// A part's text with the frame names dropped and the picture hrefs levelled, the two things the engines write differently, and the
-        /// platform's line ending after the declaration (StringTemplate's) read as the fixed one this engine writes.
-        /// </summary>
-        private static string Canonical(byte[] package, string part)
-        {
-            var xml = Encoding.UTF8.GetString(Odt.Entry(package, part).Bytes).Replace("\r\n", "\n");
-            xml = Regex.Replace(xml, " draw:name=\"[^\"]*\"", string.Empty);
-            return Regex.Replace(xml, "xlink:href=\"Pictures/[^\"]*\"", "xlink:href=\"Pictures/\"");
-        }
-
-        private static IEnumerable<string> Files(byte[] package) =>
-            Odt.Entries(package).Where(v => !v.Name.StartsWith("Pictures/")).Select(v => v.Name + (v.Stored ? " stored" : " deflated"));
-
-        private static IEnumerable<string> ManifestEntries(byte[] package) =>
-            Odt.ManifestEntries(package).Where(v => !v.Key.StartsWith("Pictures/")).OrderBy(v => v.Key).Select(v => v.Key + " " + v.Value);
 
         [Fact]
         public void ATemplateRendersRepeatedlyAndConcurrentlyToTheSameDocument()
