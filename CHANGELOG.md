@@ -2,6 +2,37 @@
 
 All notable changes to this project are documented in this file. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses [semantic versioning](https://semver.org/).
 
+## [3.0.0] - unreleased
+
+The StringTemplate engine is gone. A template renders through the resolver and the tag language of 2.1, which this version applies in full: attributes, `sort`, document settings and `<@ifdef>`. The package has no dependencies. To upgrade: take the document from `Render`'s result, move each picture binding from the frame's name and the image dictionary to a tag in the picture's description, pass `Culture = CultureInfo.CurrentCulture` to keep printing in the current culture, and add `using Allors.Document.Reflection` for `OpenDocumentTemplate<T>`.
+
+### Changed
+
+- **Breaking:** `Render(object model, RenderSettings settings = null)` returns a `RenderResult`: the `Document` bytes and the `Findings`, what the template asked of the model that it could not give. A member the model does not have prints blank and is reported as `UnknownMember`; 2.x printed blank in silence. A render never throws for what the template says.
+- **Breaking:** `OpenDocumentTemplate(byte[] document)` is the only constructor: the `arguments` and the delimiters are gone. A template is read once and rendered any number of times, from any thread. Reading a template whose block never ends, whose end opens nothing or whose block would cut a table throws `TemplateException` there, with `Findings` saying which tags and where; 2.x threw a `NullReferenceException` or an `InvalidOperationException` for an unbalanced template, without saying where.
+- **Breaking:** `OpenDocumentTemplate<T>` moved to the package `Allors.Documents.Reflection`, namespace `Allors.Document.Reflection`. It renders the public properties of `T` by their exact names, the root `ReflectionShape.Arguments<T>()` gives `Validate`, and reads below them through `ReflectionResolver`. The non-generic `OpenDocumentTemplate` reads its model as a dictionary unless the settings name a resolver: keys as written, no reflection. 2.x read every object below the root through reflection.
+- **Breaking:** a picture binds through its description (Image, Properties, Options, Description), which holds one picture tag: `<$Issuer.Logo>`, `<$item.Photo empty="keep" fit="contain">`. A frame named `$path` is a plain frame. The bytes come from the model through `IResolver.Picture`; the format and the media type come from the bytes (PNG, JPEG, GIF, WebP, BMP, TIFF, SVG, EMF, WMF). A picture is stored once per distinct content under `Pictures/<path>.<ext>`, and template pictures no frame shows leave the package. Without a picture the frame leaves the document, a null value in silence and anything else with a finding, unless its tag says `empty="keep"`. Every frame's name is made unique in the document, as Writer requires.
+- **Breaking:** `<@if>` is false for empty or white-space text and for zero, next to null, false and an empty collection. 2.x kept the block for `""` and `0`.
+- **Breaking:** values print through the resolver under the effective formatting: the invariant culture unless the caller's settings, the template's document settings or the tag say otherwise; a date with the `date` pattern when it has no time of day and `datetime` otherwise, a number with the `number` pattern, a boolean as the `true` or `false` word, an enum as its name. 2.x printed every value through `ToString()` in the current culture.
+- **Breaking:** no loop variable name is reserved. `Validate` no longer reports `ReservedName`.
+- `<@ifdef>` keeps its block when the member exists, null included; 2.1 rendered it as `<@if>`.
+- `Inspect` lists the frames whose description is a picture tag, each with its frame name, tag and attributes; 2.1 listed the frames named `$path`.
+- The output reads as the template did: the XML declaration, no byte order mark, a full end tag on every element of the template, comments and processing instructions kept. A manifest the render changes is written without a byte order mark; an untouched one passes as it is.
+
+### Added
+
+- `RenderSettings`: the `Resolver`, the `Culture`, the patterns `Date`, `Time`, `DateTime` and `Number`, the words `True` and `False`, and `Flat`. Formatting layers from the library's defaults through the caller's settings, the template's custom document properties and the tag's attributes; the last layer wins.
+- The attributes and settings of 2.1 take effect: `format`, `culture`, `true` and `false` on a binding, `sort` on a loop with a stable sort, and the document settings `culture`, `date`, `time`, `datetime`, `number`, `true` and `false`.
+- `<@for item Items index="n">` declares a counter, read as `<$n>`: 1 for the first item in the loop's order. It prints as a plain integer unless its tag carries a `format`, so a document-wide number pattern does not turn line numbers into `1.00`.
+- `empty="remove|keep"` and `fit="fill|contain|width|height"` on a picture tag. Fill, the default, stretches the picture into the frame as drawn; contain shrinks the side that would overflow; width and height keep that side and let the other follow the picture's proportions, which may grow the frame or its row. The proportions come from the picture's header; bytes that do not tell their size fill and report `CannotFit`.
+- Flat OpenDocument texts (`.fodt`) as templates, and as output with `RenderSettings.Flat`: one XML file with the pictures embedded as base64. The findings of a flat template name `content.xml` and `styles.xml`, the parts it is split into. Embedded objects such as charts and formulas are not converted between the two forms.
+- Findings at render: `UnknownMember`, `MalformedTag`, `CannotSort` for a loop whose keys cannot be ordered, `NotAPicture` for a bound value that is no picture, `CannotFit`. `Validate` reports `BadValue` for an attribute value a tag does not take, and checks picture tags and the `index` attribute of a loop.
+
+### Removed
+
+- The dependency on StringTemplate4.
+- `OpenDocumentTemplate.InferArguments`, the `arguments` and delimiter constructor parameters, `Render(IDictionary<string, object>, IDictionary<string, byte[]>)` returning bytes, the `Image` classes, `TemplateException.TemplateMessages` and `FindingKind.ReservedName`.
+
 ## [2.1.0] - 2026-10-14
 
 A template can be inspected and validated against its model before it renders. Rendering is unchanged: every template renders the same document as 2.0.0.
