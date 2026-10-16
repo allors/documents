@@ -2,7 +2,7 @@
 
 All notable changes to this project are documented in this file. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses [semantic versioning](https://semver.org/).
 
-## [3.2.0] - unreleased
+## [3.2.0] - 2026-10-16
 
 A condition can say what to print otherwise, a loop can put text between its items, a binding can print a text of its own for a blank value, and a template can carry maps that translate values into its own words. Every addition is a tag or an attribute that meant nothing before, so a 3.1 template renders as it did.
 
