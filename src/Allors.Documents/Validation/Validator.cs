@@ -20,9 +20,6 @@ namespace Allors.Document.Validation
     /// <summary>Checks an inspected template against a model shape.</summary>
     internal sealed class Validator
     {
-        private const string TextNamespace = "urn:oasis:names:tc:opendocument:xmlns:text:1.0";
-        private const string TableNamespace = "urn:oasis:names:tc:opendocument:xmlns:table:1.0";
-
         private static readonly Location SettingsLocation = new Location("meta.xml", 0, string.Empty);
 
         /// <summary>A loop counter is a number: it has no members and is not a collection.</summary>
@@ -30,9 +27,11 @@ namespace Allors.Document.Validation
 
         private readonly IShape root;
         private readonly List<Finding> findings = new List<Finding>();
-        private readonly Dictionary<InspectedTag, Scope> scopeByBlock = new Dictionary<InspectedTag, Scope>();
+        private readonly Dictionary<InspectedTag, Scope> scopeByBranch = new Dictionary<InspectedTag, Scope>();
         private readonly HashSet<XmlElement> blockElements = new HashSet<XmlElement>();
         private readonly HashSet<XmlElement> containersChecked = new HashSet<XmlElement>();
+        private readonly Dictionary<string, InspectedMap> mapsByName = new Dictionary<string, InspectedMap>();
+        private readonly HashSet<InspectedMap> mapsUsed = new HashSet<InspectedMap>();
 
         private Validator(IShape root) => this.root = root ?? throw new ArgumentNullException(nameof(root));
 
@@ -59,6 +58,11 @@ namespace Allors.Document.Validation
                 }
             }
 
+            foreach (var map in inspection.Maps)
+            {
+                this.mapsByName[map.Name] = map;
+            }
+
             var rootScope = new Scope(null, null, null);
             foreach (var tag in inspection.Tags)
             {
@@ -67,10 +71,11 @@ namespace Allors.Document.Validation
 
             foreach (var picture in inspection.Pictures)
             {
-                var scope = picture.Block == null ? rootScope : this.scopeByBlock[picture.Block];
+                var scope = picture.Branch == null ? rootScope : this.scopeByBranch[picture.Branch];
                 this.CheckPicture(picture, scope);
             }
 
+            this.CheckMaps(inspection.Maps);
             this.CheckSettings(inspection.Settings);
         }
 
@@ -109,21 +114,18 @@ namespace Allors.Document.Validation
 
                 case TagKind.If:
                 case TagKind.IfDef:
-                    var guarded = new Scope(scope, null, null);
-                    this.scopeByBlock[tag] = guarded;
-                    this.CheckGuard(tag, scope, guarded);
-                    this.CheckStructure(tag);
-                    foreach (var child in tag.Children)
-                    {
-                        this.Visit(child, guarded);
-                    }
-
+                    this.VisitCondition(tag, scope);
                     break;
 
                 case TagKind.For:
                     var body = this.CheckLoop(tag, scope);
-                    this.scopeByBlock[tag] = body;
-                    this.CheckStructure(tag);
+                    this.scopeByBranch[tag] = body;
+                    var pair = this.CheckStructure(tag);
+                    if (tag.Tag.Separator != null && pair != null && !BlockStructure.IsInline(pair))
+                    {
+                        this.Add(FindingKind.SeparatorIgnored, FindingSeverity.Warning, tag.Tag.Text, null, "the separator is not written: it goes between the items of a loop that sits in one paragraph, and this loop's tags sit in " + BlockStructure.Describe(pair.BeginSibling) + "s of their own", tag.Location);
+                    }
+
                     foreach (var child in tag.Children)
                     {
                         this.Visit(child, body);
@@ -133,6 +135,67 @@ namespace Allors.Document.Validation
             }
         }
 
+        /// <summary>
+        /// Each branch of a condition is checked in its own scope: the test of the first branch narrows the guarded path to the variants that
+        /// have the member, and what follows an else is checked as if that test had failed, so an ifdef's else sees the variants without the
+        /// member; an else with a test of its own narrows again.
+        /// </summary>
+        private void VisitCondition(InspectedTag tag, Scope scope)
+        {
+            this.CheckStructure(tag);
+
+            var branch = this.Branch(tag, scope, out var next);
+            this.scopeByBranch[tag] = branch;
+            foreach (var child in tag.Children)
+            {
+                if (child.Tag.Kind == TagKind.Else)
+                {
+                    branch = child.Tag.HasTest ? this.Branch(child, next, out next) : next;
+                    this.scopeByBranch[child] = branch;
+                    continue;
+                }
+
+                this.Visit(child, branch);
+            }
+        }
+
+        /// <summary>
+        /// The scope of the branch a test opens, and the scope in which the next branch's test is evaluated. Where the test's path reaches a
+        /// member only some variants have, the branch where the raw test is true sees those variants; for an ifdef on the last segment the
+        /// branch where it is false sees the others. Not swaps the two.
+        /// </summary>
+        private Scope Branch(InspectedTag test, Scope evaluation, out Scope fallthrough)
+        {
+            var holds = new Scope(evaluation, null, null);
+            fallthrough = new Scope(evaluation, null, null);
+
+            var path = test.Tag.Path;
+            var split = new Split();
+            var walk = this.Resolve(path, evaluation, split);
+            if (walk.Failed)
+            {
+                this.AddUnknownMember(walk, path, test.Tag.Text, test.Location);
+                return holds;
+            }
+
+            var whenTrue = test.Tag.Negated ? fallthrough : holds;
+            var whenFalse = test.Tag.Negated ? holds : fallthrough;
+            foreach (var narrowing in split.Narrowings)
+            {
+                whenTrue.Narrow(narrowing.Base, narrowing.Prefix, Shape(narrowing.With));
+            }
+
+            var last = split.Narrowings.Count == 1 ? split.Narrowings[0] : null;
+            if (test.Tag.Defined && last != null && last.IsLast && last.Without.Count > 0)
+            {
+                whenFalse.Narrow(last.Base, last.Prefix, Shape(last.Without));
+            }
+
+            return holds;
+        }
+
+        private static IShape Shape(IReadOnlyList<IShape> variants) => variants.Count == 1 ? variants[0] : new NarrowedShape(variants);
+
         private void CheckBinding(InspectedTag tag, Scope scope)
         {
             this.CheckPath(tag.Tag.Path, scope, tag.Tag.Text, tag.Location);
@@ -140,28 +203,30 @@ namespace Allors.Document.Validation
             var culture = CultureInfo.InvariantCulture;
             foreach (var attribute in tag.Tag.Attributes)
             {
-                if (!Formatting.IsBindingAttribute(attribute.Key))
+                if (!TagSyntax.IsBindingAttribute(attribute.Key))
                 {
-                    this.Add(FindingKind.UnknownAttribute, FindingSeverity.Error, tag.Tag.Text, null, "a binding has no attribute '" + attribute.Key + "': use " + string.Join(", ", Formatting.BindingAttributes), tag.Location);
+                    this.Add(FindingKind.UnknownAttribute, FindingSeverity.Error, tag.Tag.Text, null, "a binding has no attribute '" + attribute.Key + "': use " + string.Join(", ", TagSyntax.BindingAttributes), tag.Location);
                 }
                 else if (string.Equals(attribute.Key, Formatting.CultureSetting, StringComparison.OrdinalIgnoreCase))
                 {
                     culture = this.CheckCulture(attribute.Value, tag.Tag.Text, tag.Location) ?? culture;
+                }
+                else if (string.Equals(attribute.Key, TagSyntax.MapAttribute, StringComparison.OrdinalIgnoreCase))
+                {
+                    if (this.mapsByName.TryGetValue(attribute.Value, out var map))
+                    {
+                        this.mapsUsed.Add(map);
+                    }
+                    else
+                    {
+                        this.Add(FindingKind.UnknownMap, FindingSeverity.Error, tag.Tag.Text, null, "no map '" + attribute.Value + "' in the template: a map is a table whose first cell holds <@map " + attribute.Value + ">", tag.Location);
+                    }
                 }
             }
 
             if (tag.Tag.Attributes.TryGetValue(Formatting.FormatAttribute, out var format) && !Formatting.IsNamedFormat(format) && !IsDatePattern(format, culture) && !IsNumberPattern(format, culture))
             {
                 this.Add(FindingKind.BadPattern, FindingSeverity.Error, tag.Tag.Text, null, "'" + format + "' is not a format: use a .NET format string, or date, time, datetime or number for the document's pattern", tag.Location);
-            }
-        }
-
-        private void CheckGuard(InspectedTag tag, Scope scope, Scope guarded)
-        {
-            var walk = this.Resolve(tag.Tag.Path, scope, guarded);
-            if (walk.Failed)
-            {
-                this.AddUnknownMember(walk, tag.Tag.Path, tag.Tag.Text, tag.Location);
             }
         }
 
@@ -187,9 +252,9 @@ namespace Allors.Document.Validation
 
             foreach (var attribute in tag.Tag.Attributes)
             {
-                if (!string.Equals(attribute.Key, TagSyntax.SortAttribute, StringComparison.OrdinalIgnoreCase) && !string.Equals(attribute.Key, TagSyntax.IndexAttribute, StringComparison.OrdinalIgnoreCase))
+                if (!TagSyntax.IsLoopAttribute(attribute.Key))
                 {
-                    this.Add(FindingKind.UnknownAttribute, FindingSeverity.Error, tag.Tag.Text, null, "a loop has no attribute '" + attribute.Key + "': use sort or index", tag.Location);
+                    this.Add(FindingKind.UnknownAttribute, FindingSeverity.Error, tag.Tag.Text, null, "a loop has no attribute '" + attribute.Key + "': use " + string.Join(", ", TagSyntax.LoopAttributes), tag.Location);
                 }
             }
 
@@ -246,9 +311,9 @@ namespace Allors.Document.Validation
 
         /// <summary>
         /// Walks a path from a scope: the first segment is a loop variable in scope, innermost first, or a member of the root; the rest are members.
-        /// With a guard scope, a segment that only some variants have narrows the prefix for that scope instead of failing.
+        /// With a split, a segment that only some variants have is noted in it and the walk goes on over those variants instead of failing.
         /// </summary>
-        private Walk Resolve(string path, Scope scope, Scope guarded)
+        private Walk Resolve(string path, Scope scope, Split split)
         {
             var segments = path.Split('.');
             var frame = scope.Frame(segments[0]);
@@ -266,14 +331,14 @@ namespace Allors.Document.Validation
                 if (member == null)
                 {
                     var with = current.Variants.Where(v => v.Member(segment) != null).ToList();
-                    if (with.Count == 0 || guarded == null)
+                    if (with.Count == 0 || split == null)
                     {
                         return Walk.Failure(current, segment, with, string.Join(".", segments.Take(i + 1)));
                     }
 
-                    var narrowed = with.Count == 1 ? with[0] : new NarrowedShape(with);
-                    guarded.Narrow(@base, prefix, narrowed);
-                    member = narrowed.Member(segment);
+                    var without = current.Variants.Where(v => v.Member(segment) == null).ToList();
+                    split.Narrowings.Add(new Narrowing(@base, prefix, with, without, i == segments.Length - 1));
+                    member = Shape(with).Member(segment);
                 }
 
                 prefix = prefix.Length == 0 ? segment : prefix + "." + segment;
@@ -284,35 +349,47 @@ namespace Allors.Document.Validation
         }
 
         /// <summary>
-        /// What the renderer does with a block: it takes the lowest common ancestor of the two tags and removes the two children of
-        /// that ancestor that hold them, keeping or repeating what sits between. Tags in one paragraph cost only their text runs; tags
-        /// in two cells of one row cost the cells; a tag inside a table whose partner is outside costs the whole table.
+        /// What the renderer does with a block: it takes the lowest common ancestor of its tags and removes the children of that ancestor that
+        /// hold them, keeping or repeating what sits between. Tags in one paragraph cost only their text runs; tags in two cells of one row cost
+        /// the cells; a tag inside a table whose partner is outside costs the whole table. The block's pair, for what else depends on its shape; null when it has none.
         /// </summary>
-        private void CheckStructure(InspectedTag block)
+        private XmlPair CheckStructure(InspectedTag block)
         {
             var end = block.End;
             if (end == null || block.Element == null || end.Element == null)
             {
-                return;
+                return null;
             }
 
             var pair = new XmlPair(null, block.Element) { End = end.Element };
+            var elses = block.Elses.Where(v => v.Element != null).ToList();
+            foreach (var @else in elses)
+            {
+                pair.AddSeparator(@else.Element);
+            }
+
             var begin = pair.BeginSibling;
             var finish = pair.EndSibling;
             if (begin == null || finish == null)
             {
-                return;
+                return null;
             }
 
             var problem = BlockStructure.Problem(pair);
             if (problem != null)
             {
                 this.Add(FindingKind.BlockStructure, FindingSeverity.Error, block.Tag.Text, null, BlockStructure.Message(problem), block.Location);
-                return;
+                return pair;
             }
 
             this.CheckMixedText(begin, block);
+            for (var i = 0; i < elses.Count; i++)
+            {
+                this.CheckMixedText(pair.SeparatorSiblings[i], elses[i]);
+            }
+
             this.CheckMixedText(finish, end);
+            return pair;
         }
 
         /// <summary>The element that holds a block tag is removed with everything else in it; say so when there is something else.</summary>
@@ -336,12 +413,25 @@ namespace Allors.Document.Validation
                 rest = rest.Substring(0, 60) + "...";
             }
 
-            var what = Is(container, TextNamespace, "p") || Is(container, TextNamespace, "h") ? "paragraph"
-                : Is(container, TableNamespace, "table-row") ? "row"
-                : Is(container, TextNamespace, "list") ? "list"
-                : Is(container, TextNamespace, "span") ? "text run"
-                : container.LocalName;
+            var what = BlockStructure.Describe(container);
             this.Add(FindingKind.MixedText, FindingSeverity.Warning, tag.Tag.Text, null, "the " + what + " that holds this tag is removed with the tag, and '" + rest + "' with it: give the tag its own " + what, tag.Location);
+        }
+
+        /// <summary>A map no binding prints through, and a map without a default row, are worth a look.</summary>
+        private void CheckMaps(IEnumerable<InspectedMap> maps)
+        {
+            foreach (var map in maps)
+            {
+                if (!this.mapsUsed.Contains(map))
+                {
+                    this.Add(FindingKind.UnusedMap, FindingSeverity.Warning, map.Tag.Text, null, "no binding prints through the map '" + map.Name + "': use <$path map=\"" + map.Name + "\">", map.Location);
+                }
+
+                if (!map.HasDefault)
+                {
+                    this.Add(FindingKind.MapWithoutDefault, FindingSeverity.Warning, map.Tag.Text, null, "the map '" + map.Name + "' has no default row: a value it has no row for prints as it is", map.Location);
+                }
+            }
         }
 
         /// <summary>Every setting must be known and every culture a culture; a pattern is tried in the culture its kind prints in.</summary>
@@ -444,8 +534,6 @@ namespace Allors.Document.Validation
             }
         }
 
-        private static bool Is(XmlElement element, string ns, string localName) => element.NamespaceURI == ns && element.LocalName == localName;
-
         private static void CollectText(XmlNode node, StringBuilder text, HashSet<XmlElement> skip)
         {
             foreach (XmlNode child in node.ChildNodes)
@@ -464,7 +552,7 @@ namespace Allors.Document.Validation
             }
         }
 
-        /// <summary>A frame of the walk: a loop variable with its shape, or a guard with its narrowings; the root scope has neither.</summary>
+        /// <summary>A frame of the walk: a loop variable with its shape, or a branch with its narrowings; the root scope has neither.</summary>
         private sealed class Scope
         {
             private readonly List<(object Base, string Prefix, IShape Shape)> narrowings = new List<(object, string, IShape)>();
@@ -498,7 +586,7 @@ namespace Allors.Document.Validation
 
             public void Narrow(object @base, string prefix, IShape shape) => this.narrowings.Add((@base, prefix, shape));
 
-            /// <summary>The narrowed shape of a prefix under a base, from the innermost guard that narrowed it; null when none did.</summary>
+            /// <summary>The narrowed shape of a prefix under a base, from the innermost branch that narrowed it; null when none did.</summary>
             public IShape Narrowed(object @base, string prefix)
             {
                 for (var scope = this; scope != null; scope = scope.Parent)
@@ -515,6 +603,36 @@ namespace Allors.Document.Validation
 
                 return null;
             }
+        }
+
+        /// <summary>Where a path reached a member only some variants have: the prefix under its base, the variants with the member and those without.</summary>
+        private sealed class Narrowing
+        {
+            public Narrowing(object @base, string prefix, IReadOnlyList<IShape> with, IReadOnlyList<IShape> without, bool isLast)
+            {
+                this.Base = @base;
+                this.Prefix = prefix;
+                this.With = with;
+                this.Without = without;
+                this.IsLast = isLast;
+            }
+
+            public object Base { get; }
+
+            public string Prefix { get; }
+
+            public IReadOnlyList<IShape> With { get; }
+
+            public IReadOnlyList<IShape> Without { get; }
+
+            /// <summary>True when the member is the last segment of the path: the test is about this member itself.</summary>
+            public bool IsLast { get; }
+        }
+
+        /// <summary>The narrowings a guarded walk collects, in path order.</summary>
+        private sealed class Split
+        {
+            public List<Narrowing> Narrowings { get; } = new List<Narrowing>();
         }
 
         /// <summary>The outcome of walking a path: the shape it reaches, or where it failed and which variants would have had the member.</summary>

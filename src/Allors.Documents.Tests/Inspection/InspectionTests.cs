@@ -161,6 +161,65 @@ namespace Allos.Document.Inspection.Tests
             Assert.Empty(inspection.Pictures);
         }
 
+        [Fact]
+        public void ElseTagsAreChildrenOfTheirCondition()
+        {
+            var package = Odt.Build(
+                "<text:p>" + Odt.Placeholder("<@ifdef Receiver.FirstName>") + "</text:p>" +
+                "<text:p>" + Odt.Placeholder("<$Receiver.FirstName>") + "</text:p>" +
+                "<text:p>" + Odt.Placeholder("<@else if Receiver.Name>") + "</text:p>" +
+                "<text:p>" + Odt.Placeholder("<$Receiver.Name>") + "</text:p>" +
+                "<text:p>" + Odt.Placeholder("<@else>") + "</text:p>" +
+                "<text:p>" + Odt.Frame("Logo", "Pictures/p.png", "<$Logo>") + "</text:p>" +
+                "<text:p>" + Odt.Placeholder("<@end>") + "</text:p>");
+
+            var inspection = OpenDocumentTemplate.Inspect(package);
+
+            Assert.Empty(inspection.Problems);
+            var condition = Assert.Single(inspection.Tags);
+            Assert.Equal(["<$Receiver.FirstName>", "<@else if Receiver.Name>", "<$Receiver.Name>", "<@else>", "<@end>"], condition.Children.Select(v => v.Tag.Text));
+            Assert.Equal(["<@else if Receiver.Name>", "<@else>"], condition.Elses.Select(v => v.Tag.Text));
+            Assert.All(condition.Children, v => Assert.Same(condition, v.Block));
+            Assert.Single(inspection.Blocks);
+            Assert.Equal(["Receiver.FirstName", "Receiver.Name", "Logo"], inspection.Paths);
+            Assert.Same(condition, Assert.Single(inspection.Pictures).Block);
+        }
+
+        [Fact]
+        public void MapsAreInspectedWithTheirRows()
+        {
+            var header = "<office:master-styles><style:master-page style:name=\"Standard\"><style:header>" + Odt.Map("Titles", "true|CREDIT NOTE", "false|INVOICE") + "</style:header></style:master-page></office:master-styles>";
+            var package = Odt.Build("<text:p>x</text:p>" + Odt.Map("Labels", "Payment|PAYMENT", "default|OTHER") + "<text:p>" + Odt.Placeholder("<$Kind map=\"Labels\">") + "</text:p>", masterStyles: header);
+
+            var inspection = OpenDocumentTemplate.Inspect(package);
+
+            Assert.Empty(inspection.Problems);
+            Assert.Equal(["Labels", "Titles"], inspection.Maps.Select(v => v.Name));
+
+            var labels = inspection.Maps[0];
+            Assert.Equal(TagKind.Map, labels.Tag.Kind);
+            Assert.Equal("<@map Labels>", labels.Tag.Text);
+            Assert.Equal(["Payment"], labels.Entries.Keys);
+            Assert.Equal("PAYMENT", labels.Entries["Payment"]);
+            Assert.True(labels.HasDefault);
+            Assert.Equal("OTHER", labels.Default);
+            Assert.Equal("content.xml", labels.Location.Part);
+            Assert.Equal(2, labels.Location.Paragraph);
+            Assert.Equal("<@map Labels> in content.xml paragraph 2 \"<@map Labels>\"", labels.ToString());
+            Assert.True(labels.TryGet("Payment", out var text) && text == "PAYMENT");
+            Assert.True(labels.TryGet("Other", out text) && text == "OTHER");
+
+            var titles = inspection.Maps[1];
+            Assert.Equal("styles.xml", titles.Location.Part);
+            Assert.False(titles.HasDefault);
+            Assert.Null(titles.Default);
+            Assert.False(titles.TryGet("maybe", out _));
+
+            // The binding after the map sits in paragraph 8: the map's six paragraphs count
+            Assert.Equal(8, Assert.Single(inspection.Tags).Location.Paragraph);
+            Assert.Equal(["Kind"], inspection.Paths);
+        }
+
         private static byte[] Resource(string name)
         {
             var assembly = typeof(InspectionTests).GetTypeInfo().Assembly;

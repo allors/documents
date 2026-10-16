@@ -7,15 +7,18 @@ namespace Allors.Document.Inspection
 {
     using System.Collections.Generic;
     using System.IO;
+    using System.Linq;
+    using System.Text;
     using System.Text.RegularExpressions;
     using System.Xml;
     using Allors.Document.OpenDocument;
     using Allors.Document.Tags;
 
-    /// <summary>Reads the tags, bound pictures and settings of a template package without rendering it.</summary>
+    /// <summary>Reads the tags, bound pictures, maps and settings of a template package without rendering it.</summary>
     internal static class Inspector
     {
         private const string TextNamespace = "urn:oasis:names:tc:opendocument:xmlns:text:1.0";
+        private const string TableNamespace = "urn:oasis:names:tc:opendocument:xmlns:table:1.0";
         private const string DrawingNamespace = "urn:oasis:names:tc:opendocument:xmlns:drawing:1.0";
         private const string SvgNamespace = "urn:oasis:names:tc:opendocument:xmlns:svg-compatible:1.0";
         private const string MetaNamespace = "urn:oasis:names:tc:opendocument:xmlns:meta:1.0";
@@ -28,17 +31,18 @@ namespace Allors.Document.Inspection
 
             var tags = new List<InspectedTag>();
             var pictures = new List<InspectedPicture>();
+            var maps = new List<InspectedMap>();
             var problems = new List<InspectionProblem>();
 
-            new PartWalker(OpenDocumentTemplate.ContentFileName, Load(parts.Content), tags, pictures, problems).Walk();
+            new PartWalker(OpenDocumentTemplate.ContentFileName, Load(parts.Content), tags, pictures, maps, problems).Walk();
             if (parts.Styles != null)
             {
-                new PartWalker(OpenDocumentTemplate.StylesFileName, Load(parts.Styles), tags, pictures, problems).Walk();
+                new PartWalker(OpenDocumentTemplate.StylesFileName, Load(parts.Styles), tags, pictures, maps, problems).Walk();
             }
 
             var settings = parts.Files.TryGetValue(OpenDocumentTemplate.DocumentMetaFileName, out var meta) ? Settings(Load(meta)) : new Dictionary<string, string>();
 
-            return new TemplateInspection(tags, pictures, settings, problems);
+            return new TemplateInspection(tags, pictures, maps, settings, problems);
         }
 
         /// <summary>Loads a part with every white space character kept: Writer saves a part without indentation, so every one is the author's.</summary>
@@ -69,23 +73,82 @@ namespace Allors.Document.Inspection
             return settings;
         }
 
-        /// <summary>Walks one part and collects its tags as a tree, its bound frames and what cannot be read. The part is not changed.</summary>
+        /// <summary>
+        /// The text of an element as a reader shows it: a text:s reads as its spaces, a text:tab as a tab, a text:line-break as a line break,
+        /// and every paragraph ends with a line break; what sits in a drawing is no text. Trimmed.
+        /// </summary>
+        internal static string ReaderText(XmlElement element)
+        {
+            var text = new StringBuilder();
+            CollectText(element, text);
+            return text.ToString().Trim();
+        }
+
+        private static void CollectText(XmlNode node, StringBuilder text)
+        {
+            foreach (XmlNode child in node.ChildNodes)
+            {
+                switch (child)
+                {
+                    case XmlElement element:
+                        if (element.NamespaceURI == TextNamespace)
+                        {
+                            switch (element.LocalName)
+                            {
+                                case "s":
+                                    var count = element.GetAttribute("c", TextNamespace);
+                                    text.Append(' ', int.TryParse(count, out var spaces) && spaces > 0 ? spaces : 1);
+                                    continue;
+                                case "tab":
+                                    text.Append('\t');
+                                    continue;
+                                case "line-break":
+                                    text.Append('\n');
+                                    continue;
+                                case "p":
+                                case "h":
+                                    CollectText(element, text);
+                                    text.Append('\n');
+                                    continue;
+                            }
+                        }
+                        else if (element.NamespaceURI == DrawingNamespace)
+                        {
+                            continue;
+                        }
+
+                        CollectText(element, text);
+                        break;
+
+                    case XmlText _:
+                    case XmlCDataSection _:
+                    case XmlWhitespace _:
+                    case XmlSignificantWhitespace _:
+                        text.Append(child.Value);
+                        break;
+                }
+            }
+        }
+
+        /// <summary>Walks one part and collects its tags as a tree, its bound frames, its maps and what cannot be read. The part is not changed.</summary>
         internal sealed class PartWalker
         {
             private readonly string part;
             private readonly XmlDocument document;
             private readonly List<InspectedTag> tags;
             private readonly List<InspectedPicture> pictures;
+            private readonly List<InspectedMap> maps;
             private readonly List<InspectionProblem> problems;
             private readonly Stack<InspectedTag> blocks = new Stack<InspectedTag>();
             private readonly Dictionary<XmlElement, int> paragraphOrdinals = new Dictionary<XmlElement, int>();
 
-            public PartWalker(string part, XmlDocument document, List<InspectedTag> tags, List<InspectedPicture> pictures, List<InspectionProblem> problems)
+            public PartWalker(string part, XmlDocument document, List<InspectedTag> tags, List<InspectedPicture> pictures, List<InspectedMap> maps, List<InspectionProblem> problems)
             {
                 this.part = part;
                 this.document = document;
                 this.tags = tags;
                 this.pictures = pictures;
+                this.maps = maps;
                 this.problems = problems;
             }
 
@@ -102,7 +165,7 @@ namespace Allors.Document.Inspection
 
             private void Visit(XmlElement element)
             {
-                if (element.NamespaceURI == TextNamespace && (element.LocalName == "p" || element.LocalName == "h"))
+                if (IsParagraph(element))
                 {
                     this.paragraphOrdinals[element] = this.paragraphOrdinals.Count + 1;
                 }
@@ -116,6 +179,11 @@ namespace Allors.Document.Inspection
                 if (element.NamespaceURI == DrawingNamespace && element.LocalName == "frame")
                 {
                     this.VisitFrame(element);
+                }
+
+                if (Is(element, TableNamespace, "table") && this.TryVisitMap(element))
+                {
+                    return;
                 }
 
                 foreach (XmlNode child in element.ChildNodes)
@@ -144,17 +212,45 @@ namespace Allors.Document.Inspection
 
                 var block = this.blocks.Count > 0 ? this.blocks.Peek() : null;
 
-                if (tag.Kind == TagKind.End)
+                switch (tag.Kind)
                 {
-                    if (block == null)
-                    {
-                        this.problems.Add(new InspectionProblem(text, "this <@end> closes nothing: no loop or condition is open here", location, true));
-                        return;
-                    }
+                    case TagKind.End:
+                        if (block == null)
+                        {
+                            this.problems.Add(new InspectionProblem(text, "this <@end> closes nothing: no loop or condition is open here", location, true));
+                            return;
+                        }
 
-                    this.blocks.Pop();
-                    block.Add(new InspectedTag(tag, location, block, element));
-                    return;
+                        this.blocks.Pop();
+                        block.Add(new InspectedTag(tag, location, block, element));
+                        return;
+
+                    case TagKind.Else:
+                        if (block == null)
+                        {
+                            this.problems.Add(new InspectionProblem(text, "this " + Keyword(tag) + " belongs to no condition: no <@if> or <@ifdef> is open here", location, true));
+                            return;
+                        }
+
+                        if (block.Tag.Kind == TagKind.For)
+                        {
+                            this.problems.Add(new InspectionProblem(text, "this " + Keyword(tag) + " sits in a loop, which has no else: an else belongs to an <@if> or <@ifdef>", location, true));
+                            return;
+                        }
+
+                        var previous = block.LastElse;
+                        if (previous != null && !previous.Tag.HasTest)
+                        {
+                            this.problems.Add(new InspectionProblem(text, tag.HasTest ? "this " + Keyword(tag) + " comes after the <@else>: put it before" : "this condition already has an <@else>", location, true));
+                            return;
+                        }
+
+                        block.Add(new InspectedTag(tag, location, block, element));
+                        return;
+
+                    case TagKind.Map:
+                        this.problems.Add(new InspectionProblem(text, "a <@map> tag goes in the first cell of a table of two columns: the keys in the first column, the texts in the second", location));
+                        return;
                 }
 
                 var inspected = new InspectedTag(tag, location, block, element);
@@ -196,8 +292,152 @@ namespace Allors.Document.Inspection
                 }
 
                 var name = element.GetAttribute("name", DrawingNamespace).Trim();
-                this.pictures.Add(new InspectedPicture(name, tag, location, this.blocks.Count > 0 ? this.blocks.Peek() : null, element));
+                var block = this.blocks.Count > 0 ? this.blocks.Peek() : null;
+                this.pictures.Add(new InspectedPicture(name, tag, location, block, block?.LastElse ?? block, element));
             }
+
+            /// <summary>
+            /// A table whose first cell holds a map tag is a map: its rows below the first map the text of their first cell to the text of
+            /// their second. The table's own paragraphs count in the part, so that locations agree with the template; its tags are not read.
+            /// </summary>
+            private bool TryVisitMap(XmlElement table)
+            {
+                var rows = Rows(table);
+                var placeholder = rows.Count == 0 ? null : FirstPlaceholder(Cells(rows[0]).FirstOrDefault());
+                if (placeholder == null || !TagSyntax.TryParse(placeholder.InnerText, out var tag, out _) || tag.Kind != TagKind.Map)
+                {
+                    return false;
+                }
+
+                this.NumberParagraphs(table);
+                var location = this.LocationOf(placeholder);
+                var name = tag.Path;
+
+                if (this.maps.Any(v => v.Name == name))
+                {
+                    this.problems.Add(new InspectionProblem(tag.Text, "the map '" + name + "' is defined twice: the first table counts", location));
+                    return true;
+                }
+
+                var entries = new Dictionary<string, string>();
+                string defaultText = null;
+                var hasDefault = false;
+                foreach (var row in rows.Skip(1))
+                {
+                    var cells = Cells(row);
+                    var rowLocation = this.LocationOf(cells.Count > 0 ? FirstParagraph(cells[0]) ?? placeholder : placeholder);
+                    if (cells.Count < 2)
+                    {
+                        this.problems.Add(new InspectionProblem(tag.Text, "a row of the map '" + name + "' has one cell: a row holds a key in its first cell and a text in its second", rowLocation));
+                        continue;
+                    }
+
+                    var tagInside = cells.Take(2).Select(FirstPlaceholder).FirstOrDefault(v => v != null && TagSyntax.IsTag(v.InnerText));
+                    if (tagInside != null)
+                    {
+                        this.problems.Add(new InspectionProblem(tag.Text, "the map '" + name + "' holds the tag '" + tagInside.InnerText.Trim() + "': the keys and texts of a map are plain text", rowLocation));
+                        continue;
+                    }
+
+                    var key = ReaderText(cells[0]);
+                    var text = ReaderText(cells[1]);
+                    if (key.Length == 0)
+                    {
+                        this.problems.Add(new InspectionProblem(tag.Text, "a row of the map '" + name + "' has no key: the first cell is empty", rowLocation));
+                    }
+                    else if (TagSyntax.IsDefaultKey(key))
+                    {
+                        if (hasDefault)
+                        {
+                            this.problems.Add(new InspectionProblem(tag.Text, "the map '" + name + "' has two default rows: the first counts", rowLocation));
+                        }
+                        else
+                        {
+                            hasDefault = true;
+                            defaultText = text;
+                        }
+                    }
+                    else if (entries.ContainsKey(key))
+                    {
+                        this.problems.Add(new InspectionProblem(tag.Text, "the map '" + name + "' has two rows for '" + key + "': the first counts", rowLocation));
+                    }
+                    else
+                    {
+                        entries.Add(key, text);
+                    }
+                }
+
+                this.maps.Add(new InspectedMap(tag, entries, defaultText, hasDefault, location, table));
+                return true;
+            }
+
+            /// <summary>The rows of a table in document order, the rows of a table nested in a cell left out.</summary>
+            private static List<XmlElement> Rows(XmlElement table)
+            {
+                var rows = new List<XmlElement>();
+                CollectRows(table, rows);
+                return rows;
+            }
+
+            private static void CollectRows(XmlElement element, List<XmlElement> rows)
+            {
+                foreach (XmlNode child in element.ChildNodes)
+                {
+                    if (!(child is XmlElement childElement) || Is(childElement, TableNamespace, "table"))
+                    {
+                        continue;
+                    }
+
+                    if (Is(childElement, TableNamespace, "table-row"))
+                    {
+                        rows.Add(childElement);
+                    }
+                    else if (childElement.NamespaceURI == TableNamespace)
+                    {
+                        CollectRows(childElement, rows);
+                    }
+                }
+            }
+
+            /// <summary>The cells of a row in order, a covered cell of a merge left out.</summary>
+            private static List<XmlElement> Cells(XmlElement row) => row.ChildNodes.OfType<XmlElement>().Where(v => Is(v, TableNamespace, "table-cell")).ToList();
+
+            private static XmlElement FirstPlaceholder(XmlElement element) => element == null ? null : Descendants(element).FirstOrDefault(v => Is(v, TextNamespace, "placeholder"));
+
+            private static XmlElement FirstParagraph(XmlElement element) => Descendants(element).FirstOrDefault(IsParagraph);
+
+            private static IEnumerable<XmlElement> Descendants(XmlElement element)
+            {
+                foreach (XmlNode child in element.ChildNodes)
+                {
+                    if (child is XmlElement childElement)
+                    {
+                        yield return childElement;
+
+                        foreach (var descendant in Descendants(childElement))
+                        {
+                            yield return descendant;
+                        }
+                    }
+                }
+            }
+
+            private void NumberParagraphs(XmlElement element)
+            {
+                foreach (var descendant in Descendants(element))
+                {
+                    if (IsParagraph(descendant))
+                    {
+                        this.paragraphOrdinals[descendant] = this.paragraphOrdinals.Count + 1;
+                    }
+                }
+            }
+
+            private static bool IsParagraph(XmlElement element) => element.NamespaceURI == TextNamespace && (element.LocalName == "p" || element.LocalName == "h");
+
+            private static bool Is(XmlElement element, string ns, string localName) => element.NamespaceURI == ns && element.LocalName == localName;
+
+            private static string Keyword(Tag tag) => tag.HasTest ? (tag.Defined ? "<@else ifdef>" : "<@else if>") : "<@else>";
 
             private static XmlElement Child(XmlElement element, string ns, string localName)
             {
@@ -212,9 +452,10 @@ namespace Allors.Document.Inspection
                 return null;
             }
 
+            /// <summary>Where an element sits: the paragraph it is, or the nearest paragraph that holds it.</summary>
             private Location LocationOf(XmlElement element)
             {
-                for (var node = element.ParentNode; node is XmlElement parent; node = parent.ParentNode)
+                for (var node = (XmlNode)element; node is XmlElement parent; node = parent.ParentNode)
                 {
                     if (this.paragraphOrdinals.TryGetValue(parent, out var ordinal))
                     {

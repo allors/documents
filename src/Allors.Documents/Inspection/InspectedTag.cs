@@ -6,6 +6,7 @@
 namespace Allors.Document.Inspection
 {
     using System.Collections.Generic;
+    using System.Linq;
     using System.Xml;
     using Allors.Document.Tags;
 
@@ -29,7 +30,7 @@ namespace Allors.Document.Inspection
 
         public Location Location { get; }
 
-        /// <summary>The loop or condition this tag sits in; null at the top level.</summary>
+        /// <summary>The loop or condition this tag sits in; null at the top level. An else sits in its condition.</summary>
         public InspectedTag Block { get; }
 
         /// <summary>The end tag of this loop or condition; null for a binding, an end tag or a block that never ends.</summary>
@@ -42,8 +43,11 @@ namespace Allors.Document.Inspection
             }
         }
 
-        /// <summary>The tags inside this loop or condition, in document order; empty for a binding or an end tag.</summary>
+        /// <summary>The tags inside this loop or condition, in document order, the else tags and the end tag among them; empty for any other tag.</summary>
         public IReadOnlyList<InspectedTag> Children => this.children;
+
+        /// <summary>The else tags of this condition, in document order; empty for any other tag.</summary>
+        public IEnumerable<InspectedTag> Elses => this.children.Where(v => v.Tag.Kind == TagKind.Else);
 
         /// <summary>The loop variables in scope at this tag, innermost last.</summary>
         public IEnumerable<string> Variables
@@ -62,6 +66,9 @@ namespace Allors.Document.Inspection
                 return variables;
             }
         }
+
+        /// <summary>The else tag that opened the branch the next child goes into, or null while the children go into the first branch.</summary>
+        internal InspectedTag LastElse => this.children.LastOrDefault(v => v.Tag.Kind == TagKind.Else);
 
         internal void Add(InspectedTag child) => this.children.Add(child);
 

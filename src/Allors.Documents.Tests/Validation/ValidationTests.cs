@@ -134,8 +134,8 @@ namespace Allos.Document.Validation.Tests
 
             Assert.Equal(2, validation.Findings.Count);
             Assert.All(validation.Findings, v => Assert.Equal(FindingKind.UnknownAttribute, v.Kind));
-            Assert.Equal("a binding has no attribute 'colour': use format, culture, true, false", validation.Findings[0].Message);
-            Assert.Equal("a loop has no attribute 'where': use sort or index", validation.Findings[1].Message);
+            Assert.Equal("a binding has no attribute 'colour': use format, culture, true, false, map, blank", validation.Findings[0].Message);
+            Assert.Equal("a loop has no attribute 'where': use sort, index, separator", validation.Findings[1].Message);
         }
 
         [Fact]
@@ -155,7 +155,7 @@ namespace Allos.Document.Validation.Tests
 
             var finding = Assert.Single(validation.Findings);
             Assert.Equal(FindingKind.UnknownAttribute, finding.Kind);
-            Assert.Equal("a binding has no attribute 'number-culture': use format, culture, true, false", finding.Message);
+            Assert.Equal("a binding has no attribute 'number-culture': use format, culture, true, false, map, blank", finding.Message);
         }
 
         [Fact]
@@ -405,7 +405,7 @@ namespace Allos.Document.Validation.Tests
 
             var finding = Assert.Single(validation.Findings);
             Assert.Equal(FindingKind.UnknownAttribute, finding.Kind);
-            Assert.Equal("a binding has no attribute 'fit': use format, culture, true, false", finding.Message);
+            Assert.Equal("a binding has no attribute 'fit': use format, culture, true, false, map, blank", finding.Message);
         }
 
         [Fact]
@@ -479,6 +479,175 @@ namespace Allos.Document.Validation.Tests
             Assert.Null(shape.Member("Secret"));
             Assert.Null(shape.Member("Computed"));
             Assert.Empty(shape.Variants);
+        }
+
+        [Fact]
+        public void TheElseOfAnIfDefSeesTheVariantsWithoutTheMember()
+        {
+            var body =
+                P("<@ifdef Invoice.BillTo.FirstName>") + P("<$Invoice.BillTo.FirstName>") +
+                P("<@else>") + P("<$Invoice.BillTo.VatNumber>") + P("<$Invoice.BillTo.FirstName>") +
+                P("<@end>");
+
+            var validation = Validate(body, root: PolymorphicRoot());
+
+            var finding = Assert.Single(validation.Findings);
+            Assert.Equal("Organisation has no member FirstName", finding.Message);
+            Assert.Equal(5, finding.Location.Paragraph);
+        }
+
+        [Fact]
+        public void TheElseOfAnIfSeesTheWholeShape()
+        {
+            var body = P("<@if Invoice.BillTo.FirstName>") + P("<$Invoice.BillTo.FirstName>") + P("<@else>") + P("<$Invoice.BillTo.VatNumber>") + P("<@end>");
+
+            var validation = Validate(body, root: PolymorphicRoot());
+
+            var finding = Assert.Single(validation.Findings);
+            Assert.StartsWith("VatNumber is a member of Organisation but not of every Party", finding.Message);
+            Assert.Equal(4, finding.Location.Paragraph);
+        }
+
+        [Fact]
+        public void NotSwapsTheBranches()
+        {
+            var body =
+                P("<@ifdef not Invoice.BillTo.FirstName>") + P("<$Invoice.BillTo.VatNumber>") +
+                P("<@else>") + P("<$Invoice.BillTo.FirstName>") +
+                P("<@end>") +
+                P("<@if not Invoice.BillTo.FirstName>") + P("<$Invoice.BillTo.Name>") +
+                P("<@else>") + P("<$Invoice.BillTo.FirstName>") +
+                P("<@end>");
+
+            Assert.Empty(Validate(body, root: PolymorphicRoot()).Findings);
+        }
+
+        [Fact]
+        public void AnElseWithATestNarrowsItsOwnBranch()
+        {
+            var body =
+                P("<@ifdef Invoice.BillTo.FirstName>") + P("<$Invoice.BillTo.FirstName>") +
+                P("<@else ifdef Invoice.BillTo.VatNumber>") + P("<$Invoice.BillTo.VatNumber>") + P("<$Invoice.BillTo.FirstName>") +
+                P("<@else>") + P("<$Invoice.BillTo.Name>") + P("<$Invoice.BillTo.VatNumber>") +
+                P("<@end>");
+
+            var validation = Validate(body, root: PolymorphicRoot());
+
+            // The last else is checked as if both tests had failed; VatNumber is a member of Organisation itself, so the first test leaves it in
+            var finding = Assert.Single(validation.Findings);
+            Assert.Equal("Organisation has no member FirstName", finding.Message);
+            Assert.Equal(5, finding.Location.Paragraph);
+        }
+
+        [Fact]
+        public void AnElseIfOnAnUnknownMemberIsReportedOnTheElseTag()
+        {
+            var validation = Validate(P("<@if Invoice.BillTo>") + P("<@else if Invoice.Nope>") + P("<@else ifdef Invoice.Nope2>") + P("<@end>"));
+
+            Assert.Equal(2, validation.Findings.Count);
+            Assert.Equal("<@else if Invoice.Nope>", validation.Findings[0].Text);
+            Assert.Equal("Invoice has no member Nope", validation.Findings[0].Message);
+            Assert.Equal("<@else ifdef Invoice.Nope2>", validation.Findings[1].Text);
+        }
+
+        [Fact]
+        public void APictureInAnElseBranchIsCheckedInThatBranch()
+        {
+            var body =
+                P("<@ifdef Invoice.BillTo.FirstName>") + P(Odt.Frame("A", "Pictures/a.png", "<$Invoice.BillTo.FirstName>")) +
+                P("<@else>") + P(Odt.Frame("B", "Pictures/b.png", "<$Invoice.BillTo.VatNumber>")) + P(Odt.Frame("C", "Pictures/c.png", "<$Invoice.BillTo.FirstName>")) +
+                P("<@end>");
+
+            var validation = Validate(body, root: PolymorphicRoot());
+
+            var finding = Assert.Single(validation.Findings);
+            Assert.Equal("<$Invoice.BillTo.FirstName>", finding.Text);
+            Assert.Equal("Organisation has no member FirstName", finding.Message);
+            Assert.Equal(5, finding.Location.Paragraph);
+        }
+
+        [Fact]
+        public void AnElseInTheParagraphOfTheBeginTagIsAnError()
+        {
+            var body = "<text:p>" + Odt.Placeholder("<@if Invoice.BillTo>") + Odt.Placeholder("<@else>") + "</text:p>" + P("<$Invoice.Number>") + P("<@end>");
+
+            var finding = Assert.Single(Validate(body).Findings);
+            Assert.Equal(FindingKind.BlockStructure, finding.Kind);
+            Assert.Equal("<@if Invoice.BillTo>", finding.Text);
+            Assert.Contains("give the else a paragraph of its own", finding.Message);
+        }
+
+        [Fact]
+        public void OtherTextInAnElseParagraphIsAWarning()
+        {
+            var body = P("<@if Invoice.BillTo>") + P("<$Invoice.Number>") + "<text:p>otherwise " + Odt.Placeholder("<@else>") + "</text:p>" + P("<$Invoice.Number>") + P("<@end>");
+
+            var finding = Assert.Single(Validate(body).Findings);
+            Assert.Equal(FindingKind.MixedText, finding.Kind);
+            Assert.Equal("<@else>", finding.Text);
+            Assert.Contains("'otherwise' with it", finding.Message);
+        }
+
+        [Fact]
+        public void AnElseInsideOneParagraphIsFine()
+        {
+            var body = "<text:p>" + Odt.Placeholder("<@if Invoice.BillTo>") + Odt.Placeholder("<$Invoice.BillTo.Name>") + Odt.Placeholder("<@else>") + "nobody" + Odt.Placeholder("<@end>") + "</text:p>";
+
+            Assert.Empty(Validate(body).Findings);
+        }
+
+        [Fact]
+        public void AnElseThatBelongsToNoConditionIsAnUnbalancedBlock()
+        {
+            var validation = Validate(P("<@else>") + P("<@for line Invoice.Lines>") + P("<@else>") + P("<@end>"));
+
+            Assert.Equal(2, validation.Findings.Count);
+            Assert.All(validation.Findings, v => Assert.Equal(FindingKind.UnbalancedBlock, v.Kind));
+            Assert.Contains("belongs to no condition", validation.Findings[0].Message);
+            Assert.Contains("sits in a loop", validation.Findings[1].Message);
+        }
+
+        [Fact]
+        public void ASeparatorOnALoopInParagraphsOrRowsOfItsOwnIsAWarning()
+        {
+            var body =
+                P("<@for line Invoice.Lines separator=\", \">") + P("<$line.Product>") + P("<@end>") +
+                Table(Row(Cell(P("<@for line Invoice.Lines separator=\", \">"))) + Row(Cell(P("<$line.Product>"))) + Row(Cell(P("<@end>")))) +
+                "<text:p>" + Odt.Placeholder("<@for line Invoice.Lines separator=\", \">") + Odt.Placeholder("<$line.Product>") + Odt.Placeholder("<@end>") + "</text:p>";
+
+            var validation = Validate(body);
+
+            Assert.Equal(2, validation.Findings.Count);
+            Assert.All(validation.Findings, v => Assert.Equal(FindingKind.SeparatorIgnored, v.Kind));
+            Assert.All(validation.Findings, v => Assert.Equal(FindingSeverity.Warning, v.Severity));
+            Assert.Contains("this loop's tags sit in paragraphs of their own", validation.Findings[0].Message);
+            Assert.Contains("this loop's tags sit in rows of their own", validation.Findings[1].Message);
+            Assert.True(validation.IsValid);
+        }
+
+        [Fact]
+        public void MapsAreCheckedWithTheBindingsThatUseThem()
+        {
+            var body =
+                Odt.Map("Titles", "true|CREDIT NOTE", "default|INVOICE") +
+                Odt.Map("Unused", "a|A", "default|B") +
+                Odt.Map("NoDefault", "a|A") +
+                P("<$Invoice.Number map=\"Titles\" blank=\"none\">") + P("<$Invoice.Number map=\"NoDefault\">") + P("<$Invoice.Number map=\"Nope\">");
+
+            var validation = Validate(body);
+
+            Assert.Equal(3, validation.Findings.Count);
+            Assert.Equal(FindingKind.UnusedMap, validation.Findings[0].Kind);
+            Assert.Equal(FindingSeverity.Warning, validation.Findings[0].Severity);
+            Assert.Equal("<@map Unused>", validation.Findings[0].Text);
+            Assert.Equal("no binding prints through the map 'Unused': use <$path map=\"Unused\">", validation.Findings[0].Message);
+            Assert.Equal(7, validation.Findings[0].Location.Paragraph);
+            Assert.Equal(FindingKind.MapWithoutDefault, validation.Findings[1].Kind);
+            Assert.Equal("the map 'NoDefault' has no default row: a value it has no row for prints as it is", validation.Findings[1].Message);
+            Assert.Equal(FindingKind.UnknownMap, validation.Findings[2].Kind);
+            Assert.Equal(FindingSeverity.Error, validation.Findings[2].Severity);
+            Assert.Equal("no map 'Nope' in the template: a map is a table whose first cell holds <@map Nope>", validation.Findings[2].Message);
+            Assert.False(validation.IsValid);
         }
 
         private static TemplateValidation Validate(string body, IDictionary<string, string> settings = null, IShape root = null) =>

@@ -16,14 +16,17 @@ namespace Allors.Document.Rendering
     /// <summary>
     /// A part of a template (content.xml or styles.xml) ready to render: its DOM with every tag replaced by an instruction element in the
     /// program's own namespace, a binding where its placeholder stood and a block around what sits between its two tags, with the paragraphs
-    /// or rows that held the block tags gone; a bound picture frame stays where it is and is an instruction itself. Built once per template
-    /// and never changed; every render walks it.
-    /// A block that never ends, an end that opens nothing, or a block that would cut a table throws <see cref="TemplateException"/>.
+    /// or rows that held the block tags gone; a condition holds its first branch, then an else element per further branch; a bound picture
+    /// frame stays where it is and is an instruction itself; a map table leaves the part. Built once per template and never changed; every render walks it.
+    /// A block that never ends, an end that opens nothing, an else that belongs to no condition, or a block that would cut a table throws <see cref="TemplateException"/>.
     /// </summary>
     internal sealed class Program
     {
         /// <summary>The namespace of the instruction elements; it never reaches the output.</summary>
         public const string Namespace = "urn:allors:documents:program";
+
+        /// <summary>The local name of the element that holds a further branch of a condition.</summary>
+        public const string ElseName = "else";
 
         private const string Prefix = "ad";
 
@@ -45,13 +48,15 @@ namespace Allors.Document.Rendering
         /// <summary>Tags that cannot be read and render as the text the author typed; every render reports them.</summary>
         public IReadOnlyList<Finding> Findings { get; }
 
-        public static Program Build(string part, byte[] xml)
+        /// <summary>Builds a part's program; the maps found in it are added to the list, which the parts of one template share so that a name is defined once.</summary>
+        public static Program Build(string part, byte[] xml, List<InspectedMap> maps = null)
         {
             var document = Inspector.Load(xml);
             var tags = new List<InspectedTag>();
             var pictures = new List<InspectedPicture>();
             var problems = new List<InspectionProblem>();
-            new Inspector.PartWalker(part, document, tags, pictures, problems).Walk();
+            maps = maps ?? new List<InspectedMap>();
+            new Inspector.PartWalker(part, document, tags, pictures, maps, problems).Walk();
 
             var unbalanced = problems.Where(v => v.IsUnbalanced).Select(v => new Finding(FindingKind.UnbalancedBlock, FindingSeverity.Error, v.Text, null, v.Message, v.Location)).ToList();
             if (unbalanced.Count > 0)
@@ -64,8 +69,9 @@ namespace Allors.Document.Rendering
             var instructions = new Dictionary<XmlElement, Instruction>();
             var root = new XmlPair(null, null);
             var tagByPair = new Dictionary<XmlPair, InspectedTag>();
+            var branchesByPair = new Dictionary<XmlPair, IReadOnlyList<InspectedTag>>();
             var misplaced = new List<Finding>();
-            Prepare(tags, root, document, instructions, tagByPair, misplaced);
+            Prepare(tags, root, document, instructions, tagByPair, branchesByPair, misplaced);
             if (misplaced.Count > 0)
             {
                 throw new TemplateException(misplaced);
@@ -76,19 +82,32 @@ namespace Allors.Document.Rendering
                 instructions.Add(picture.Element, new Instruction(picture.Tag, picture.Location));
             }
 
-            root.Rewrite(pair =>
+            foreach (var map in maps.Where(v => v.Element.OwnerDocument == document))
             {
-                var tag = tagByPair[pair];
-                var element = document.CreateElement(Prefix, Name(tag.Tag.Kind), Namespace);
-                instructions.Add(element, new Instruction(tag.Tag, tag.Location));
-                return element;
-            });
+                map.Element.ParentNode.RemoveChild(map.Element);
+            }
+
+            root.Rewrite(
+                pair =>
+                {
+                    var tag = tagByPair[pair];
+                    var element = document.CreateElement(Prefix, Name(tag.Tag.Kind), Namespace);
+                    instructions.Add(element, new Instruction(tag.Tag, tag.Location, BlockStructure.IsInline(pair)));
+                    return element;
+                },
+                (pair, index) =>
+                {
+                    var branch = branchesByPair[pair][index];
+                    var element = document.CreateElement(Prefix, ElseName, Namespace);
+                    instructions.Add(element, new Instruction(branch.Tag, branch.Location));
+                    return element;
+                });
 
             return new Program(part, document, instructions, malformed);
         }
 
-        /// <summary>Replaces every binding placeholder by its instruction element and pairs every block's begin and end for the rewrite.</summary>
-        private static void Prepare(IEnumerable<InspectedTag> tags, XmlPair parent, XmlDocument document, Dictionary<XmlElement, Instruction> instructions, Dictionary<XmlPair, InspectedTag> tagByPair, List<Finding> misplaced)
+        /// <summary>Replaces every binding placeholder by its instruction element and pairs every block's begin, elses and end for the rewrite.</summary>
+        private static void Prepare(IEnumerable<InspectedTag> tags, XmlPair parent, XmlDocument document, Dictionary<XmlElement, Instruction> instructions, Dictionary<XmlPair, InspectedTag> tagByPair, Dictionary<XmlPair, IReadOnlyList<InspectedTag>> branchesByPair, List<Finding> misplaced)
         {
             foreach (var tag in tags)
             {
@@ -107,13 +126,21 @@ namespace Allors.Document.Rendering
                         parent.Children.Add(pair);
                         tagByPair.Add(pair, tag);
 
+                        var branches = tag.Elses.ToList();
+                        foreach (var branch in branches)
+                        {
+                            pair.AddSeparator(branch.Element);
+                        }
+
+                        branchesByPair.Add(pair, branches);
+
                         var problem = BlockStructure.Problem(pair);
                         if (problem != null)
                         {
                             misplaced.Add(new Finding(FindingKind.BlockStructure, FindingSeverity.Error, tag.Tag.Text, null, BlockStructure.Message(problem), tag.Location));
                         }
 
-                        Prepare(tag.Children, pair, document, instructions, tagByPair, misplaced);
+                        Prepare(tag.Children, pair, document, instructions, tagByPair, branchesByPair, misplaced);
                         break;
                 }
             }

@@ -39,7 +39,7 @@ var settings = new RenderSettings { Resolver = ReflectionResolver.Instance, Cult
 RenderResult result = template.Render(model, settings);
 ```
 
-A template is read once and rendered any number of times, from any thread. It may be a package (`.odt`) or a flat document (`.fodt`), and it renders a package unless the settings ask for a flat document. Reading a template throws `InvalidDataException` when the bytes are not an OpenDocument text, and `TemplateException` when a block never ends, an end opens nothing or a block would cut a table; `Findings` says which tags and where. A render never throws for what the template says: a value the model cannot give prints blank, and `Findings` reports it.
+A template is read once and rendered any number of times, from any thread. It may be a package (`.odt`) or a flat document (`.fodt`), and it renders a package unless the settings ask for a flat document. Reading a template throws `InvalidDataException` when the bytes are not an OpenDocument text, and `TemplateException` when a block never ends, an end opens nothing, an else belongs to no condition or a block would cut a table; `Findings` says which tags and where. A render never throws for what the template says: a value the model cannot give prints blank, and `Findings` reports it.
 
 # Tags
 
@@ -51,8 +51,18 @@ Tags go into placeholder fields (Insert, Field, More Fields, Functions, Placehol
 | `<@for item path>` ... `<@end>` | Repeats the paragraphs or table rows between the tags for every item of the collection at `path`; inside, `item` is the item at hand. |
 | `<@if path>` ... `<@end>` | Keeps the block when the value at `path` is true: not null, not false, not empty or white-space text, not zero and not an empty collection. |
 | `<@ifdef path>` ... `<@end>` | Keeps the block when the object at hand has the member at the end of `path`, even when its value is empty. Meant for models whose objects differ in their members. |
+| `<@if not path>`, `<@ifdef not path>` | `not` before the path negates the test: the block is kept when the value is false, or when the member is missing. |
+| `<@else>` | Inside an `<@if>` or `<@ifdef>`: what follows, up to the `<@end>`, is kept when the condition is not. |
+| `<@else if path>`, `<@else ifdef path>` | An else with a test of its own, `not` allowed: a condition takes the first branch whose test holds, and nothing when none does. An `<@else>` without a test comes last. |
+| `<@map Name>` | In the first cell of a two-column table: the table is a map, see Maps. |
 
 A path is a chain of member names separated by dots, such as `Invoice.Customer.Name`; inside a loop it may start with the variable of that loop or of an enclosing one. A name is letters, digits and underscores. Keywords and attribute names are not case-sensitive. A placeholder whose text is not a well-formed tag, such as `<$>` or `<@for x>`, renders as the text the author typed and is reported.
+
+```
+<@if Invoice.IsCreditNote>CREDIT NOTE<@else>INVOICE<@end>
+<@ifdef item.Description><$item.Description><@else><$item.Product.Name><@end>
+<@if Issuer.Bank.Swift><$Issuer.Bank.Swift><@else if Issuer.Bank.Bic><$Issuer.Bank.Bic><@else>n/a<@end>
+```
 
 ## Attributes
 
@@ -65,6 +75,9 @@ A tag takes attributes after its path, with values quoted by `"` or `'`:
 | `<$Paid true="yes" false="no">` | `true`, `false`: the words a boolean prints. |
 | `<@for line Invoice.Lines sort="Product.Name, Quantity desc">` | `sort`: paths relative to the item, comma separated, each optionally followed by `asc` or `desc`. The sort is stable. |
 | `<@for line Invoice.Lines index="n">` | `index`: the name of a counter, read as `<$n>`: 1 for the first item in the loop's order. It prints as a plain integer unless its tag carries a `format`. |
+| `<@for tag Product.Tags separator=", ">` | `separator`: the text written between two items of a loop that sits in one paragraph, as typed. A loop whose tags sit in paragraphs or rows of their own writes none, which `Validate` reports. |
+| `<$Invoice.Comment blank="none">` | `blank`: the text printed when what the binding would print is empty or white space: a null value, empty or white-space text, an empty collection, a path that breaks. Zero prints as a number. |
+| `<$Invoice.IsCreditNote map="Titles">` | `map`: the value prints the text the map of that name gives for it, see Maps. |
 | `<$Issuer.Logo empty="keep" fit="contain">` | On a picture tag: `empty` and `fit`, see Pictures. |
 
 An attribute a tag of that kind does not know is a validation error.
@@ -88,7 +101,22 @@ Patterns are .NET format strings, applied in the culture of the value's kind: `n
 
 ## Loops
 
-A loop visits what the resolver yields for the value at its path: nothing for null, text once, the keys of a dictionary, the items of any other enumerable with null items skipped, and any other value once. `sort` orders the items before the loop runs and before the counter counts; items whose keys cannot be ordered against each other keep the collection's order, which is reported as `CannotSort`.
+A loop visits what the resolver yields for the value at its path: nothing for null, text once, the keys of a dictionary, the items of any other enumerable with null items skipped, and any other value once. `sort` orders the items before the loop runs and before the counter counts; items whose keys cannot be ordered against each other keep the collection's order, which is reported as `CannotSort`. `separator` is written between the items, after the sort: `Tags: <@for t Product.Tags separator=", "><$t><@end>.` prints `Tags: a, b, c.`
+
+## Maps
+
+A map translates a value into text the template chooses, as `true` and `false` do for a boolean: titles, labels, words in the document's language. It is a table of two columns anywhere in the template, body, header or footer, whose first cell holds `<@map Name>`; the cell beside it is free for a heading. Every row below maps the text in its first cell, the key, to the text in its second; the row whose key is `default` serves every value the map has no row for. The table leaves the output. A binding prints through a map with `map="Name"`:
+
+| `<@map Titles>` | Title |
+|---|---|
+| true | CREDIT NOTE |
+| default | INVOICE |
+
+```
+<$Invoice.IsCreditNote map="Titles">
+```
+
+The key is the value's text under the library's defaults, as the resolver formats it: `true` and `false` for a boolean, the name of an enum, `2.5` for a number, text as it is. A null value prints blank without a lookup. A value the map has no row for prints the default row; a map without a default row lets the value print as it is, under the tag's other attributes, and reports it as `MissingKey`. A map's name is a name, case-sensitive like a path; a name no map has is reported as `UnknownMap`. The keys and texts are plain text, with their line breaks, tabs and spaces; a tag in a map, a row with one cell, an empty key and a second row for one key are reported as `MalformedTag` and the row is skipped, and a second map with one name is reported and stays in the output.
 
 ## Paths that break
 
@@ -122,7 +150,7 @@ A picture is stored once per distinct content, under `Pictures/<path>.<ext>`, wi
 
 - The template renders as typed. Static text and attribute values pass unchanged, including `&`, `<` and `>`. The engine adds no white space of its own: a word split by formatting stays one word, and two adjacent tags render without a space between them.
 - Bound values are escaped for XML and keep their white space: a tab becomes `text:tab`, a line break `text:line-break` and a run of spaces `text:s`, as Writer saves them. Other characters below U+0020 are dropped.
-- The paragraph or table row that holds a `<@for>`, `<@if>`, `<@ifdef>` or `<@end>` tag is removed with the rest of its text, so give each tag its own paragraph or row. When both tags of a block sit in one paragraph only the tags themselves are removed, so a short condition or loop can stay inline. The begin and the end of a block sit in paragraphs of one container or in rows of one table; a block that would cut a table throws when the template is read.
+- The paragraph or table row that holds a `<@for>`, `<@if>`, `<@ifdef>`, `<@else>` or `<@end>` tag is removed with the rest of its text, so give each tag its own paragraph or row. When all tags of a block sit in one paragraph only the tags themselves are removed, so a short condition or loop can stay inline. The begin, the elses and the end of a block sit in paragraphs of one container or in rows of one table; a block that would cut a table, and an else in the paragraph or row of its block's begin or end tag, throw when the template is read.
 - The body and the headers and footers render against the same model; a loop variable is in scope between its tags only.
 - The output reads as the template did: the XML declaration, no byte order mark, a full end tag on every element of the template, comments and processing instructions kept.
 - The package starts with an uncompressed `mimetype` entry. PNG, JPEG, GIF and WebP pictures are stored; everything else is deflated.
@@ -133,17 +161,18 @@ A template may be a flat OpenDocument text (`.fodt`, File, Save As, Flat XML ODF
 
 # Inspect
 
-`Inspect` reads a template without a model and lists what it asks for: every tag in document order with its part and paragraph, the bound picture frames, the document settings, and the tags it cannot read.
+`Inspect` reads a template without a model and lists what it asks for: every tag in document order with its part and paragraph, the bound picture frames, the maps, the document settings, and the tags it cannot read.
 
 ```csharp
 TemplateInspection inspection = OpenDocumentTemplate.Inspect(templateBytes);
 
 inspection.Paths;      // every distinct path, bindings and pictures alike
 inspection.Bindings;   // the <$path> tags, each with Tag, Location and the enclosing Block
-inspection.Blocks;     // the for, if and ifdef tags, each with its Children and End
+inspection.Blocks;     // the for, if and ifdef tags, each with its Children, Elses and End
 inspection.Pictures;   // the frames whose description is a picture tag, each with FrameName, Tag and Location
+inspection.Maps;       // the map tables, each with Name, Entries, Default and Location
 inspection.Settings;   // the custom document properties
-inspection.Problems;   // malformed tags and unbalanced blocks
+inspection.Problems;   // malformed tags, unbalanced blocks, elses without a condition and maps that cannot be read
 ```
 
 A `Location` names the part (`content.xml` or `styles.xml`), the paragraph's ordinal and its text.
@@ -167,7 +196,7 @@ if (!validation.IsValid)
 }
 ```
 
-The shape is the root the template renders against. `ReflectionShape.Arguments<T>()` is what `OpenDocumentTemplate<T>` sees: the public properties of `T` by their exact names. `ReflectionShape.Of<T>()` is an object of `T` itself, for a model rendered through `ReflectionResolver`. For a dictionary model use `DictionaryShape`: `DictionaryShape.Open` accepts every member, `new DictionaryShape(members)` knows exactly which names exist and what their shapes are. `IsValid` is true when there are no errors. Inside an `<@if>` or `<@ifdef>` block the guarded path is narrowed to the shapes that have the member, for models whose shapes declare `Variants`.
+The shape is the root the template renders against. `ReflectionShape.Arguments<T>()` is what `OpenDocumentTemplate<T>` sees: the public properties of `T` by their exact names. `ReflectionShape.Of<T>()` is an object of `T` itself, for a model rendered through `ReflectionResolver`. For a dictionary model use `DictionaryShape`: `DictionaryShape.Open` accepts every member, `new DictionaryShape(members)` knows exactly which names exist and what their shapes are. `IsValid` is true when there are no errors. Inside an `<@if>` or `<@ifdef>` block the guarded path is narrowed to the shapes that have the member, for models whose shapes declare `Variants`; the else of an `<@ifdef>` sees the shapes without it, the else of an `<@if>` sees them all, `not` swaps the two, and an else with a test of its own narrows again.
 
 # Findings
 
@@ -175,9 +204,9 @@ A `Finding` says what is wrong in the author's terms: the kind, the severity, th
 
 | Finding | Severity | Meaning | From |
 |---|---|---|---|
-| `MalformedTag` | error | A tag, or the description of a picture, that cannot be read; it renders as typed. | Validate, Render |
-| `UnbalancedBlock` | error | A block without an end, or an end without a block. | Validate, constructor |
-| `BlockStructure` | error | A block whose begin and end are not in paragraphs of one container or in rows of one table. | Validate, constructor |
+| `MalformedTag` | error | A tag, the description of a picture, or a map table that cannot be read; a tag renders as typed, a map row is skipped. | Validate, Render |
+| `UnbalancedBlock` | error | A block without an end, an end without a block, or an else that belongs to no condition: outside any, in a loop, or after the `<@else>`. | Validate, constructor |
+| `BlockStructure` | error | A block whose begin, elses and end are not in paragraphs of one container or in rows of one table. | Validate, constructor |
 | `UnknownMember` | error | A path segment the model does not have, on a binding, a loop, a condition, a sort key or a picture; it prints blank. | Validate, Render |
 | `NotACollection` | warning | A loop over a value that is not a collection; it runs once. | Validate |
 | `UnknownAttribute` | error | An attribute a tag of that kind does not know. | Validate |
@@ -189,6 +218,11 @@ A `Finding` says what is wrong in the author's terms: the kind, the severity, th
 | `CannotSort` | warning | A loop whose sort keys cannot be ordered against each other; it keeps the collection's order. | Render |
 | `NotAPicture` | error | A value bound to a picture frame that is no picture, or bytes in a format the library does not know; the frame leaves the document. | Render |
 | `CannotFit` | warning | A picture that fills its frame instead of fitting it, because its bytes do not tell their size or the frame has no size. | Render |
+| `UnknownMap` | error | A `map` attribute that names no map of the template; the value prints as it is. | Validate, Render |
+| `MissingKey` | warning | A value a map has no row for, in a map without a default row; the value prints as it is. | Render |
+| `UnusedMap` | warning | A map no binding prints through. | Validate |
+| `MapWithoutDefault` | warning | A map without a default row. | Validate |
+| `SeparatorIgnored` | warning | A separator on a loop whose tags sit in paragraphs or rows of their own; nothing is written between its items. | Validate |
 
 # Models
 

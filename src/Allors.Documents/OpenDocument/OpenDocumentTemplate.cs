@@ -8,6 +8,7 @@ namespace Allors.Document.OpenDocument
     using System;
     using System.Collections.Generic;
     using System.IO;
+    using System.Linq;
     using Allors.Document.Inspection;
     using Allors.Document.Models;
     using Allors.Document.Rendering;
@@ -44,6 +45,8 @@ namespace Allors.Document.OpenDocument
 
         private readonly IResolver defaultResolver;
 
+        private readonly IReadOnlyDictionary<string, InspectedMap> maps;
+
         /// <summary>
         /// Reads a template, a package or a flat document. Throws <see cref="InvalidDataException"/> when the bytes are neither an OpenDocument
         /// package with a content.xml nor a flat OpenDocument text, and <see cref="TemplateException"/> when a block never ends, an end opens
@@ -67,8 +70,10 @@ namespace Allors.Document.OpenDocument
             var parts = Parts.Read(document);
             this.fileByFileName = parts.Files;
             this.manifest = parts.Manifest;
-            this.contentProgram = Program.Build(ContentFileName, parts.Content);
-            this.stylesProgram = parts.Styles == null ? null : Program.Build(StylesFileName, parts.Styles);
+            var maps = new List<InspectedMap>();
+            this.contentProgram = Program.Build(ContentFileName, parts.Content, maps);
+            this.stylesProgram = parts.Styles == null ? null : Program.Build(StylesFileName, parts.Styles, maps);
+            this.maps = maps.ToDictionary(v => v.Name);
             this.documentSettings = this.fileByFileName.TryGetValue(DocumentMetaFileName, out var meta) ? Inspector.Settings(Inspector.Load(meta)) : new Dictionary<string, string>();
         }
 
@@ -84,7 +89,7 @@ namespace Allors.Document.OpenDocument
         /// <summary>
         /// Renders the template for a model. Every <c>&lt;$path&gt;</c> prints the value at its path, formatted by the settings, the template's
         /// document settings and the tag's attributes; <c>&lt;@if&gt;</c>, <c>&lt;@ifdef&gt;</c> and <c>&lt;@for&gt;</c> keep, drop or repeat
-        /// their blocks; a picture frame whose description is <c>&lt;$path&gt;</c> shows the picture at that path, or leaves the document when
+        /// their blocks, <c>&lt;@else&gt;</c> the branch a condition falls back to; a picture frame whose description is <c>&lt;$path&gt;</c> shows the picture at that path, or leaves the document when
         /// there is none. Paths resolve through the settings' resolver, or the template's own when the settings name none. The result carries
         /// the document, a package unless the settings ask for a flat document, and the findings: a member the model does not have prints blank
         /// and is reported, a loop that cannot be ordered keeps its order and is reported, a value that is no picture is reported, a tag that
@@ -102,7 +107,7 @@ namespace Allors.Document.OpenDocument
             var formatting = settings.ToFormatting().With(this.documentSettings);
 
             var pictures = new Pictures(this.fileByFileName.Keys);
-            var renderer = new Renderer(resolver, formatting, model, pictures);
+            var renderer = new Renderer(resolver, formatting, model, pictures, this.maps);
             var content = renderer.Render(this.contentProgram);
             var styles = this.stylesProgram == null ? null : renderer.Render(this.stylesProgram);
 

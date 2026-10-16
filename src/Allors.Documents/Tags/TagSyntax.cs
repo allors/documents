@@ -8,10 +8,13 @@ namespace Allors.Document.Tags
     using System;
     using System.Collections.Generic;
     using System.Text.RegularExpressions;
+    using Allors.Document.Models;
 
     /// <summary>
-    /// The tag language of a template: <c>&lt;$path attr="value"&gt;</c>, <c>&lt;@for variable path sort="key desc" index="n"&gt;</c>, <c>&lt;@if path&gt;</c>, <c>&lt;@ifdef path&gt;</c> and <c>&lt;@end&gt;</c> in placeholder fields,
-    /// and <c>&lt;$path empty="keep" fit="contain"&gt;</c> as the description of a picture frame. A path is a chain of member names; keywords are not case-sensitive.
+    /// The tag language of a template: <c>&lt;$path attr="value"&gt;</c>, <c>&lt;@for variable path sort="key desc" index="n" separator=", "&gt;</c>,
+    /// <c>&lt;@if path&gt;</c>, <c>&lt;@ifdef path&gt;</c>, both with <c>not</c> before the path to negate them, <c>&lt;@else&gt;</c>, <c>&lt;@else if path&gt;</c>,
+    /// <c>&lt;@else ifdef path&gt;</c>, <c>&lt;@map Name&gt;</c> and <c>&lt;@end&gt;</c> in placeholder fields, and <c>&lt;$path empty="keep" fit="contain"&gt;</c>
+    /// as the description of a picture frame. A path is a chain of member names; keywords are not case-sensitive.
     /// </summary>
     public static class TagSyntax
     {
@@ -24,6 +27,21 @@ namespace Allors.Document.Tags
 
         /// <summary>The attribute that names a loop's counter.</summary>
         public const string IndexAttribute = "index";
+
+        /// <summary>The attribute that gives the text a loop writes between two items.</summary>
+        public const string SeparatorAttribute = "separator";
+
+        /// <summary>The attribute that names the map a binding prints its value through.</summary>
+        public const string MapAttribute = "map";
+
+        /// <summary>The attribute that gives the text a binding prints when its value is blank: null, or text that is empty or white space.</summary>
+        public const string BlankAttribute = "blank";
+
+        /// <summary>The key of a map's row that serves every value the map has no row for.</summary>
+        public const string DefaultKey = "default";
+
+        /// <summary>The keyword that negates a condition.</summary>
+        public const string NotKeyword = "not";
 
         /// <summary>The attribute that says what a picture frame does without a picture: <see cref="RemoveValue"/>, the default, or <see cref="KeepValue"/>.</summary>
         public const string EmptyAttribute = "empty";
@@ -52,6 +70,12 @@ namespace Allors.Document.Tags
         /// <summary>The attributes a picture tag takes.</summary>
         public static readonly IReadOnlyCollection<string> PictureAttributes = new[] { EmptyAttribute, FitAttribute };
 
+        /// <summary>The attributes a binding takes: the formatting attributes, then map and blank.</summary>
+        public static readonly IReadOnlyCollection<string> BindingAttributes = new[] { Formatting.FormatAttribute, Formatting.CultureSetting, Formatting.TrueSetting, Formatting.FalseSetting, MapAttribute, BlankAttribute };
+
+        /// <summary>The attributes a loop takes.</summary>
+        public static readonly IReadOnlyCollection<string> LoopAttributes = new[] { SortAttribute, IndexAttribute, SeparatorAttribute };
+
         private static readonly Regex AttributeRegex = new Regex(@"\G\s+([A-Za-z_][A-Za-z0-9_-]*)\s*=\s*(?:""([^""]*)""|'([^']*)')");
 
         /// <summary>True when the text has the shape of a tag: it starts with <c>&lt;$</c> or <c>&lt;@</c> and ends with <c>&gt;</c>.</summary>
@@ -65,7 +89,16 @@ namespace Allors.Document.Tags
         public static bool HoldsTag(string text) => text != null && (text.Contains("<$") || text.Contains("<@"));
 
         /// <summary>True for an attribute a picture tag takes; names are not case-sensitive.</summary>
-        public static bool IsPictureAttribute(string name) => string.Equals(name, EmptyAttribute, StringComparison.OrdinalIgnoreCase) || string.Equals(name, FitAttribute, StringComparison.OrdinalIgnoreCase);
+        public static bool IsPictureAttribute(string name) => Contains(PictureAttributes, name);
+
+        /// <summary>True for an attribute a binding takes; names are not case-sensitive.</summary>
+        public static bool IsBindingAttribute(string name) => Contains(BindingAttributes, name);
+
+        /// <summary>True for an attribute a loop takes; names are not case-sensitive.</summary>
+        public static bool IsLoopAttribute(string name) => Contains(LoopAttributes, name);
+
+        /// <summary>True when a map's key is the default key, in any case.</summary>
+        public static bool IsDefaultKey(string key) => string.Equals(key?.Trim(), DefaultKey, StringComparison.OrdinalIgnoreCase);
 
         /// <summary>True for a value the empty attribute takes: remove or keep, in any case.</summary>
         public static bool IsEmptyValue(string value) => string.Equals(value?.Trim(), RemoveValue, StringComparison.OrdinalIgnoreCase) || KeepsWhenEmpty(value);
@@ -159,18 +192,51 @@ namespace Allors.Document.Tags
                         return false;
                     }
 
-                    tag = new Tag(TagKind.For, trimmed, collection, variable, loopAttributes, sort, index);
+                    var separator = loopAttributes.TryGetValue(SeparatorAttribute, out var separatorText) && separatorText.Length > 0 ? separatorText : null;
+                    tag = new Tag(TagKind.For, trimmed, collection, variable, loopAttributes, sort, index, separator);
                     return true;
 
                 case "if":
                 case "ifdef":
-                    if (!PathRegex.IsMatch(rest))
+                    if (!TryParseCondition(keyword, rest, out var path, out var negated, out error))
                     {
-                        error = rest.Length == 0 ? "<@" + keyword + "> needs a path: <@" + keyword + " Invoice.Comment>" : "'" + rest + "' is not a path";
                         return false;
                     }
 
-                    tag = new Tag(keyword == "if" ? TagKind.If : TagKind.IfDef, trimmed, rest, null, null);
+                    tag = new Tag(keyword == "if" ? TagKind.If : TagKind.IfDef, trimmed, path, null, null, defined: keyword == "ifdef", negated: negated);
+                    return true;
+
+                case "else":
+                    if (rest.Length == 0)
+                    {
+                        tag = new Tag(TagKind.Else, trimmed, null, null, null);
+                        return true;
+                    }
+
+                    var testEnd = IndexOfWhitespace(rest);
+                    var test = (testEnd < 0 ? rest : rest.Substring(0, testEnd)).ToLowerInvariant();
+                    if (test != "if" && test != "ifdef")
+                    {
+                        error = "unexpected text after else: '" + rest + "' (an else is <@else>, <@else if path> or <@else ifdef path>)";
+                        return false;
+                    }
+
+                    if (!TryParseCondition("else " + test, testEnd < 0 ? string.Empty : rest.Substring(testEnd).Trim(), out var testPath, out var testNegated, out error))
+                    {
+                        return false;
+                    }
+
+                    tag = new Tag(TagKind.Else, trimmed, testPath, null, null, defined: test == "ifdef", negated: testNegated);
+                    return true;
+
+                case "map":
+                    if (!NameRegex.IsMatch(rest))
+                    {
+                        error = rest.Length == 0 ? "<@map> needs a name: <@map Titles>" : "the map's name '" + rest + "' is not a name";
+                        return false;
+                    }
+
+                    tag = new Tag(TagKind.Map, trimmed, rest, null, null);
                     return true;
 
                 case "end":
@@ -178,7 +244,7 @@ namespace Allors.Document.Tags
                     return true;
 
                 default:
-                    error = "unknown tag <@" + keyword + ">: expected for, if, ifdef or end";
+                    error = "unknown tag <@" + keyword + ">: expected for, if, ifdef, else, map or end";
                     return false;
             }
         }
@@ -231,6 +297,31 @@ namespace Allors.Document.Tags
             }
 
             tag = new Tag(TagKind.Binding, text, path, null, attributes);
+            return true;
+        }
+
+        /// <summary>The test of a condition: a path, with not before it to negate the test.</summary>
+        private static bool TryParseCondition(string keyword, string rest, out string path, out bool negated, out string error)
+        {
+            path = null;
+            negated = false;
+            error = null;
+
+            var text = rest;
+            var notEnd = IndexOfWhitespace(text);
+            if (notEnd > 0 && string.Equals(text.Substring(0, notEnd), NotKeyword, StringComparison.OrdinalIgnoreCase))
+            {
+                negated = true;
+                text = text.Substring(notEnd).Trim();
+            }
+
+            if (!PathRegex.IsMatch(text))
+            {
+                error = text.Length == 0 ? "<@" + keyword + "> needs a path: <@" + keyword + " Invoice.Comment>" : "'" + text + "' is not a path";
+                return false;
+            }
+
+            path = text;
             return true;
         }
 
@@ -336,6 +427,19 @@ namespace Allors.Document.Tags
 
             index = name;
             return true;
+        }
+
+        private static bool Contains(IEnumerable<string> names, string name)
+        {
+            foreach (var candidate in names)
+            {
+                if (string.Equals(candidate, name, StringComparison.OrdinalIgnoreCase))
+                {
+                    return true;
+                }
+            }
+
+            return false;
         }
 
         private static int IndexOfWhitespace(string text)

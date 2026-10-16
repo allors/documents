@@ -8,10 +8,10 @@ namespace Allors.Document.Validation
     /// <summary>What a finding is about.</summary>
     public enum FindingKind
     {
-        /// <summary>A tag, or the description of a picture, that cannot be read as a tag.</summary>
+        /// <summary>A tag, the description of a picture, or a map table that cannot be read as the author meant it.</summary>
         MalformedTag,
 
-        /// <summary>A block without an end, or an end without a block.</summary>
+        /// <summary>A block without an end, an end without a block, or an else that belongs to no condition.</summary>
         UnbalancedBlock,
 
         /// <summary>A path segment the model does not have, on a binding, a loop, a condition, a sort key or a picture.</summary>
@@ -32,7 +32,7 @@ namespace Allors.Document.Validation
         /// <summary>A value an attribute does not take, such as empty="maybe" on a picture.</summary>
         BadValue,
 
-        /// <summary>A block whose begin and end are not in paragraphs of one container or in rows of one table.</summary>
+        /// <summary>A block whose begin, elses and end are not in paragraphs of one container or in rows of one table.</summary>
         BlockStructure,
 
         /// <summary>Text or tags in the paragraph or row that holds a block tag; they are removed with it.</summary>
@@ -49,5 +49,20 @@ namespace Allors.Document.Validation
 
         /// <summary>A picture that fills its frame instead of fitting it as its tag asks, because its bytes do not tell its size or the frame has no size.</summary>
         CannotFit,
+
+        /// <summary>A binding's map attribute that names no map of the template; the value prints as it is.</summary>
+        UnknownMap,
+
+        /// <summary>A value a map has no row for, in a map without a default row; the value prints as it is.</summary>
+        MissingKey,
+
+        /// <summary>A map no binding prints through.</summary>
+        UnusedMap,
+
+        /// <summary>A map without a default row: a value it has no row for prints as it is.</summary>
+        MapWithoutDefault,
+
+        /// <summary>A separator on a loop whose tags sit in paragraphs or rows of their own; nothing is written between its items.</summary>
+        SeparatorIgnored,
     }
 }
