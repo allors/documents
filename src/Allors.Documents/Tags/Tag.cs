@@ -15,14 +15,20 @@ namespace Allors.Document.Tags
         /// <summary>The picture at a path, in the description of a picture frame: &lt;$path empty="remove|keep" fit="fill|contain|width|height"&gt;.</summary>
         Picture,
 
-        /// <summary>A loop over the collection at a path, optionally ordered and counted: &lt;@for variable path sort="key, key desc" index="n"&gt;.</summary>
+        /// <summary>A loop over the collection at a path, optionally ordered, counted and separated: &lt;@for variable path sort="key, key desc" index="n" separator=", "&gt;.</summary>
         For,
 
-        /// <summary>A block kept when the value at a path is true: &lt;@if path&gt;.</summary>
+        /// <summary>A block kept when the value at a path is true, or false after not: &lt;@if path&gt;, &lt;@if not path&gt;.</summary>
         If,
 
-        /// <summary>A block kept when the member at a path exists, whatever its value: &lt;@ifdef path&gt;.</summary>
+        /// <summary>A block kept when the member at a path exists, whatever its value, or does not exist after not: &lt;@ifdef path&gt;, &lt;@ifdef not path&gt;.</summary>
         IfDef,
+
+        /// <summary>The branch of a condition taken when the branches before it are not: &lt;@else&gt;, or with a test of its own, &lt;@else if path&gt; and &lt;@else ifdef path&gt;.</summary>
+        Else,
+
+        /// <summary>A map in the first cell of a two-column table: &lt;@map Name&gt;; the rows below are its keys and texts.</summary>
+        Map,
 
         /// <summary>The end of a loop or a condition: &lt;@end&gt;.</summary>
         End,
@@ -37,7 +43,7 @@ namespace Allors.Document.Tags
 
         private static readonly IReadOnlyList<SortKey> NoSort = new SortKey[0];
 
-        internal Tag(TagKind kind, string text, string path, string variable, IReadOnlyDictionary<string, string> attributes, IReadOnlyList<SortKey> sort = null, string index = null)
+        internal Tag(TagKind kind, string text, string path, string variable, IReadOnlyDictionary<string, string> attributes, IReadOnlyList<SortKey> sort = null, string index = null, string separator = null, bool defined = false, bool negated = false)
         {
             this.Kind = kind;
             this.Text = text;
@@ -46,13 +52,16 @@ namespace Allors.Document.Tags
             this.Attributes = attributes ?? NoAttributes;
             this.Sort = sort ?? NoSort;
             this.Index = index;
+            this.Separator = separator;
+            this.Defined = defined;
+            this.Negated = negated;
         }
 
         public TagKind Kind { get; }
 
         public string Text { get; }
 
-        /// <summary>The path of a binding, a picture, a loop or a condition; null for an end tag.</summary>
+        /// <summary>The path of a binding, a picture, a loop or a condition, the path an else tests, or the name of a map; null for an end tag and for an else without a test.</summary>
         public string Path { get; }
 
         /// <summary>The loop variable of a for tag; null otherwise.</summary>
@@ -66,6 +75,18 @@ namespace Allors.Document.Tags
 
         /// <summary>The name of a loop's counter, from its index attribute: 1 for the first item in the loop's order; null when the loop declares none.</summary>
         public string Index { get; }
+
+        /// <summary>The text a loop writes between two items, from its separator attribute; null when the loop declares none.</summary>
+        public string Separator { get; }
+
+        /// <summary>True when a condition tests whether the member at its path exists, as ifdef and else ifdef do, rather than whether its value is true.</summary>
+        public bool Defined { get; }
+
+        /// <summary>True when a condition is negated with not: the branch is taken when the test fails.</summary>
+        public bool Negated { get; }
+
+        /// <summary>True for an else with a test of its own: else if or else ifdef.</summary>
+        public bool HasTest => this.Kind == TagKind.Else && this.Path != null;
 
         public override string ToString() => this.Text;
     }

@@ -2,6 +2,20 @@
 
 All notable changes to this project are documented in this file. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses [semantic versioning](https://semver.org/).
 
+## [3.2.0] - unreleased
+
+A condition can say what to print otherwise, a loop can put text between its items, a binding can print a text of its own for a blank value, and a template can carry maps that translate values into its own words. Every addition is a tag or an attribute that meant nothing before, so a 3.1 template renders as it did.
+
+### Added
+
+- `<@else>` inside an `<@if>` or `<@ifdef>`: what follows, up to the `<@end>`, is kept when the condition is not. `<@else if path>` and `<@else ifdef path>` are elses with a test of their own: a condition takes the first branch whose test holds, and nothing when none does. An else sits in a paragraph or row of its own, like the begin and the end, or inline with them in one paragraph. An else outside any condition, in a loop or after the `<@else>` throws `TemplateException` when the template is read, as an unbalanced block does; an else in the paragraph or row of its block's begin or end tag throws as a block structure error.
+- `not` before the path of an `<@if>`, `<@ifdef>`, `<@else if>` or `<@else ifdef>` negates the test.
+- `separator=", "` on a `<@for>`: the text written between two items of a loop that sits in one paragraph, after the sort. A loop whose tags sit in paragraphs or rows of their own writes none; `Validate` reports it as `SeparatorIgnored`.
+- Maps: a table of two columns whose first cell holds `<@map Name>`, anywhere in the template; every row below maps the text in its first cell, the key, to the text in its second, and the row whose key is `default` serves every other value. `<$path map="Name">` prints the text the map gives for the value, whose key is its text under the library's defaults: `true` and `false` for a boolean, the name of an enum, `2.5` for a number, text as it is. The table leaves the output. A value without a row and without a default prints as it is and is reported as `MissingKey`; a name no map has as `UnknownMap`; `Validate` reports a map no binding uses as `UnusedMap` and a map without a default row as `MapWithoutDefault`; a map that cannot be read, row by row, as `MalformedTag`.
+- `blank="none"` on a binding: the text printed when what the binding would print is empty or white space: a null value, empty or white-space text, an empty collection, a path that breaks. Zero prints as a number.
+- `Validate` checks each branch of a condition in its own scope: the else of an `<@ifdef>` sees the variants without the member, the else of an `<@if>` sees them all, `not` swaps the two, and an else with a test narrows again. Other text in the paragraph or row of an else is reported as `MixedText`, like the begin and the end.
+- `Inspect` lists the maps as `Maps`, each with its name, entries, default and location; an else is a child of its condition, listed by `Elses`; `Tag` carries `Defined`, `Negated`, `HasTest` and `Separator`; `TagKind` gains `Else` and `Map`.
+
 ## [3.1.0] - 2026-10-16
 
 Numbers and dates can print in cultures of their own. An installation that prints `1.250,50` the Belgian way and `14-Sep-2026` with English month names sets `Culture = nl-BE` and `DateCulture = invariant`; it needs no culture of its own, whose names would follow the operating system's data.

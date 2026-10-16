@@ -5,6 +5,8 @@
 
 namespace Allos.Document.Xml.Tests
 {
+    using System;
+    using System.Linq;
     using System.Xml;
     using Allors.Document.Xml;
     using Org.XmlUnit.Builder;
@@ -49,6 +51,77 @@ namespace Allos.Document.Xml.Tests
             var diff = DiffBuilder.Compare(Input.FromDocument(document)).WithTest(Input.FromString(expected)).Build();
 
             Assert.False(diff.HasDifferences(), diff.ToString());
+        }
+
+        [Fact]
+        public void RewriteWithSeparatorsMakesABranchElementPerSeparator()
+        {
+            const string xml = """
+
+                               <root>
+                                 <parent1/>
+                                 <parent2/>
+                                 <parent3><sep/></parent3>
+                                 <parent4/>
+                                 <parent5/>
+                                 <parent6/>
+                                 <parent7/>
+                               </root>
+
+                               """;
+
+            var document = new XmlDocument();
+            document.LoadXml(xml);
+
+            var parent1 = (XmlElement)document.GetElementsByTagName("parent1")[0];
+            var separator = (XmlElement)document.GetElementsByTagName("sep")[0];
+            var parent5 = (XmlElement)document.GetElementsByTagName("parent5")[0];
+            var parent7 = (XmlElement)document.GetElementsByTagName("parent7")[0];
+
+            var rootPair = new XmlPair(null, null);
+            var pair = new XmlPair(rootPair, parent1) { End = parent7 };
+            pair.AddSeparator(separator);
+            pair.AddSeparator(parent5);
+            rootPair.Children.Add(pair);
+
+            Assert.Same(document.DocumentElement, pair.Container);
+            Assert.Equal(["parent3", "parent5"], pair.SeparatorSiblings.Select(v => v.LocalName));
+
+            rootPair.Rewrite(v => v.Document.CreateElement("allors"), (v, index) => v.Document.CreateElement("branch" + (index + 1)));
+
+            const string expected = """
+
+                                    <root>
+                                      <allors>
+                                        <parent2/>
+                                        <branch1>
+                                          <parent4/>
+                                        </branch1>
+                                        <branch2>
+                                          <parent6/>
+                                        </branch2>
+                                      </allors>
+                                    </root>
+                                    """;
+
+            var diff = DiffBuilder.Compare(Input.FromDocument(document)).WithTest(Input.FromString(expected)).Build();
+            Assert.False(diff.HasDifferences(), diff.ToString());
+        }
+
+        [Fact]
+        public void ASeparatorOutsideTheContainerHasNoSibling()
+        {
+            var document = new XmlDocument();
+            document.LoadXml("<root><a><b/><c/></a><d/></root>");
+
+            var rootPair = new XmlPair(null, null);
+            var pair = new XmlPair(rootPair, (XmlElement)document.GetElementsByTagName("b")[0]) { End = (XmlElement)document.GetElementsByTagName("c")[0] };
+            pair.AddSeparator((XmlElement)document.GetElementsByTagName("d")[0]);
+            rootPair.Children.Add(pair);
+
+            Assert.Equal("a", pair.Container.LocalName);
+            Assert.Null(Assert.Single(pair.SeparatorSiblings));
+            Assert.Throws<InvalidOperationException>(() => rootPair.Rewrite(v => v.Document.CreateElement("x")));
         }
 
         [Fact]

@@ -52,6 +52,16 @@ namespace Allos.Document.OpenDocument.Tests
             (description == null ? string.Empty : "<svg:desc>" + new XText(description) + "</svg:desc>") +
             "</draw:frame>";
 
+        /// <summary>
+        /// A map table as an author lays one out: a first row whose first cell holds the map tag and whose second cell is a heading, then one
+        /// row per entry given as "key|text", each cell a paragraph.
+        /// </summary>
+        public static string Map(string name, params string[] rows) =>
+            "<table:table table:name=\"" + name + "\"><table:table-column table:number-columns-repeated=\"2\"/>" +
+            "<table:table-row><table:table-cell><text:p>" + Placeholder("<@map " + name + ">") + "</text:p></table:table-cell><table:table-cell><text:p>Text</text:p></table:table-cell></table:table-row>" +
+            string.Concat(rows.Select(row => "<table:table-row>" + string.Concat(row.Split('|').Select(cell => "<table:table-cell><text:p>" + new XText(cell) + "</text:p></table:table-cell>")) + "</table:table-row>")) +
+            "</table:table>";
+
         /// <summary>A frame bound to the model by the picture tag in its description, showing the template's placeholder picture until it renders.</summary>
         public static string Picture(string tag, string name = "Image1", string href = "Pictures/placeholder.png", string title = null) => Frame(name, href, tag, title, "image/png");
 

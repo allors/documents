@@ -10,15 +10,16 @@ namespace Allors.Document.Inspection
     using Allors.Document.Tags;
 
     /// <summary>
-    /// What a template asks of its model: every tag in document order with the paragraph it sits in, the bound picture frames,
+    /// What a template asks of its model: every tag in document order with the paragraph it sits in, the bound picture frames, the maps,
     /// the document settings, and the problems found while reading the tags.
     /// </summary>
     public sealed class TemplateInspection
     {
-        internal TemplateInspection(IReadOnlyList<InspectedTag> tags, IReadOnlyList<InspectedPicture> pictures, IReadOnlyDictionary<string, string> settings, IReadOnlyList<InspectionProblem> problems)
+        internal TemplateInspection(IReadOnlyList<InspectedTag> tags, IReadOnlyList<InspectedPicture> pictures, IReadOnlyList<InspectedMap> maps, IReadOnlyDictionary<string, string> settings, IReadOnlyList<InspectionProblem> problems)
         {
             this.Tags = tags;
             this.Pictures = pictures;
+            this.Maps = maps;
             this.Settings = settings;
             this.Problems = problems;
         }
@@ -29,10 +30,13 @@ namespace Allors.Document.Inspection
         /// <summary>The picture frames whose description is a picture tag.</summary>
         public IReadOnlyList<InspectedPicture> Pictures { get; }
 
+        /// <summary>The maps of the template, in document order: the tables whose first cell is a map tag, content.xml then styles.xml.</summary>
+        public IReadOnlyList<InspectedMap> Maps { get; }
+
         /// <summary>The custom document properties of the template (File, Properties, Custom Properties), by name.</summary>
         public IReadOnlyDictionary<string, string> Settings { get; }
 
-        /// <summary>Tags that could not be read and blocks that do not close or open.</summary>
+        /// <summary>Tags that could not be read, blocks that do not close or open, else tags that belong to no condition, and maps that cannot be read.</summary>
         public IReadOnlyList<InspectionProblem> Problems { get; }
 
         /// <summary>Every tag at any depth, in document order.</summary>
@@ -43,6 +47,7 @@ namespace Allors.Document.Inspection
 
         public IEnumerable<InspectedTag> Bindings => this.All.Where(v => v.Tag.Kind == TagKind.Binding);
 
+        /// <summary>The for, if and ifdef tags; an else is a child of its condition.</summary>
         public IEnumerable<InspectedTag> Blocks => this.All.Where(v => v.Tag.Kind == TagKind.For || v.Tag.Kind == TagKind.If || v.Tag.Kind == TagKind.IfDef);
 
         private static IEnumerable<InspectedTag> Flatten(IEnumerable<InspectedTag> tags)

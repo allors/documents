@@ -11,17 +11,21 @@ namespace Allors.Document.Inspection
     /// <summary>A picture frame bound to the model: its description is a picture tag, <c>&lt;$path empty="keep" fit="contain"&gt;</c>, and the frame shows the picture at that path.</summary>
     public sealed class InspectedPicture
     {
-        internal InspectedPicture(string frameName, Tag tag, Location location, InspectedTag block, XmlElement element)
+        internal InspectedPicture(string frameName, Tag tag, Location location, InspectedTag block, InspectedTag branch, XmlElement element)
         {
             this.FrameName = frameName;
             this.Tag = tag;
             this.Location = location;
             this.Block = block;
+            this.Branch = branch;
             this.Element = element;
         }
 
         /// <summary>The frame element, for the program that renders it.</summary>
         internal XmlElement Element { get; }
+
+        /// <summary>The block tag that opened the branch the frame sits in: the loop or condition itself, or the else of a condition; null at the top level.</summary>
+        internal InspectedTag Branch { get; }
 
         /// <summary>The name of the frame, as the author gave it.</summary>
         public string FrameName { get; }

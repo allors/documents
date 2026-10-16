@@ -9,6 +9,7 @@ namespace Allors.Document.Rendering
     using System.Collections.Generic;
     using System.Linq;
     using System.Xml;
+    using Allors.Document.Inspection;
     using Allors.Document.Models;
     using Allors.Document.OpenDocument;
     using Allors.Document.Tags;
@@ -18,7 +19,7 @@ namespace Allors.Document.Rendering
 
     /// <summary>
     /// Renders programs for one model: walks a program's DOM and writes it as XML, with every binding replaced by its formatted value,
-    /// every condition kept or dropped, every loop repeated and every bound picture frame showing its picture, and reports what the
+    /// every condition reduced to the branch it takes, every loop repeated and every bound picture frame showing its picture, and reports what the
     /// template asks that the model cannot give. One renderer serves one render, both parts; a program is shared between renders and never changed.
     /// The output reads as the template did: its declaration, no byte order mark, a full end tag on every element.
     /// </summary>
@@ -31,11 +32,14 @@ namespace Allors.Document.Rendering
         private const string StyleNamespace = "urn:oasis:names:tc:opendocument:xmlns:style:1.0";
         private const string XLinkNamespace = "http://www.w3.org/1999/xlink";
 
+        private static readonly IReadOnlyDictionary<string, InspectedMap> NoMaps = new Dictionary<string, InspectedMap>();
+
         private readonly IResolver resolver;
         private readonly Formatting formatting;
         private readonly Formatting counterFormatting;
         private readonly object model;
         private readonly Pictures pictures;
+        private readonly IReadOnlyDictionary<string, InspectedMap> maps;
         private readonly List<Finding> findings = new List<Finding>();
         private readonly HashSet<(Instruction, FindingKind, string)> reported = new HashSet<(Instruction, FindingKind, string)>();
         private readonly HashSet<string> frameNames = new HashSet<string>();
@@ -44,18 +48,19 @@ namespace Allors.Document.Rendering
         private Program program;
         private XmlWriter writer;
 
-        public Renderer(IResolver resolver, Formatting formatting, object model, Pictures pictures)
+        public Renderer(IResolver resolver, Formatting formatting, object model, Pictures pictures, IReadOnlyDictionary<string, InspectedMap> maps = null)
         {
             this.resolver = resolver;
             this.formatting = formatting;
             this.model = model;
             this.pictures = pictures;
+            this.maps = maps ?? NoMaps;
 
             // The number pattern is for the model's amounts; a loop counter prints as a plain integer unless its tag says otherwise
             this.counterFormatting = formatting.With(new[] { new KeyValuePair<string, string>(Formatting.NumberSetting, null) });
         }
 
-        /// <summary>Every finding of the parts rendered so far, in render order; a member, a loop or a picture is reported once per tag.</summary>
+        /// <summary>Every finding of the parts rendered so far, in render order; a member, a loop, a key or a picture is reported once per tag.</summary>
         public IReadOnlyList<Finding> Findings => this.findings;
 
         /// <summary>The pictures the parts rendered so far put into the package.</summary>
@@ -86,6 +91,8 @@ namespace Allors.Document.Rendering
         private static bool Is(XmlNode node, string ns, string localName) => node is XmlElement element && element.LocalName == localName && element.NamespaceURI == ns;
 
         private static bool Is(XmlAttribute attribute, string ns, string localName) => attribute.LocalName == localName && attribute.NamespaceURI == ns;
+
+        private static bool IsBranch(XmlNode node) => Is(node, Program.Namespace, Program.ElseName);
 
         private void Write(XmlNode node, Scope scope)
         {
@@ -189,20 +196,8 @@ namespace Allors.Document.Rendering
                     break;
 
                 case TagKind.If:
-                    this.TryResolve(instruction, instruction.Tag.Path, scope, out var condition);
-                    if (this.resolver.IsTrue(condition))
-                    {
-                        this.WriteChildren(element, scope);
-                    }
-
-                    break;
-
                 case TagKind.IfDef:
-                    if (this.IsDefined(instruction, scope))
-                    {
-                        this.WriteChildren(element, scope);
-                    }
-
+                    this.WriteCondition(instruction, element, scope);
                     break;
 
                 case TagKind.For:
@@ -212,17 +207,31 @@ namespace Allors.Document.Rendering
         }
 
         /// <summary>
-        /// A value prints as the resolver formats it under the tag's formatting; a path that breaks prints nothing.
-        /// A loop counter prints as a plain integer, unless the tag carries a format of its own.
+        /// A value prints as the resolver formats it under the tag's formatting, or as the text its map gives for it; a path that breaks prints nothing.
+        /// A loop counter prints as a plain integer, unless the tag carries a format of its own. When what would print is empty or white space, the
+        /// tag's blank text prints instead.
         /// </summary>
         private void WriteBinding(Instruction instruction, Scope scope)
         {
             var tag = instruction.Tag;
-            if (!this.TryResolve(instruction, tag.Path, scope, out var value))
+            var attributes = tag.Attributes;
+
+            string text = null;
+            if (this.TryResolve(instruction, tag.Path, scope, out var value) && value != null)
             {
-                return;
+                text = attributes.TryGetValue(TagSyntax.MapAttribute, out var map) ? this.Map(instruction, map, value, scope) : this.Format(value, tag, scope);
             }
 
+            if (string.IsNullOrWhiteSpace(text) && attributes.TryGetValue(TagSyntax.BlankAttribute, out var blank))
+            {
+                text = blank;
+            }
+
+            ValueWriter.Write(this.writer, text);
+        }
+
+        private string Format(object value, Tag tag, Scope scope)
+        {
             var attributes = tag.Attributes;
             var effective = scope.IsCounter(tag.Path) && !attributes.ContainsKey(Formatting.FormatAttribute) ? this.counterFormatting : this.formatting;
             if (attributes.Count > 0)
@@ -230,7 +239,75 @@ namespace Allors.Document.Rendering
                 effective = effective.With(attributes);
             }
 
-            ValueWriter.Write(this.writer, this.resolver.Format(value, effective));
+            return this.resolver.Format(value, effective);
+        }
+
+        /// <summary>
+        /// The text a map gives for a value: the row whose key is the value as the resolver formats it under the library's defaults, else the
+        /// map's default row. A map without a row for the key and without a default lets the value print as it is, reported once per tag and key;
+        /// so does a name that is no map of the template, reported once per tag.
+        /// </summary>
+        private string Map(Instruction instruction, string name, object value, Scope scope)
+        {
+            var tag = instruction.Tag;
+            if (!this.maps.TryGetValue(name, out var map))
+            {
+                this.Report(instruction, FindingKind.UnknownMap, FindingSeverity.Error, tag.Path, "no map '" + name + "' in the template: a map is a table whose first cell holds <@map " + name + ">");
+                return this.Format(value, tag, scope);
+            }
+
+            var key = this.resolver.Format(value, Formatting.Default);
+            if (map.TryGet(key, out var text))
+            {
+                return text;
+            }
+
+            this.Report(instruction, FindingKind.MissingKey, FindingSeverity.Warning, tag.Path, "the map '" + name + "' has no row for '" + key + "' and no default row: the value prints as it is", key);
+            return this.Format(value, tag, scope);
+        }
+
+        /// <summary>
+        /// A condition writes the first branch whose test holds: what sits before the first else when its own test holds, else the first else
+        /// whose test holds, an else without a test holding always. Nothing when no branch holds.
+        /// </summary>
+        private void WriteCondition(Instruction instruction, XmlElement element, Scope scope)
+        {
+            if (this.Holds(instruction, scope))
+            {
+                for (var child = element.FirstChild; child != null && !IsBranch(child); child = child.NextSibling)
+                {
+                    this.Write(child, scope);
+                }
+
+                return;
+            }
+
+            for (var child = element.FirstChild; child != null; child = child.NextSibling)
+            {
+                if (IsBranch(child) && this.program.Instructions.TryGetValue((XmlElement)child, out var branch) && (!branch.Tag.HasTest || this.Holds(branch, scope)))
+                {
+                    this.WriteChildren((XmlElement)child, scope);
+                    return;
+                }
+            }
+        }
+
+        /// <summary>Whether a test holds: the member exists for an ifdef, the value is true for an if; the other way round after not.</summary>
+        private bool Holds(Instruction instruction, Scope scope)
+        {
+            var tag = instruction.Tag;
+            bool outcome;
+            if (tag.Defined)
+            {
+                outcome = this.IsDefined(instruction, scope);
+            }
+            else
+            {
+                this.TryResolve(instruction, tag.Path, scope, out var condition);
+                outcome = this.resolver.IsTrue(condition);
+            }
+
+            return outcome != tag.Negated;
         }
 
         /// <summary>
@@ -391,7 +468,10 @@ namespace Allors.Document.Rendering
             }
         }
 
-        /// <summary>The body repeats per item, with the loop variable and the counter in scope; a path that breaks loops over nothing.</summary>
+        /// <summary>
+        /// The body repeats per item, with the loop variable and the counter in scope; a path that breaks loops over nothing. The separator
+        /// is written between two items of a loop that sits in one paragraph; a loop in paragraphs or rows of its own writes none.
+        /// </summary>
         private void WriteLoop(Instruction instruction, XmlElement element, Scope scope)
         {
             var tag = instruction.Tag;
@@ -402,10 +482,16 @@ namespace Allors.Document.Rendering
                 items = this.Sort(instruction, items);
             }
 
+            var separator = instruction.Inline ? tag.Separator : null;
             var counter = 0;
             foreach (var item in items)
             {
                 counter++;
+                if (separator != null && counter > 1)
+                {
+                    ValueWriter.Write(this.writer, separator);
+                }
+
                 var body = scope.Push(tag.Variable, item);
                 if (tag.Index != null)
                 {
@@ -524,10 +610,10 @@ namespace Allors.Document.Rendering
             this.Report(instruction, FindingKind.UnknownMember, FindingSeverity.Error, path, holder + " has no member " + segments[index]);
         }
 
-        /// <summary>Adds a finding for the tag, once per tag, kind and path in a render.</summary>
-        private void Report(Instruction instruction, FindingKind kind, FindingSeverity severity, string path, string message)
+        /// <summary>Adds a finding for the tag, once per tag, kind and path in a render, or once per tag, kind and key when a key is given.</summary>
+        private void Report(Instruction instruction, FindingKind kind, FindingSeverity severity, string path, string message, string key = null)
         {
-            if (this.reported.Add((instruction, kind, path)))
+            if (this.reported.Add((instruction, kind, key ?? path)))
             {
                 this.findings.Add(new Finding(kind, severity, instruction.Tag.Text, path, message, instruction.Location));
             }

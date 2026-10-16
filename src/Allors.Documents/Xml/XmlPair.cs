@@ -9,8 +9,16 @@ namespace Allors.Document.Xml
     using System.Collections.Generic;
     using System.Xml;
 
+    /// <summary>
+    /// A block of a part: the element that begins it, the element that ends it, and the elements between them that split it into branches.
+    /// The container is the lowest common ancestor of the begin and the end; the siblings are its children that hold them. The rewrite
+    /// replaces everything from the begin sibling to the end sibling by one instruction element holding what sat between them, with a
+    /// branch element for what follows each separator.
+    /// </summary>
     public class XmlPair
     {
+        private readonly List<XmlElement> separators = new List<XmlElement>();
+        private readonly List<XmlElement> separatorSiblings = new List<XmlElement>();
         private XmlElement end;
 
         public XmlPair(XmlPair parent, XmlElement begin)
@@ -38,25 +46,61 @@ namespace Allors.Document.Xml
             }
         }
 
+        /// <summary>The lowest common ancestor of the begin and the end; null until the end is set.</summary>
+        public XmlElement Container { get; private set; }
+
         public XmlElement BeginSibling { get; private set; }
 
         public XmlElement EndSibling { get; private set; }
 
+        /// <summary>The elements that split the block into branches, in document order.</summary>
+        public IReadOnlyList<XmlElement> Separators => this.separators;
+
+        /// <summary>The child of the container that holds each separator; null for a separator outside the container.</summary>
+        public IReadOnlyList<XmlElement> SeparatorSiblings => this.separatorSiblings;
+
         public bool IsRoot => this.Parent == null;
 
-        public void Rewrite(Func<XmlPair, XmlElement> factory)
+        /// <summary>Adds a separator; the end must be set first.</summary>
+        public void AddSeparator(XmlElement separator)
+        {
+            this.separators.Add(separator);
+            this.separatorSiblings.Add(this.SiblingOf(separator));
+        }
+
+        public void Rewrite(Func<XmlPair, XmlElement> factory) => this.Rewrite(factory, null);
+
+        /// <summary>Rewrites this block and its children; the branch factory makes the element for the branch after each separator, by its index.</summary>
+        public void Rewrite(Func<XmlPair, XmlElement> factory, Func<XmlPair, int, XmlElement> branchFactory)
         {
             if (!this.IsRoot)
             {
+                if (this.separators.Count > 0 && branchFactory == null)
+                {
+                    throw new InvalidOperationException("a block with separators needs a branch factory");
+                }
+
                 var parentNode = this.BeginSibling.ParentNode;
-                var document = parentNode.OwnerDocument;
 
                 var instructionElement = factory(this);
+                var target = instructionElement;
+                var branch = 0;
 
                 var nextSibling = this.BeginSibling.NextSibling;
                 while (nextSibling != null && nextSibling != this.EndSibling)
                 {
-                    instructionElement.AppendChild(nextSibling);
+                    if (branch < this.separatorSiblings.Count && nextSibling == this.separatorSiblings[branch])
+                    {
+                        target = branchFactory(this, branch);
+                        instructionElement.AppendChild(target);
+                        parentNode.RemoveChild(nextSibling);
+                        branch++;
+                    }
+                    else
+                    {
+                        target.AppendChild(nextSibling);
+                    }
+
                     nextSibling = this.BeginSibling.NextSibling;
                 }
 
@@ -68,7 +112,7 @@ namespace Allors.Document.Xml
 
             foreach (var child in this.Children)
             {
-                child.Rewrite(factory);
+                child.Rewrite(factory, branchFactory);
             }
         }
 
@@ -92,11 +136,36 @@ namespace Allors.Document.Xml
                 }
             }
 
+            this.Container = lowestCommonAncestor;
             if (lowestCommonAncestor != null)
             {
                 this.BeginSibling = beginAncestry[beginAncestry.IndexOf(lowestCommonAncestor) - 1];
                 this.EndSibling = endAncestry[endAncestry.IndexOf(lowestCommonAncestor) - 1];
             }
+
+            for (var i = 0; i < this.separators.Count; i++)
+            {
+                this.separatorSiblings[i] = this.SiblingOf(this.separators[i]);
+            }
+        }
+
+        /// <summary>The child of the container on the way down to the element; null when the element is not inside the container.</summary>
+        private XmlElement SiblingOf(XmlElement element)
+        {
+            if (this.Container == null)
+            {
+                return null;
+            }
+
+            for (var node = element; node != null; node = node.ParentNode as XmlElement)
+            {
+                if (node.ParentNode == this.Container)
+                {
+                    return node;
+                }
+            }
+
+            return null;
         }
 
         private void GetAncestry(XmlElement element, List<XmlElement> ancestry)

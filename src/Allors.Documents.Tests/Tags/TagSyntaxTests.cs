@@ -261,5 +261,112 @@ namespace Allos.Document.Tags.Tests
             Assert.Equal(isValue, TagSyntax.IsEmptyValue(value));
             Assert.Equal(keeps, TagSyntax.KeepsWhenEmpty(value));
         }
+
+        [Theory]
+        [InlineData("<@else>")]
+        [InlineData("<@ELSE>")]
+        [InlineData("  <@Else >  ")]
+        public void AnElseWithoutATestHasNoPath(string text)
+        {
+            Assert.True(TagSyntax.TryParse(text, out var tag, out var error), error);
+            Assert.Equal(TagKind.Else, tag.Kind);
+            Assert.Null(tag.Path);
+            Assert.False(tag.HasTest);
+            Assert.False(tag.Defined);
+            Assert.False(tag.Negated);
+        }
+
+        [Theory]
+        [InlineData("<@else if Invoice.Comment>", "Invoice.Comment", false, false)]
+        [InlineData("<@else ifdef p.Children>", "p.Children", true, false)]
+        [InlineData("<@Else IF not Paid>", "Paid", false, true)]
+        [InlineData("<@else  ifdef   NOT  p.Name >", "p.Name", true, true)]
+        public void AnElseWithATestHasAPath(string text, string path, bool defined, bool negated)
+        {
+            Assert.True(TagSyntax.TryParse(text, out var tag, out var error), error);
+            Assert.Equal(TagKind.Else, tag.Kind);
+            Assert.True(tag.HasTest);
+            Assert.Equal(path, tag.Path);
+            Assert.Equal(defined, tag.Defined);
+            Assert.Equal(negated, tag.Negated);
+        }
+
+        [Theory]
+        [InlineData("<@if not Paid>", TagKind.If, "Paid", true)]
+        [InlineData("<@ifdef NOT p.Name>", TagKind.IfDef, "p.Name", true)]
+        [InlineData("<@if Paid>", TagKind.If, "Paid", false)]
+        [InlineData("<@if not>", TagKind.If, "not", false)]
+        [InlineData("<@if not.x>", TagKind.If, "not.x", false)]
+        public void NotBeforeThePathNegatesACondition(string text, TagKind kind, string path, bool negated)
+        {
+            Assert.True(TagSyntax.TryParse(text, out var tag, out var error), error);
+            Assert.Equal(kind, tag.Kind);
+            Assert.Equal(path, tag.Path);
+            Assert.Equal(negated, tag.Negated);
+            Assert.Equal(kind == TagKind.IfDef, tag.Defined);
+        }
+
+        [Theory]
+        [InlineData("<@else Paid>", "unexpected text after else: 'Paid'")]
+        [InlineData("<@else if>", "<@else if> needs a path: <@else if Invoice.Comment>")]
+        [InlineData("<@else ifdef>", "<@else ifdef> needs a path")]
+        [InlineData("<@else if 1st>", "'1st' is not a path")]
+        [InlineData("<@elseif Paid>", "unknown tag <@elseif>: expected for, if, ifdef, else, map or end")]
+        [InlineData("<@if not 1st>", "'1st' is not a path")]
+        [InlineData("<@if not not x>", "'not x' is not a path")]
+        public void BadConditionsAreRefusedWithAReason(string text, string reason)
+        {
+            Assert.False(TagSyntax.TryParse(text, out var tag, out var error));
+            Assert.Null(tag);
+            Assert.Contains(reason, error);
+        }
+
+        [Theory]
+        [InlineData("<@map Titles>", "Titles")]
+        [InlineData("<@MAP _labels2>", "_labels2")]
+        public void AMapTagHasAName(string text, string name)
+        {
+            Assert.True(TagSyntax.TryParse(text, out var tag, out var error), error);
+            Assert.Equal(TagKind.Map, tag.Kind);
+            Assert.Equal(name, tag.Path);
+        }
+
+        [Theory]
+        [InlineData("<@map>", "<@map> needs a name: <@map Titles>")]
+        [InlineData("<@map a.b>", "the map's name 'a.b' is not a name")]
+        [InlineData("<@map a b>", "the map's name 'a b' is not a name")]
+        public void AMapTagNeedsOneName(string text, string reason)
+        {
+            Assert.False(TagSyntax.TryParse(text, out var tag, out var error));
+            Assert.Null(tag);
+            Assert.Equal(reason, error);
+        }
+
+        [Fact]
+        public void LoopsCarryASeparator()
+        {
+            Assert.True(TagSyntax.TryParse("<@for t Tags separator=\", \">", out var tag, out var error), error);
+            Assert.Equal(", ", tag.Separator);
+
+            Assert.True(TagSyntax.TryParse("<@for t Tags separator=''>", out var empty, out error), error);
+            Assert.Null(empty.Separator);
+
+            Assert.True(TagSyntax.TryParse("<@for t Tags>", out var none, out error), error);
+            Assert.Null(none.Separator);
+        }
+
+        [Fact]
+        public void BindingsAndLoopsKnowTheirAttributes()
+        {
+            Assert.True(TagSyntax.IsBindingAttribute("MAP"));
+            Assert.True(TagSyntax.IsBindingAttribute("blank"));
+            Assert.True(TagSyntax.IsBindingAttribute("format"));
+            Assert.False(TagSyntax.IsBindingAttribute("separator"));
+            Assert.True(TagSyntax.IsLoopAttribute("Separator"));
+            Assert.False(TagSyntax.IsLoopAttribute("map"));
+            Assert.True(TagSyntax.IsDefaultKey(" Default "));
+            Assert.False(TagSyntax.IsDefaultKey("defaults"));
+        }
     }
 }
+
