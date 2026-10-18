@@ -4,11 +4,14 @@ description: "Agreed website design, its adoption from the Allors3 documentation
 audience: "Maintainers"
 kind: "Decision record"
 status: "Planned"
+sidebar:
+  order: 4
 ---
 
-> **Status: Planned.** The website, its Markdown exports and the documentation workflow are built,
-> and the checks that the workflow runs pass for both deployment paths. The editorial subtask is
-> pending. Publication to GitHub Pages has not been run and the repository's Pages settings are unchanged.
+> **Status: Planned.** The website, its Markdown exports, the documentation workflow and the
+> editorial pages are built, and the checks that the workflow runs pass for both deployment paths.
+> Publication to GitHub Pages has not been run and the repository's Pages settings are unchanged;
+> the record stays Planned until the site is published.
 
 This record describes the documentation website and where it comes from. The
 [writing guide](writing-documentation.md) owns the editorial rules and
@@ -49,7 +52,7 @@ changes and validation, followed by explicit approval before the next subtask st
 | Subtask | Scope | Validation | State |
 | --- | --- | --- | --- |
 | 1. Scaffold | The website project adopted from Allors3 and parametrized, the documentation workflow, the README's reference material moved page for page with its meaning preserved, the index, `AGENTS.md`, the writing guide, the terminology reference and this record. | Tooling tests, the Astro check, the production build with its exports, the link check and the browser tests, for both deployment paths, locally and in the workflow. | Complete. |
-| 2. Editorial | The pages that are new writing: a how-to guide for writing a template in Writer, a how-to guide for renderers and picture processing, the design explanation, the architecture explanation and the filled terminology; the README reduced to an introduction with absolute links; the changelog entry. | The same checks, and an editorial review of every changed page and of representative exports. | Pending. |
+| 2. Editorial | The pages that are new writing: a how-to guide for writing a template in Writer, a how-to guide for renderers and picture processing, the design explanation, the architecture explanation and the filled terminology; an opening for each moved page and the tutorial rebuilt as steps, with the rules unchanged; the README reduced to an introduction with absolute links; the changelog entry. | The same checks, a script that confirms every line of the former README still has a page, and an editorial review of every changed page and of representative exports. | Complete. |
 
 The scaffold moves the existing pages and preserves their meaning before editorial rewrites, as
 the Allors3 adoption did. Publishing the site and creating a pull request remain explicit review steps.
@@ -68,6 +71,6 @@ requires editorial review of changed pages and of representative exports.
 
 ## Follow-ups
 
-- The favicon is the package icon, which is not square. Replace it with a square icon.
 - Publication: enable GitHub Pages for the repository and run the workflow with publish selected, after approval.
+- After publication, point the README's documentation links at the published pages. Until then they go to the page sources on GitHub, which nuget.org can follow where it cannot follow a relative link.
 - The policy for retaining the documentation of older released versions is not defined; the README packed into each release serves as its reference until then.
