@@ -126,16 +126,18 @@ test('Mermaid renders labelled diagrams and responds to theme changes', async ({
 
 for (const [slug, title] of [
   ['', 'Documentation'],
+  ['write-a-template/', 'Write a template'],
   ['tags/', 'Tags'],
   ['formatting/', 'Formatting'],
   ['findings/', 'Findings'],
+  ['internals/architecture/', 'Architecture'],
 ]) {
   test(`${title} has an accessible layout`, async ({ page }, testInfo) => {
     const errors: string[] = [];
     page.on('pageerror', (error) => errors.push(error.message));
     await page.goto(slug || './');
     await expect(page.getByRole('heading', { level: 1, name: title, exact: true })).toBeVisible();
-    if (slug === 'formatting/') await expect(page.locator('pre.mermaid svg')).toBeVisible();
+    if (slug === 'formatting/' || slug === 'internals/architecture/') await expect(page.locator('pre.mermaid svg')).toBeVisible();
     await expectNoPageOverflow(page);
     const accessibility = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa']).analyze();
     expect(accessibility.violations).toEqual([]);

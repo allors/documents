@@ -46,3 +46,14 @@ their declared spelling and capitalization.
 | Finding | One thing wrong or doubtful, in the author's terms: its kind, severity, the tag as typed, the path, a message and the location. See [Findings](findings.md). |
 | Lenient rendering | A render never throws for what the template says: what the model cannot give prints blank and is reported as a finding. Only a template whose blocks cannot be rendered throws, when it is read. |
 | Package and flat document | The two forms of an OpenDocument text: a zip package (`.odt`) and one XML file with the pictures embedded (`.fodt`). See [Flat documents](api.md#flat-documents). |
+| Formatting | The effective cultures, patterns and words at a tag, the result of the formatting layers; also the name of the type that carries them. See [Formatting](formatting.md). |
+| Renderer | Planned: a display transformation of one value that a tag selects by name in its `format` attribute, such as upper-case text or a barcode, registered by the caller. See [Renderers and picture processing](renderers.md). The type inside the library that renders a program is named `Renderer` too; the architecture page qualifies it. |
+| Picture processor | Planned: the step between a picture's bytes and the package that scales or converts a picture for its frame, registered by the caller. See [Renderers and picture processing](renderers.md). |
+
+## Inside the library
+
+| Term | Definition and usage |
+| --- | --- |
+| Program | A rendering part of a template prepared for rendering: its DOM with every tag replaced by an instruction, built once per template and walked by every render. See [Architecture](internals/architecture.md). |
+| Instruction | A tag in a program: what it says and where it sits, for the findings a render reports. |
+| Scope | The loop variables and counters a path may start with at a point of a render or a validation, innermost first, before the root. |

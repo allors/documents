@@ -27,10 +27,10 @@ export default defineConfig({
       sidebar: [
         { label: 'Documentation', slug: '' },
         { label: 'For template authors', items: [
-          { slug: 'tags' }, { slug: 'formatting' }, { slug: 'pictures' }, { slug: 'maps' }, { slug: 'findings' },
+          { slug: 'write-a-template' }, { slug: 'tags' }, { slug: 'formatting' }, { slug: 'pictures' }, { slug: 'maps' }, { slug: 'findings' },
         ] },
         { label: 'For developers', items: [
-          { slug: 'render-your-first-document' }, { slug: 'validate-templates' }, { slug: 'resolve-your-own-model' }, { slug: 'api' },
+          { slug: 'render-your-first-document' }, { slug: 'validate-templates' }, { slug: 'resolve-your-own-model' }, { slug: 'renderers' }, { slug: 'api' }, { slug: 'design' },
         ] },
         { label: 'Terminology', slug: 'terminology' },
         { label: 'For maintainers', items: [{ autogenerate: { directory: 'internals' } }] },

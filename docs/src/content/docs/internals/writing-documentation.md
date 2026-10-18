@@ -4,6 +4,8 @@ description: "Write and review documentation for its audience, purpose, status, 
 audience: "Maintainers"
 kind: "How-to guide"
 status: "Current"
+sidebar:
+  order: 3
 ---
 
 > **Status: Current.** How-to guide for maintainers.
