@@ -138,6 +138,9 @@ for (const [slug, title] of [
     await page.goto(slug || './');
     await expect(page.getByRole('heading', { level: 1, name: title, exact: true })).toBeVisible();
     if (slug === 'formatting/' || slug === 'internals/architecture/') await expect(page.locator('pre.mermaid svg')).toBeVisible();
+    const unfocusableCodeBlocks = await page.locator('.expressive-code pre').evaluateAll((elements) =>
+      elements.filter((element) => element.scrollWidth > element.clientWidth && element.getAttribute('tabindex') !== '0').length);
+    expect(unfocusableCodeBlocks, 'A code block that scrolls must be focusable from the start').toBe(0);
     await expectNoPageOverflow(page);
     const accessibility = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa']).analyze();
     expect(accessibility.violations).toEqual([]);

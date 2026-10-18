@@ -4,6 +4,7 @@ import starlight from '@astrojs/starlight';
 import mermaid from 'astro-mermaid';
 import sourceLinks from './integrations/source-links.mjs';
 import scrollableContent from './integrations/scrollable-content.mjs';
+import focusableCodeBlocks from './integrations/focusable-code-blocks.mjs';
 import documentationExports from './integrations/exports.mjs';
 import { site, base, repository } from './site.mjs';
 
@@ -24,6 +25,7 @@ export default defineConfig({
       editLink: { baseUrl: `${repository}/edit/main/docs/` },
       components: { PageTitle: './src/components/PageTitle.astro' },
       customCss: ['./src/styles/documentation.css'],
+      expressiveCode: { plugins: [focusableCodeBlocks()] },
       sidebar: [
         { label: 'Documentation', slug: '' },
         { label: 'For template authors', items: [

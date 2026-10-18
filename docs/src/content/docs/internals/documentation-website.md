@@ -42,7 +42,11 @@ the page title component, the stylesheet, the tooling tests and the browser test
 once the repository, branch, deployment base and version in `site.mjs`, the audience names in the
 content schema and the `llms.txt` heading are parameters. The Allors documentation home decides
 whether and where a shared implementation of them lives; until then each project keeps its copy
-and records the differences here.
+and records the differences here. Two differences are worth porting back: the link checker names
+files with forward slashes on every platform, so that its tests pass on Windows, and the
+`focusable-code-blocks.mjs` plugin gives every code block its `tabindex` when it is rendered,
+because Expressive Code's client script adds it only after a delay that an accessibility check
+can beat when a line is wider than the page.
 
 ## Implementation and validation
 
