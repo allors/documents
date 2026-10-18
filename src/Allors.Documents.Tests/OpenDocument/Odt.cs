@@ -43,10 +43,11 @@ namespace Allos.Document.OpenDocument.Tests
 
         /// <summary>
         /// A frame showing the picture at <paramref name="href"/>, as Writer saves one: the image first, then the alternative text (svg:title) and
-        /// the description (svg:desc) from the image's Options. A description that is a tag binds the picture to the model.
+        /// the description (svg:desc) from the image's Options. A description that is a tag binds the picture to the model. The frame is 2cm by 1cm
+        /// unless the size says otherwise.
         /// </summary>
-        public static string Frame(string name, string href, string description = null, string title = null, string mimeType = null) =>
-            "<draw:frame draw:name=\"" + name + "\" text:anchor-type=\"paragraph\" svg:width=\"2cm\" svg:height=\"1cm\">" +
+        public static string Frame(string name, string href, string description = null, string title = null, string mimeType = null, string size = "svg:width=\"2cm\" svg:height=\"1cm\"") =>
+            "<draw:frame draw:name=\"" + name + "\" text:anchor-type=\"paragraph\" " + size + ">" +
             "<draw:image xlink:href=\"" + href + "\" xlink:type=\"simple\" xlink:show=\"embed\" xlink:actuate=\"onLoad\"" + (mimeType == null ? string.Empty : " draw:mime-type=\"" + mimeType + "\"") + "/>" +
             (title == null ? string.Empty : "<svg:title>" + new XText(title) + "</svg:title>") +
             (description == null ? string.Empty : "<svg:desc>" + new XText(description) + "</svg:desc>") +

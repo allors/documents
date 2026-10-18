@@ -387,7 +387,7 @@ namespace Allos.Document.Validation.Tests
 
             Assert.Equal(3, validation.Findings.Count);
             Assert.Equal(FindingKind.UnknownAttribute, validation.Findings[0].Kind);
-            Assert.Equal("a picture has no attribute 'size': use empty, fit", validation.Findings[0].Message);
+            Assert.Equal("a picture has no attribute 'size': use empty, fit, format", validation.Findings[0].Message);
             Assert.Equal("<$Logo size=\"contain\">", validation.Findings[0].Text);
             Assert.Equal(FindingKind.BadValue, validation.Findings[1].Kind);
             Assert.Equal("empty=\"maybe\": use remove or keep", validation.Findings[1].Message);

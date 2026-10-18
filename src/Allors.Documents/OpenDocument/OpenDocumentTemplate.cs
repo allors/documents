@@ -81,10 +81,17 @@ namespace Allors.Document.OpenDocument
         public static TemplateInspection Inspect(byte[] document) => Inspector.Inspect(document);
 
         /// <summary>
-        /// Checks a template against the shape of its model without rendering it: every path, attribute, block and document setting.
+        /// Checks a template against the shape of its model without rendering it: every path, attribute, block and document setting. A format
+        /// attribute is checked against the built-in renderers alone; <see cref="Validate(byte[], IShape, Renderers)"/> takes the caller's own.
         /// Never throws for what the template says; throws only when the bytes are neither an OpenDocument package nor a flat OpenDocument text.
         /// </summary>
-        public static TemplateValidation Validate(byte[] document, IShape root) => Validator.Validate(document, root);
+        public static TemplateValidation Validate(byte[] document, IShape root) => Validate(document, root, null);
+
+        /// <summary>
+        /// Checks a template against the shape of its model and the renderers its renders will carry: a binding's format names a text renderer,
+        /// a pattern of the document or a .NET format string, and a picture tag's format names a picture renderer. Null stands for the built-in renderers alone.
+        /// </summary>
+        public static TemplateValidation Validate(byte[] document, IShape root, Renderers renderers) => Validator.Validate(document, root, renderers);
 
         /// <summary>
         /// Renders the template for a model. Every <c>&lt;$path&gt;</c> prints the value at its path, formatted by the settings, the template's
@@ -107,7 +114,7 @@ namespace Allors.Document.OpenDocument
             var formatting = settings.ToFormatting().With(this.documentSettings);
 
             var pictures = new Pictures(this.fileByFileName.Keys);
-            var renderer = new Renderer(resolver, formatting, model, pictures, this.maps);
+            var renderer = new Renderer(resolver, formatting, model, pictures, this.maps, settings.Renderers, settings.PictureProcessor);
             var content = renderer.Render(this.contentProgram);
             var styles = this.stylesProgram == null ? null : renderer.Render(this.stylesProgram);
 

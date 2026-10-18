@@ -52,6 +52,19 @@ namespace Allors.Document.OpenDocument
         /// </summary>
         public bool Flat { get; set; }
 
+        /// <summary>
+        /// The renderers a tag may name in its format attribute: the built-in text renderers upper, lower and cap, and what the caller registers,
+        /// one at a time or as a collection, such as the barcode renderers of Allors.Documents.Barcodes. A registered name wins over the pattern
+        /// names and over a .NET format string. One registry may serve every render and Validate; register before rendering.
+        /// </summary>
+        public Renderers Renderers { get; set; } = new Renderers();
+
+        /// <summary>
+        /// What the package stores for a bound picture: the processor sees the bytes the model or a renderer gave, their format and the frame,
+        /// and gives the bytes to store, such as the picture scaled to the frame; null, the default, stores the bytes as they are.
+        /// </summary>
+        public IPictureProcessor PictureProcessor { get; set; }
+
         /// <summary>The caller's layer over the library's defaults.</summary>
         internal Formatting ToFormatting() => Formatting.Default.WithCulture(this.Culture, this.NumberCulture, this.DateCulture).With(this.Settings());
 

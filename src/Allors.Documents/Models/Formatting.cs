@@ -48,7 +48,10 @@ namespace Allors.Document.Models
         /// <summary>The word for false.</summary>
         public const string FalseSetting = "false";
 
-        /// <summary>A tag's own format: a .NET format string, or the name of a pattern setting (date, time, datetime, number).</summary>
+        /// <summary>
+        /// A tag's own format: the name of a renderer, the name of a pattern setting (date, time, datetime, number) or a .NET format string, looked up
+        /// in that order; on a picture tag, the name of a picture renderer. Here it is the pattern or format string: a renderer's name is taken out before the resolver formats.
+        /// </summary>
         public const string FormatAttribute = "format";
 
         /// <summary>The names a template's document settings may use.</summary>

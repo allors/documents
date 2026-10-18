@@ -26,6 +26,7 @@ namespace Allors.Document.Validation
         private static readonly IShape CounterShape = new DictionaryShape(new Dictionary<string, IShape>(), "the loop counter");
 
         private readonly IShape root;
+        private readonly Renderers renderers;
         private readonly List<Finding> findings = new List<Finding>();
         private readonly Dictionary<InspectedTag, Scope> scopeByBranch = new Dictionary<InspectedTag, Scope>();
         private readonly HashSet<XmlElement> blockElements = new HashSet<XmlElement>();
@@ -33,12 +34,17 @@ namespace Allors.Document.Validation
         private readonly Dictionary<string, InspectedMap> mapsByName = new Dictionary<string, InspectedMap>();
         private readonly HashSet<InspectedMap> mapsUsed = new HashSet<InspectedMap>();
 
-        private Validator(IShape root) => this.root = root ?? throw new ArgumentNullException(nameof(root));
+        private Validator(IShape root, Renderers renderers)
+        {
+            this.root = root ?? throw new ArgumentNullException(nameof(root));
+            this.renderers = renderers ?? new Renderers();
+        }
 
-        public static TemplateValidation Validate(byte[] package, IShape root)
+        /// <summary>Validates against the shape and the renderers the renders will carry; null stands for the built-in renderers alone.</summary>
+        public static TemplateValidation Validate(byte[] package, IShape root, Renderers renderers = null)
         {
             var inspection = Inspector.Inspect(package);
-            var validator = new Validator(root);
+            var validator = new Validator(root, renderers);
             validator.Run(inspection);
             return new TemplateValidation(validator.Sorted(), inspection);
         }
@@ -96,6 +102,10 @@ namespace Allors.Document.Validation
                     {
                         this.Add(FindingKind.BadValue, FindingSeverity.Error, tag.Text, null, TagSyntax.FitAttribute + "=\"" + attribute.Value + "\": use " + TagSyntax.FillValue + ", " + TagSyntax.ContainValue + ", " + TagSyntax.WidthValue + " or " + TagSyntax.HeightValue, picture.Location);
                     }
+                }
+                else if (string.Equals(attribute.Key, Formatting.FormatAttribute, StringComparison.OrdinalIgnoreCase))
+                {
+                    this.CheckPictureFormat(attribute.Value, tag.Text, picture.Location);
                 }
                 else if (!TagSyntax.IsEmptyValue(attribute.Value))
                 {
@@ -224,9 +234,42 @@ namespace Allors.Document.Validation
                 }
             }
 
-            if (tag.Tag.Attributes.TryGetValue(Formatting.FormatAttribute, out var format) && !Formatting.IsNamedFormat(format) && !IsDatePattern(format, culture) && !IsNumberPattern(format, culture))
+            if (tag.Tag.Attributes.TryGetValue(Formatting.FormatAttribute, out var format))
             {
-                this.Add(FindingKind.BadPattern, FindingSeverity.Error, tag.Tag.Text, null, "'" + format + "' is not a format: use a .NET format string, or date, time, datetime or number for the document's pattern", tag.Location);
+                this.CheckBindingFormat(format, culture, tag.Tag.Text, tag.Location);
+            }
+        }
+
+        /// <summary>A binding's format names a text renderer, a pattern of the document or a .NET format string, looked up in that order.</summary>
+        private void CheckBindingFormat(string format, CultureInfo culture, string text, Location location)
+        {
+            if (this.renderers.TryGet(format, out var renderer))
+            {
+                if (!(renderer is ITextRenderer))
+                {
+                    this.Add(FindingKind.BadValue, FindingSeverity.Error, text, null, Formatting.FormatAttribute + "=\"" + format + "\" renders a picture, not text: use " + this.renderers.TextNames + ", a .NET format string, or date, time, datetime or number for the document's pattern", location);
+                }
+
+                return;
+            }
+
+            if (!Formatting.IsNamedFormat(format) && !IsDatePattern(format, culture) && !IsNumberPattern(format, culture))
+            {
+                this.Add(FindingKind.BadPattern, FindingSeverity.Error, text, null, "'" + format + "' is not a format: use a .NET format string, date, time, datetime or number for the document's pattern, or a renderer: " + this.renderers.TextNames, location);
+            }
+        }
+
+        /// <summary>A picture tag's format names a picture renderer and nothing else.</summary>
+        private void CheckPictureFormat(string format, string text, Location location)
+        {
+            var use = this.renderers.PictureNames.Length == 0 ? "none is registered" : "use " + this.renderers.PictureNames;
+            if (!this.renderers.TryGet(format, out var renderer))
+            {
+                this.Add(FindingKind.BadValue, FindingSeverity.Error, text, null, Formatting.FormatAttribute + "=\"" + format + "\" names no picture renderer: " + use, location);
+            }
+            else if (!(renderer is IPictureRenderer))
+            {
+                this.Add(FindingKind.BadValue, FindingSeverity.Error, text, null, Formatting.FormatAttribute + "=\"" + format + "\" renders text, not a picture: " + use, location);
             }
         }
 

@@ -67,8 +67,8 @@ namespace Allors.Document.Tags
         /// <summary>The frame keeps its height; its width follows the picture's proportions.</summary>
         public const string HeightValue = "height";
 
-        /// <summary>The attributes a picture tag takes.</summary>
-        public static readonly IReadOnlyCollection<string> PictureAttributes = new[] { EmptyAttribute, FitAttribute };
+        /// <summary>The attributes a picture tag takes: empty, fit and format, which names a picture renderer.</summary>
+        public static readonly IReadOnlyCollection<string> PictureAttributes = new[] { EmptyAttribute, FitAttribute, Formatting.FormatAttribute };
 
         /// <summary>The attributes a binding takes: the formatting attributes, then map and blank.</summary>
         public static readonly IReadOnlyCollection<string> BindingAttributes = new[] { Formatting.FormatAttribute, Formatting.CultureSetting, Formatting.TrueSetting, Formatting.FalseSetting, MapAttribute, BlankAttribute };
