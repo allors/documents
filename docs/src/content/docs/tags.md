@@ -8,6 +8,10 @@ status: "Current"
 
 > **Status: Current.** Reference for template authors.
 
+This page is the reference for the tag language: what each tag means, how a path is written, how
+loops behave, what happens when a path breaks and how the template renders around its tags. For a
+guided start, read [Write a template](write-a-template.md).
+
 Tags go into placeholder fields (Insert, Field, More Fields, Functions, Placeholder):
 
 | Tag | Meaning |
@@ -19,7 +23,7 @@ Tags go into placeholder fields (Insert, Field, More Fields, Functions, Placehol
 | `<@if not path>`, `<@ifdef not path>` | `not` before the path negates the test: the block is kept when the value is false, or when the member is missing. |
 | `<@else>` | Inside an `<@if>` or `<@ifdef>`: what follows, up to the `<@end>`, is kept when the condition is not. |
 | `<@else if path>`, `<@else ifdef path>` | An else with a test of its own, `not` allowed: a condition takes the first branch whose test holds, and nothing when none does. An `<@else>` without a test comes last. |
-| `<@map Name>` | In the first cell of a two-column table: the table is a map, see Maps. |
+| `<@map Name>` | In the first cell of a two-column table: the table is a map, see [Maps](maps.md). |
 
 A path is a chain of member names separated by dots, such as `Invoice.Customer.Name`; inside a loop it may start with the variable of that loop or of an enclosing one. A name is letters, digits and underscores. Keywords and attribute names are not case-sensitive. A placeholder whose text is not a well-formed tag, such as `<$>` or `<@for x>`, renders as the text the author typed and is reported.
 

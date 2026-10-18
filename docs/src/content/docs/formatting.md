@@ -8,6 +8,9 @@ status: "Current"
 
 > **Status: Current.** Reference for template authors.
 
+This page is the reference for how a value prints: the attributes a tag takes, the document
+settings a template carries, how the layers combine, and what each kind of value prints as.
+
 ## Attributes
 
 A tag takes attributes after its path, with values quoted by `"` or `'`:
@@ -21,8 +24,8 @@ A tag takes attributes after its path, with values quoted by `"` or `'`:
 | `<@for line Invoice.Lines index="n">` | `index`: the name of a counter, read as `<$n>`: 1 for the first item in the loop's order. It prints as a plain integer unless its tag carries a `format`. |
 | `<@for tag Product.Tags separator=", ">` | `separator`: the text written between two items of a loop that sits in one paragraph, as typed. A loop whose tags sit in paragraphs or rows of their own writes none, which `Validate` reports. |
 | `<$Invoice.Comment blank="none">` | `blank`: the text printed when what the binding would print is empty or white space: a null value, empty or white-space text, an empty collection, a path that breaks. Zero prints as a number. |
-| `<$Invoice.IsCreditNote map="Titles">` | `map`: the value prints the text the map of that name gives for it, see Maps. |
-| `<$Issuer.Logo empty="keep" fit="contain">` | On a picture tag: `empty` and `fit`, see Pictures. |
+| `<$Invoice.IsCreditNote map="Titles">` | `map`: the value prints the text the map of that name gives for it, see [Maps](maps.md). |
+| `<$Issuer.Logo empty="keep" fit="contain">` | On a picture tag: `empty` and `fit`, see [Pictures](pictures.md). |
 
 An attribute a tag of that kind does not know is a validation error.
 

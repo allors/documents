@@ -8,6 +8,14 @@ status: "Current"
 
 > **Status: Current.** Reference for template authors and developers.
 
+This page is the reference for findings: what `Validate` and `Render` report, with the severity
+of each finding and what the render does about it. A finding prints as its severity, the tag as
+typed, the message and the location:
+
+```
+error: <$Invoice.Customer.Email>: Customer has no member Email (content.xml paragraph 3 "Customer: <$Invoice.Customer.Name>, <$Invoice.Customer.Email>")
+```
+
 A `Finding` says what is wrong in the author's terms: the kind, the severity, the tag as typed, the path, a message and the `Location`. `Validate` reports everything it can tell from the template and the shape; `Render` reports what depends on the data; the constructor throws `TemplateException` with the findings a template cannot render with.
 
 | Finding | Severity | Meaning | From |

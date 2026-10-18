@@ -8,6 +8,9 @@ status: "Current"
 
 > **Status: Current.** Reference for template authors.
 
+This page is the reference for maps: the table that defines one, the `map` attribute that prints
+through it, and how a value's key is spelled.
+
 A map translates a value into text the template chooses, as `true` and `false` do for a boolean: titles, labels, words in the document's language. It is a table of two columns anywhere in the template, body, header or footer, whose first cell holds `<@map Name>`; the cell beside it is free for a heading. Every row below maps the text in its first cell, the key, to the text in its second; the row whose key is `default` serves every value the map has no row for. The table leaves the output. A binding prints through a map with `map="Name"`:
 
 | `<@map Titles>` | Title |

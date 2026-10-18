@@ -8,6 +8,11 @@ status: "Current"
 
 > **Status: Current.** How-to guide for developers.
 
+This guide shows how to check a template against the shape of its model before any data exists.
+Run the check where templates enter the application, when one is saved or uploaded, and in a test
+over every template the application ships, so that a typo is a failed check rather than a blank in
+a document.
+
 `Validate` checks a template against the shape of its model, without rendering and without data: every path, attribute, block and document setting. It never throws for what the template says; it throws only when the bytes are not an OpenDocument text.
 
 ```csharp

@@ -8,7 +8,11 @@ status: "Current"
 
 > **Status: Current.** Reference for template authors.
 
-A picture binds through its description (Image, Properties, Options, Description), which holds exactly one picture tag:
+This page is the reference for bound pictures: the picture tag in a frame's description, what the
+frame does without a picture, how a picture takes its frame and how pictures are stored.
+[Write a template](write-a-template.md#bind-a-picture) has the Writer steps.
+
+A picture binds through its description (Image, Properties, Options, Description; LibreOffice's Alt Text dialog labels the same box Alt Text), which holds exactly one picture tag:
 
 ```
 <$Issuer.Logo>

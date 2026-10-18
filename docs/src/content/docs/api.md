@@ -8,12 +8,72 @@ status: "Current"
 
 > **Status: Current.** Reference for developers.
 
+This page is the reference for the public API: the two packages, the template class and its
+three operations, the settings a render takes, what a render returns, and the two forms of a
+document. The namespaces are `Allors.Document.OpenDocument` for the template, the settings and
+the result, `Allors.Document.Validation` for findings and validation,
+`Allors.Document.Inspection` for inspection, `Allors.Document.Models` for the model contracts and
+the formatting, and `Allors.Document.Reflection` for the reflection package.
+
 ## Packages
 
 | Package | Holds |
 |---|---|
 | `Allors.Documents` | The template and its renderer, the tag language, `Inspect`, `Validate`, the model contracts (`IShape`, `IResolver`) and the dictionary shape and resolver. Targets netstandard2.0 and net10.0, is trimmable and AOT-compatible, uses no reflection and has no dependencies. |
 | `Allors.Documents.Reflection` | `OpenDocumentTemplate<T>`, `ReflectionShape` and `ReflectionResolver`: templates over plain classes and dictionaries, their members read through reflection. |
+
+## Template
+
+`OpenDocumentTemplate` reads a template from its bytes and keeps it ready to render; `Render` is
+its instance operation, `Inspect` and `Validate` are static and take the bytes. A template over a
+model type sees the public properties of `T` by their exact names and reads what is below them
+through reflection. The non-generic `OpenDocumentTemplate` takes any model and reads it as a
+dictionary unless the settings name another resolver:
+
+```csharp
+var template = new OpenDocumentTemplate(templateBytes);
+var model = new Dictionary<string, object> { ["Invoice"] = invoice, ["Issuer"] = issuer };
+var settings = new RenderSettings { Resolver = ReflectionResolver.Instance, Culture = new CultureInfo("nl-BE"), DateCulture = CultureInfo.InvariantCulture, Number = "N2", Date = "dd-MMM-yyyy" };
+RenderResult result = template.Render(model, settings);
+```
+
+A template is read once and rendered any number of times, from any thread. It may be a package (`.odt`) or a flat document (`.fodt`), and it renders a package unless the settings ask for a flat document. Reading a template throws `InvalidDataException` when the bytes are not an OpenDocument text, and `TemplateException` when a block never ends, an end opens nothing, an else belongs to no condition or a block would cut a table; `Findings` says which tags and where. A render never throws for what the template says: a value the model cannot give prints blank, and `Findings` reports it.
+
+`OpenDocumentTemplate<T>`, in `Allors.Documents.Reflection`, adds a typed
+`Render(T model, RenderSettings settings = null)`; `ReflectionShape.Arguments<T>()` is the shape
+that matches it for `Validate`. [Render your first document](render-your-first-document.md) walks
+through both.
+
+## Render settings
+
+`RenderSettings` carries how a render reads and formats its model: the resolver that binds paths
+to values, the caller's formatting defaults and the output form. The template's own document
+settings win over these, and a tag's attributes win over both; a layer's culture resets the
+number and date cultures of the layers below it. [Formatting](formatting.md) has the rules.
+
+| Member | Meaning |
+| --- | --- |
+| `Resolver` | Binds paths to the model's members; the template's own resolver when null: `DictionaryResolver`, or the reflection resolver of a template over a model type. |
+| `Culture` | The culture values print in and text sorts by; the invariant culture when null. |
+| `NumberCulture` | The culture numbers print in when it is not `Culture`; null when they print in the culture. |
+| `DateCulture` | The culture dates, times and date-times print in when it is not `Culture`; null when they print in the culture. |
+| `Date`, `Time`, `DateTime`, `Number` | The patterns for a date without a time, a time without a date, a date with a time and a number; the culture's default when null. |
+| `True`, `False` | The words a true and a false value print; `true` and `false` when null. |
+| `Flat` | True to render a flat document (`.fodt`), one XML file with the pictures embedded; false, the default, renders a package (`.odt`). Either way the template may be a package or a flat document. |
+
+## Render result
+
+`RenderResult` holds `Document`, the rendered document, and `Findings`: every member the template
+asked for that the model does not have, every loop that could not be ordered and every tag that
+could not be read, each once, in document order, and empty when the template and the model
+agree. The document is complete either way: a missing value prints blank, an unordered loop
+keeps the collection's order and an unreadable tag prints as typed.
+
+A `Finding` has its `Kind` and `Severity`, the `Text` of the tag, frame name or setting as the
+author typed it, the `Path` that was checked when the finding is about one, a `Message` and a
+`Location`. A `Location` names the `Part` (`content.xml` or `styles.xml`), the `Paragraph` as a
+1-based ordinal in the part, 0 outside any paragraph, and the `ParagraphText` with the tags as
+typed, white space collapsed, at most 200 characters. [Findings](findings.md) lists the kinds.
 
 ## Inspect
 
@@ -32,6 +92,14 @@ inspection.Problems;   // malformed tags, unbalanced blocks, elses without a con
 ```
 
 A `Location` names the part (`content.xml` or `styles.xml`), the paragraph's ordinal and its text.
+
+## Validate
+
+`Validate(byte[] document, IShape root)` checks a template against the shape of its model
+without rendering it and returns a `TemplateValidation`: its `Findings` in document order,
+`content.xml`, then `styles.xml`, then the document settings; `IsValid`, true when there is no
+error; and the `Inspection` the findings came from. [Validate templates](validate-templates.md)
+says which shape to pass and how a condition narrows what its branches see.
 
 ## Flat documents
 

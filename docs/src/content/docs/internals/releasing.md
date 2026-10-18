@@ -4,9 +4,15 @@ description: "Build, test and pack with Task, how the version is stamped, and ho
 audience: "Maintainers"
 kind: "How-to guide"
 status: "Current"
+sidebar:
+  order: 2
 ---
 
 > **Status: Current.** How-to guide for maintainers.
+
+This guide covers building, testing and packing the solution, and how a release reaches
+nuget.org. `task` wraps the `dotnet` commands; without it, `dotnet build src/Documents.slnx` and
+`dotnet test src/Allors.Documents.Tests` do the same work.
 
 ## Build
 
