@@ -22,6 +22,7 @@ document. The namespace is `Allors.Documents`, the name of the package, and
 | `Allors.Documents.Barcodes` | The picture renderers `code128`, `ean13` and `qr`, drawn with ZXing.Net; see [Renderers and picture processing](renderers.md#packages). |
 | `Allors.Documents.Imaging` | `PictureScaling`, a picture processor over SkiaSharp that scales a picture down to its frame; see [Renderers and picture processing](renderers.md#packages). |
 
+`Allors.Documents` is all a render needs. The other packages are optional: reflection for an application without a resolver of its own, barcodes and imaging for one that draws no barcodes and scales no pictures of its own. An application that has those capabilities wraps its own code as a renderer or picture processor, as [Renderers and picture processing](renderers.md) shows.
 ## Template
 
 `OpenDocumentTemplate` reads a template from its bytes, with the settings every render uses, and

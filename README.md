@@ -15,6 +15,7 @@ Embed template tags inside OpenDocument texts: write the template in LibreOffice
 | `Allors.Documents.Barcodes` | The picture renderers `code128`, `ean13` and `qr`: a barcode of the value's text, drawn with ZXing.Net for the frame that shows it. |
 | `Allors.Documents.Imaging` | `PictureScaling`, a picture processor that scales a picture down to its frame with SkiaSharp, turns a photo upright and keeps its format. |
 
+`Allors.Documents` is all a render needs. The other packages are optional: reflection for an application without a resolver of its own, barcodes and imaging for one that draws no barcodes and scales no pictures of its own. An application that has those capabilities wraps its own code as a renderer or picture processor, which [Renderers and picture processing](https://github.com/allors/documents/blob/main/docs/src/content/docs/renderers.md) shows, and needs neither package.
 # Usage
 
 ```csharp

@@ -120,5 +120,7 @@ The core package has no third-party dependencies and uses no reflection, targets
 `netstandard2.0` and `net10.0`, and is trimmable and AOT-compatible, so that it can sit in any
 host. Reflection over plain classes lives in `Allors.Documents.Reflection`; a host with an object
 model of its own implements the resolver and the shape instead. Capabilities that need a library
-of their own, such as barcodes or image scaling, come as separate [packages](renderers.md)
-on the renderer and picture processing extension points, so that the core stays as it is.
+of their own, such as barcodes or image scaling, come as optional [packages](renderers.md)
+on the renderer and picture processing extension points, so that the core stays as it is. An
+application that has such a capability wraps its own code on the same extension points and
+needs no package.

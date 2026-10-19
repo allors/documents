@@ -1,6 +1,6 @@
 ---
 title: "Renderers and picture processing"
-description: "Register renderers that transform one value by name, such as upper-case text or a barcode, and a picture processor that prepares pictures for their frames; the barcode and imaging packages."
+description: "Register renderers that transform one value by name, such as upper-case text or a barcode, and a picture processor that prepares pictures for their frames, by wrapping your own code or with the optional barcode and imaging packages."
 audience: "Developers"
 kind: "How-to guide"
 status: "Current"
@@ -12,8 +12,13 @@ A renderer is Parr's attribute renderer, as the [Design](design.md#model-view-co
 page explains it: a display transformation of one value, configured by the controller and
 selected by the view. The library carries two extension points, both set in the
 [render settings](api.md#render-settings): the renderers a tag selects by name, and a picture
-processor that sees every bound picture before it is stored. Both keep the core free of
-third-party dependencies; the capabilities that need one come as [packages](#packages).
+processor that sees every bound picture before it is stored. Both are contracts of the core
+package, which an application implements with the code it has: a barcode service it already
+runs, the image scaling its uploads go through. The [packages](#packages) `Allors.Documents.Barcodes`
+and `Allors.Documents.Imaging` are optional implementations of those contracts for an application
+that has neither; an application that has the capability wraps its own, so that documents and
+the rest of the application draw the same barcode and scale the same way, with no second
+dependency.
 
 ## Know what a renderer may do
 
@@ -83,6 +88,46 @@ time a renderer that throws, or a picture renderer that gives bytes in no format
 knows, is reported as `RendererFailed`: the binding prints blank, or the frame has no picture.
 [Findings](findings.md) lists them.
 
+## Write a picture renderer
+
+A picture renderer of your own wraps what the application draws already. It gets the text to
+encode and the frame to draw for, and gives the bytes of a picture in a format the library
+knows; the library sizes the frame to them by the tag's `fit`. A barcode service the application
+runs becomes a renderer in a few lines, and the invoice and the shipping label then carry the
+same barcode:
+
+```csharp
+using System;
+using Allors.Documents;
+
+public sealed class Code128Renderer : IPictureRenderer
+{
+    private readonly IBarcodeService barcodes;
+
+    public Code128Renderer(IBarcodeService barcodes) => this.barcodes = barcodes;
+
+    public string Name => "code128";
+
+    public byte[] Render(object value, string text, PictureFrame frame)
+    {
+        // The frame's inches at 300 dpi; the service's own default when the frame has no size.
+        var width = frame.HasSize ? (int)Math.Round(frame.Width * 300) : 320;
+        var height = frame.HasSize ? (int)Math.Round(frame.Height * 300) : 80;
+        return this.barcodes.Code128(text, width, height); // a PNG
+    }
+}
+
+var settings = new RenderSettings
+{
+    Renderers = [new Code128Renderer(barcodes)],
+};
+```
+
+The renderer takes `text`, not `value`: the text is the value under the library's defaults, so a
+number encodes as `12345` whatever the culture. Return null for a value that gives no picture,
+and let an exception through for text the service cannot encode: the render reports it as
+`RendererFailed` with the message and goes on.
+
 ## Process pictures before they are stored
 
 A picture processor, `IPictureProcessor`, is the step between a picture's bytes and the package:
@@ -94,19 +139,40 @@ resolver, because scaling a picture to its frame is presentation geometry and re
 A processor that throws, or gives bytes in no format the library knows, is reported as a
 `RendererFailed` warning and the picture is stored as it was.
 
+A processor of your own wraps the scaling the application does already, for its uploads or its
+thumbnails, so that a photo prints the way the application shows it. The frame gives the inches
+to scale for and the fit; the processor decides the resolution and the format:
+
 ```csharp
-using Allors.Documents.Imaging;
+using System;
+using Allors.Documents;
+
+public sealed class PhotoScaling : IPictureProcessor
+{
+    public byte[] Process(byte[] bytes, PictureFormat format, PictureFrame frame)
+    {
+        if (format != PictureFormat.Jpeg || !frame.HasSize)
+        {
+            return bytes; // stored as it is
+        }
+
+        var maxWidth = (int)Math.Round(frame.Width * 300);
+        return Photos.Resize(bytes, maxWidth); // the application's own scaling, never up
+    }
+}
 
 var settings = new RenderSettings
 {
-    PictureProcessor = new PictureScaling(),
+    PictureProcessor = new PhotoScaling(),
 };
 ```
 
 ## Packages
 
-Two packages carry the capabilities that need a library of their own. Each carries its
-dependency; the core package stays without.
+The two packages below are optional. They implement the contracts above for an application that
+draws no barcodes and scales no pictures of its own; an application that does wraps its own code
+as the sections above show, and needs neither package. Each package carries its dependency; the
+core package stays without.
 
 | Package | Depends on | Gives |
 | --- | --- | --- |
