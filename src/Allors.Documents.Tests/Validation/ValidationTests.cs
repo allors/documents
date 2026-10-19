@@ -3,18 +3,15 @@
 // Licensed under the LGPL license. See LICENSE file in the project root for full license information.
 // </copyright>
 
-namespace Allos.Document.Validation.Tests
+namespace Allors.Documents.Tests
 {
     using System;
     using System.Collections.Generic;
     using System.IO;
     using System.IO.Compression;
     using System.Linq;
-    using Allors.Document.Models;
-    using Allors.Document.OpenDocument;
-    using Allors.Document.Reflection;
-    using Allors.Document.Validation;
-    using Allos.Document.OpenDocument.Tests;
+    using Allors.Documents;
+    using Allors.Documents.Reflection;
     using Xunit;
 
     public class ValidationTests
@@ -25,9 +22,9 @@ namespace Allos.Document.Validation.Tests
         public void ACleanTemplateHasNoFindings()
         {
             var body =
-                P("<$Invoice.Number format=\"0000\" culture=\"nl-BE\">") +
+                P("<$Invoice.Total format=\"0000\" culture=\"nl-BE\">") +
                 P("<$Invoice.Date format=\"date\">") +
-                P("<@if Invoice.BillTo>") + P("<$Invoice.BillTo.Name true=\"Ja\" false=\"Nee\">") + P("<@end>") +
+                P("<@if Invoice.BillTo>") + P("<$Invoice.Paid true=\"Ja\" false=\"Nee\">") + P("<@end>") +
                 P("<@ifdef Invoice.BillTo.Name>") + P("<$Invoice.BillTo.Name>") + P("<@end>") +
                 P("<@for line Invoice.Lines sort=\"Product, Quantity desc\">") + Tags("<$line.Product>", "<$line.Quantity format=\"number\">") + P("<@end>") +
                 P(Odt.Frame("Logo", "Pictures/logo.png", "<$Logo empty=\"keep\">", "The logo"));
@@ -161,11 +158,144 @@ namespace Allos.Document.Validation.Tests
         [Fact]
         public void AFormatThatNeitherADateNorANumberAcceptsIsAnError()
         {
-            var validation = Validate(P("<$Invoice.Number format=\"Q\">") + P("<$Invoice.Number format=\"yyyy\">") + P("<$Invoice.Number format=\"N2\">") + P("<$Invoice.Number format=\"DateTime\">"));
+            var validation = Validate(P("<$Invoice.Number format=\"Q\">") + P("<$Invoice.Number format=\"yyyy\">") + P("<$Invoice.Number format=\"N2\">") + P("<$Invoice.Number format=\"DateTime\">"), root: DictionaryShape.Open);
 
             var finding = Assert.Single(validation.Findings);
             Assert.Equal(FindingKind.BadPattern, finding.Kind);
             Assert.Equal("<$Invoice.Number format=\"Q\">", finding.Text);
+        }
+
+        [Fact]
+        public void AFormatOfTheWrongFamilyForTheKindIsAnError()
+        {
+            var body = P("<$Invoice.Date format=\"N2\">") + P("<$Invoice.Date format=\"number\">") + P("<$Invoice.Total format=\"yyyy\">") + P("<$Invoice.Total format=\"date\">") + P("<$Invoice.Date format=\"dd-MMM-yyyy\">") + P("<$Invoice.Date format=\"datetime\">") + P("<$Invoice.Total format=\"#,##0.00\">") + P("<$Invoice.Total format=\"number\">");
+
+            var validation = Validate(body);
+
+            Assert.Equal(4, validation.Findings.Count);
+            Assert.All(validation.Findings, v => Assert.Equal(FindingKind.BadPattern, v.Kind));
+            Assert.All(validation.Findings, v => Assert.Equal(FindingSeverity.Error, v.Severity));
+            Assert.Equal("'N2' is not a date pattern, and 'Invoice.Date' is a date and time: use the letters d, M, y, h, H, m, s, f, F, t, z, K and g with separators and quoted text, such as dd-MMM-yyyy, or a standard letter such as d, D or g", validation.Findings[0].Message);
+            Assert.Equal("'number' names the document's number pattern, and 'Invoice.Date' is a date and time: use date, time or datetime, or a date pattern", validation.Findings[1].Message);
+            Assert.Equal("'yyyy' is not a number pattern, and 'Invoice.Total' is a number: use a standard letter with its precision such as N2, F0 or C, or a pattern with 0 and # such as #,##0.00", validation.Findings[2].Message);
+            Assert.Equal("'date' names the document's date pattern, and 'Invoice.Total' is a number: use number, or a number pattern", validation.Findings[3].Message);
+        }
+
+        /// <summary>.NET prints "yyyy-MM-dd Q" and "EUR" without complaint; the grammar says what the author meant them to be.</summary>
+        [Fact]
+        public void APatternIsCheckedByItsGrammarNotByTrial()
+        {
+            var body = P("<$Invoice.Date format=\"yyyy-MM-dd Q\">") + P("<$Invoice.Total format=\"EUR\">") + P("<$Invoice.Date format=\"dd 'at' HH:mm\">") + P("<$Invoice.Total format=\"#,##0.00 'EUR'\">") + P("<$Invoice.Date format=\"HH\\\\hmm\">");
+
+            var validation = Validate(body);
+
+            Assert.Equal(2, validation.Findings.Count);
+            Assert.All(validation.Findings, v => Assert.Equal(FindingKind.BadPattern, v.Kind));
+            Assert.Equal("<$Invoice.Date format=\"yyyy-MM-dd Q\">", validation.Findings[0].Text);
+            Assert.Equal("<$Invoice.Total format=\"EUR\">", validation.Findings[1].Text);
+        }
+
+        [Fact]
+        public void AFormatOrBooleanWordsOnAKindThatPrintsWithoutThemIsAWarning()
+        {
+            var body = P("<$Invoice.Number format=\"N2\">") + P("<$Invoice.Paid format=\"N2\">") + P("<$Invoice.BillTo format=\"N2\">") + P("<$Logo format=\"N2\">") + P("<$Invoice.Number true=\"Ja\">") + P("<$Invoice.Total false=\"Nee\">") + P("<$Invoice.Paid true=\"Ja\" false=\"Nee\">") + P("<$Invoice.Total format=\"N2\">");
+
+            var validation = Validate(body);
+
+            Assert.Equal(6, validation.Findings.Count);
+            Assert.All(validation.Findings, v => Assert.Equal(FindingKind.FormatIgnored, v.Kind));
+            Assert.All(validation.Findings, v => Assert.Equal(FindingSeverity.Warning, v.Severity));
+            Assert.True(validation.IsValid);
+            Assert.Equal("the format is ignored: 'Invoice.Number' is text and prints without a pattern", validation.Findings[0].Message);
+            Assert.Equal("the format is ignored: 'Invoice.Paid' is a boolean and prints without a pattern", validation.Findings[1].Message);
+            Assert.Equal("the format is ignored: 'Invoice.BillTo' is an object and prints without a pattern", validation.Findings[2].Message);
+            Assert.Equal("the format is ignored: 'Logo' is a picture and prints without a pattern", validation.Findings[3].Message);
+            Assert.Equal("the true and false words are ignored: 'Invoice.Number' is text, not a boolean", validation.Findings[4].Message);
+            Assert.Equal("the true and false words are ignored: 'Invoice.Total' is a number, not a boolean", validation.Findings[5].Message);
+        }
+
+        /// <summary>A collection bound as a value prints its items, so the format is checked against them.</summary>
+        [Fact]
+        public void AFormatOnACollectionIsCheckedAgainstItsItems()
+        {
+            var body = P("<@for line Invoice.Lines>") + Tags("<$line.Tags format=\"N2\">", "<$line.Tags>") + P("<@end>") + P("<$Invoice.Lines format=\"N2\">") + P("<$Parties format=\"yyyy\">");
+
+            var validation = Validate(body);
+
+            Assert.Equal(3, validation.Findings.Count);
+            Assert.All(validation.Findings, v => Assert.Equal(FindingKind.FormatIgnored, v.Kind));
+            Assert.Equal("the format is ignored: 'line.Tags' is text and prints without a pattern", validation.Findings[0].Message);
+            Assert.Equal("the format is ignored: 'Invoice.Lines' is an object and prints without a pattern", validation.Findings[1].Message);
+            Assert.Equal("the format is ignored: 'Parties' is an object and prints without a pattern", validation.Findings[2].Message);
+        }
+
+        /// <summary>An open value and a value of another kind, such as a Guid, print with whatever pattern they are given.</summary>
+        [Fact]
+        public void AnOpenOrOtherValueTakesAnyPattern()
+        {
+            var root = new DictionaryShape(new Dictionary<string, IShape> { ["Id"] = ReflectionShape.Of<Guid>(), ["Anything"] = DictionaryShape.Open });
+
+            var validation = Validate(P("<$Id format=\"N\">") + P("<$Anything format=\"yyyy\">") + P("<$Anything true=\"Ja\">") + P("<$Id format=\"Q\">"), root: root);
+
+            var finding = Assert.Single(validation.Findings);
+            Assert.Equal(FindingKind.BadPattern, finding.Kind);
+            Assert.Equal("<$Id format=\"Q\">", finding.Text);
+        }
+
+        [Fact]
+        public void ASortKeyThatDoesNotOrderIsAnError()
+        {
+            var validation = Validate(P("<@for line Invoice.Lines sort=\"Tags, Picture desc, Product, Quantity\">") + P("<@end>") + P("<@for party Parties sort=\"Name\">") + P("<@end>"));
+
+            Assert.Equal(2, validation.Findings.Count);
+            Assert.All(validation.Findings, v => Assert.Equal(FindingKind.CannotSort, v.Kind));
+            Assert.All(validation.Findings, v => Assert.Equal(FindingSeverity.Error, v.Severity));
+            Assert.Equal("Tags", validation.Findings[0].Path);
+            Assert.Equal("sort key 'Tags' is a collection (String[]), which does not order: sort by a text, number, boolean, date or time member of it, such as Tags.Name", validation.Findings[0].Message);
+            Assert.Equal("sort key 'Picture' is a picture, which does not order: sort by a text, number, boolean, date or time member of it, such as Picture.Name", validation.Findings[1].Message);
+        }
+
+        [Fact]
+        public void ASortKeyOnAnObjectIsAnError()
+        {
+            var validation = Validate(P("<@for party Parties sort=\"BillTo\">") + P("<@end>"), root: new DictionaryShape(new Dictionary<string, IShape> { ["Parties"] = ReflectionShape.Of<Invoice[]>() }));
+
+            var finding = Assert.Single(validation.Findings);
+            Assert.Equal(FindingKind.CannotSort, finding.Kind);
+            Assert.Equal("sort key 'BillTo' is an object (Party), which does not order: sort by a text, number, boolean, date or time member of it, such as BillTo.Name", finding.Message);
+        }
+
+        [Fact]
+        public void APictureTagOnAValueThatIsNoPictureIsAnError()
+        {
+            var body = P(Odt.Frame("A", "Pictures/a.png", "<$Invoice.Number>")) + P(Odt.Frame("B", "Pictures/b.png", "<$Invoice>")) + P(Odt.Frame("C", "Pictures/c.png", "<$Invoice.Lines>")) + P(Odt.Frame("D", "Pictures/d.png", "<$Logo>"));
+
+            var validation = Validate(body);
+
+            Assert.Equal(3, validation.Findings.Count);
+            Assert.All(validation.Findings, v => Assert.Equal(FindingKind.NotAPicture, v.Kind));
+            Assert.All(validation.Findings, v => Assert.Equal(FindingSeverity.Error, v.Severity));
+            Assert.Equal("'Invoice.Number' is text, not a picture: bind the frame to a member that holds the bytes of a picture", validation.Findings[0].Message);
+            Assert.Equal("'Invoice' is an object (Invoice), not a picture: bind the frame to a member that holds the bytes of a picture", validation.Findings[1].Message);
+            Assert.Equal("'Invoice.Lines' is a collection (Line[]), not a picture: bind the frame to a member that holds the bytes of a picture", validation.Findings[2].Message);
+            Assert.Equal("Invoice.Number", validation.Findings[0].Path);
+        }
+
+        [Fact]
+        public void APictureTagOnAnOpenValueIsNotChecked() => Assert.Empty(Validate(P(Odt.Frame("A", "Pictures/a.png", "<$Anything.AtAll>")), root: DictionaryShape.Open).Findings);
+
+        [Fact]
+        public void DocumentPatternsFollowTheGrammar()
+        {
+            var settings = new Dictionary<string, string> { ["date"] = "yyyy-MM-dd Q", ["time"] = "HH'h'mm", ["datetime"] = "N2", ["number"] = "EUR" };
+
+            var validation = Validate(P("<$Invoice.Number>"), settings);
+
+            Assert.Equal(3, validation.Findings.Count);
+            Assert.All(validation.Findings, v => Assert.Equal(FindingKind.BadPattern, v.Kind));
+            Assert.Equal("'yyyy-MM-dd Q' is not a date format", validation.Findings[0].Message);
+            Assert.Equal("'N2' is not a date format", validation.Findings[1].Message);
+            Assert.Equal("'EUR' is not a number format", validation.Findings[2].Message);
         }
 
         [Fact]
@@ -387,7 +517,7 @@ namespace Allos.Document.Validation.Tests
 
             Assert.Equal(3, validation.Findings.Count);
             Assert.Equal(FindingKind.UnknownAttribute, validation.Findings[0].Kind);
-            Assert.Equal("a picture has no attribute 'size': use empty, fit", validation.Findings[0].Message);
+            Assert.Equal("a picture has no attribute 'size': use empty, fit, format", validation.Findings[0].Message);
             Assert.Equal("<$Logo size=\"contain\">", validation.Findings[0].Text);
             Assert.Equal(FindingKind.BadValue, validation.Findings[1].Kind);
             Assert.Equal("empty=\"maybe\": use remove or keep", validation.Findings[1].Message);
@@ -440,7 +570,7 @@ namespace Allos.Document.Validation.Tests
             var styles = "<office:master-styles><style:master-page style:name=\"Standard\"><style:header>" + P("<$Invoice.Nubmer3>") + "</style:header></style:master-page></office:master-styles>";
             var settings = new Dictionary<string, string> { ["colour"] = "red" };
 
-            var validation = OpenDocumentTemplate.Validate(Odt.Build(body, masterStyles: styles, settings: settings), Root);
+            var validation = new OpenDocumentTemplate(Odt.Build(body, masterStyles: styles, settings: settings)).Validate(Root);
 
             Assert.Equal(new[] { "content.xml", "content.xml", "styles.xml", "meta.xml" }, validation.Findings.Select(v => v.Location.Part));
         }
@@ -462,9 +592,9 @@ namespace Allos.Document.Validation.Tests
                 withoutContent = stream.ToArray();
             }
 
-            Assert.Throws<InvalidDataException>(() => OpenDocumentTemplate.Validate(new byte[] { 1, 2, 3 }, Root));
-            Assert.Throws<InvalidDataException>(() => OpenDocumentTemplate.Validate(withoutContent, Root));
-            Assert.Throws<ArgumentNullException>(() => OpenDocumentTemplate.Validate(Odt.Build(P("x")), null));
+            Assert.Throws<InvalidDataException>(() => new OpenDocumentTemplate(new byte[] { 1, 2, 3 }).Validate(Root));
+            Assert.Throws<InvalidDataException>(() => new OpenDocumentTemplate(withoutContent).Validate(Root));
+            Assert.Throws<ArgumentNullException>(() => new OpenDocumentTemplate(Odt.Build(P("x"))).Validate(null));
         }
 
         [Fact]
@@ -554,15 +684,15 @@ namespace Allos.Document.Validation.Tests
         public void APictureInAnElseBranchIsCheckedInThatBranch()
         {
             var body =
-                P("<@ifdef Invoice.BillTo.FirstName>") + P(Odt.Frame("A", "Pictures/a.png", "<$Invoice.BillTo.FirstName>")) +
-                P("<@else>") + P(Odt.Frame("B", "Pictures/b.png", "<$Invoice.BillTo.VatNumber>")) + P(Odt.Frame("C", "Pictures/c.png", "<$Invoice.BillTo.FirstName>")) +
+                P("<@ifdef Invoice.BillTo.Photo>") + P(Odt.Frame("A", "Pictures/a.png", "<$Invoice.BillTo.Photo>")) +
+                P("<@else>") + P(Odt.Frame("B", "Pictures/b.png", "<$Invoice.BillTo.Logo>")) + P(Odt.Frame("C", "Pictures/c.png", "<$Invoice.BillTo.Photo>")) +
                 P("<@end>");
 
             var validation = Validate(body, root: PolymorphicRoot());
 
             var finding = Assert.Single(validation.Findings);
-            Assert.Equal("<$Invoice.BillTo.FirstName>", finding.Text);
-            Assert.Equal("Organisation has no member FirstName", finding.Message);
+            Assert.Equal("<$Invoice.BillTo.Photo>", finding.Text);
+            Assert.Equal("Organisation has no member Photo", finding.Message);
             Assert.Equal(5, finding.Location.Paragraph);
         }
 
@@ -650,8 +780,22 @@ namespace Allos.Document.Validation.Tests
             Assert.False(validation.IsValid);
         }
 
+        [Fact]
+        public void FindingsWithTheSameValuesAreEqual()
+        {
+            var body = P("<$Invoice.Nope>") + P("<@for line Invoice.Lines sort=\"Nope\">") + P("<@end>");
+
+            var first = Validate(body).Findings;
+            var second = Validate(body).Findings;
+
+            // A finding is a value: two validations of the same template report findings that are equal, location included
+            Assert.Equal(2, first.Count);
+            Assert.Equal(first, second);
+            Assert.Equal(first[0].Location, second[0].Location);
+        }
+
         private static TemplateValidation Validate(string body, IDictionary<string, string> settings = null, IShape root = null) =>
-            OpenDocumentTemplate.Validate(Odt.Build(body, settings: settings), root ?? Root);
+            new OpenDocumentTemplate(Odt.Build(body, settings: settings)).Validate(root ?? Root);
 
         private static string P(string content) => "<text:p>" + (content.StartsWith("<") && !content.StartsWith("<draw:") ? Odt.Placeholder(content) : content) + "</text:p>";
 
@@ -666,15 +810,16 @@ namespace Allos.Document.Validation.Tests
         /// <summary>A root whose BillTo is a Party with two variants, Person and Organisation, as Allors meta would describe it.</summary>
         private static IShape PolymorphicRoot()
         {
-            var text = new TestShape("String");
+            var text = new TestShape("String", ValueKind.Text);
+            var picture = new TestShape("Byte[]", ValueKind.Picture);
             var person = new TestShape("Person");
             var organisation = new TestShape("Organisation");
             var party = new TestShape("Party", person, organisation);
-            person.Add("Name", text).Add("FirstName", text).Add("LastName", text).Add("Children", new TestShape("Persons", isCollection: true, element: person));
-            organisation.Add("Name", text).Add("VatNumber", text);
+            person.Add("Name", text).Add("FirstName", text).Add("LastName", text).Add("Photo", picture).Add("Children", new TestShape("Persons", ValueKind.Collection, person));
+            organisation.Add("Name", text).Add("VatNumber", text).Add("Logo", picture);
             party.Add("Name", text);
             var invoice = new TestShape("Invoice").Add("Number", text).Add("BillTo", party);
-            return new TestShape("Model").Add("Invoice", invoice).Add("Parties", new TestShape("Parties", isCollection: true, element: party));
+            return new TestShape("Model").Add("Invoice", invoice).Add("Parties", new TestShape("Parties", ValueKind.Collection, party));
         }
 
         private sealed class TestShape : IShape
@@ -689,10 +834,10 @@ namespace Allos.Document.Validation.Tests
                 this.variants = variants;
             }
 
-            public TestShape(string name, bool isCollection, IShape element)
+            public TestShape(string name, ValueKind kind, IShape element = null)
                 : this(name)
             {
-                this.IsCollection = isCollection;
+                this.Kind = kind;
                 this.element = element;
             }
 
@@ -700,7 +845,7 @@ namespace Allos.Document.Validation.Tests
 
             public IEnumerable<string> Members => this.members.Keys;
 
-            public bool IsCollection { get; }
+            public ValueKind Kind { get; } = ValueKind.Object;
 
             public IShape Element => this.element;
 
@@ -733,6 +878,10 @@ namespace Allos.Document.Validation.Tests
             public string Number { get; set; }
 
             public DateTime Date { get; set; }
+
+            public decimal Total { get; set; }
+
+            public bool Paid { get; set; }
 
             public Line[] Lines { get; set; }
 

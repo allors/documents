@@ -3,7 +3,7 @@
 // Licensed under the LGPL license. See LICENSE file in the project root for full license information.
 // </copyright>
 
-namespace Allors.Document.Tags
+namespace Allors.Documents
 {
     /// <summary>How a picture takes the frame it is bound to, from the fit attribute of its tag: <c>&lt;$Issuer.Logo fit="contain"&gt;</c>.</summary>
     public enum PictureFit

@@ -3,10 +3,10 @@
 // Licensed under the LGPL license. See LICENSE file in the project root for full license information.
 // </copyright>
 
-namespace Allos.Document.Reflection.Tests
+namespace Allors.Documents.Tests
 {
     using System.Collections.Generic;
-    using Allors.Document.Reflection;
+    using Allors.Documents.Reflection;
     using Xunit;
 
     public class ReflectionResolverTests

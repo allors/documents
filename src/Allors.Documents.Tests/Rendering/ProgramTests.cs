@@ -3,17 +3,13 @@
 // Licensed under the LGPL license. See LICENSE file in the project root for full license information.
 // </copyright>
 
-namespace Allos.Document.Rendering.Tests
+namespace Allors.Documents.Tests
 {
     using System.Linq;
     using System.Xml;
-    using Allors.Document;
-    using Allors.Document.Rendering;
-    using Allors.Document.Tags;
-    using Allors.Document.Validation;
-    using Allos.Document.OpenDocument.Tests;
+    using Allors.Documents;
     using Xunit;
-    using static Allos.Document.Rendering.Tests.Render;
+    using static Allors.Documents.Tests.Render;
 
     /// <summary>The program a part becomes: instruction elements where the tags stood, and nothing for a template whose blocks cannot be cut.</summary>
     public class ProgramTests

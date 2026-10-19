@@ -3,7 +3,7 @@
 // Licensed under the LGPL license. See LICENSE file in the project root for full license information.
 // </copyright>
 
-namespace Allors.Document.OpenDocument
+namespace Allors.Documents
 {
     using System.Collections.Generic;
     using System.IO;
@@ -16,12 +16,15 @@ namespace Allors.Document.OpenDocument
     /// </summary>
     internal static class Package
     {
-        /// <summary>The parts of a package: the two that render and the manifest by themselves, every other file by its name.</summary>
+        /// <summary>
+        /// The parts of a package: the two that render and the manifest by themselves, every other file by its name.
+        /// Throws <see cref="InvalidDataException"/> when the package has no content.xml.
+        /// </summary>
         public static Parts Read(byte[] document)
         {
-            byte[] content = null;
-            byte[] styles = null;
-            byte[] manifest = null;
+            byte[]? content = null;
+            byte[]? styles = null;
+            byte[]? manifest = null;
             var files = new Dictionary<string, byte[]>();
 
             using (var zip = new MemoryStream(document))
@@ -58,10 +61,15 @@ namespace Allors.Document.OpenDocument
                 }
             }
 
+            if (content == null)
+            {
+                throw new InvalidDataException("the package has no content.xml: it is not an OpenDocument text");
+            }
+
             return new Parts(content, styles, manifest, files);
         }
 
-        public static byte[] Save(byte[] mimetype, byte[] content, byte[] styles, byte[] manifest, IEnumerable<KeyValuePair<string, byte[]>> files)
+        public static byte[] Save(byte[]? mimetype, byte[] content, byte[]? styles, byte[]? manifest, IEnumerable<KeyValuePair<string, byte[]>> files)
         {
             using (var zip = new MemoryStream())
             {

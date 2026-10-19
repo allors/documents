@@ -3,13 +3,12 @@
 // Licensed under the LGPL license. See LICENSE file in the project root for full license information.
 // </copyright>
 
-namespace Allors.Document.OpenDocument
+namespace Allors.Documents
 {
     using System.Collections.Generic;
+    using System.Diagnostics.CodeAnalysis;
     using System.Linq;
     using System.Xml;
-    using Allors.Document.Inspection;
-    using Allors.Document.Xml;
 
     /// <summary>
     /// The package's manifest (META-INF/manifest.xml): one entry per file with its media type. Entries come and go with the pictures of a
@@ -21,12 +20,14 @@ namespace Allors.Document.OpenDocument
 
         private readonly byte[] original;
         private readonly XmlDocument document;
+        private readonly XmlElement root;
         private bool changed;
 
         public Manifest(byte[] bytes)
         {
             this.original = bytes;
             this.document = Inspector.Load(bytes);
+            this.root = Inspector.Root(this.document);
         }
 
         /// <summary>Drops every entry for the file, with the white space before it.</summary>
@@ -35,10 +36,10 @@ namespace Allors.Document.OpenDocument
             foreach (var entry in this.Entries.Where(v => FullPath(v) == fullPath).ToList())
             {
                 var before = entry.PreviousSibling;
-                this.document.DocumentElement.RemoveChild(entry);
+                this.root.RemoveChild(entry);
                 if (IsWhitespace(before))
                 {
-                    this.document.DocumentElement.RemoveChild(before);
+                    this.root.RemoveChild(before);
                 }
 
                 this.changed = true;
@@ -53,8 +54,7 @@ namespace Allors.Document.OpenDocument
                 return;
             }
 
-            var root = this.document.DocumentElement;
-            var prefix = root.GetPrefixOfNamespace(Namespace);
+            var prefix = this.root.GetPrefixOfNamespace(Namespace);
             var entry = this.document.CreateElement(prefix, "file-entry", Namespace);
             entry.Attributes.Append(this.Attribute(prefix, "full-path", fullPath));
             entry.Attributes.Append(this.Attribute(prefix, "media-type", mediaType));
@@ -62,14 +62,15 @@ namespace Allors.Document.OpenDocument
             var last = this.Entries.LastOrDefault();
             if (last == null)
             {
-                root.AppendChild(entry);
+                this.root.AppendChild(entry);
             }
             else
             {
-                root.InsertAfter(entry, last);
-                if (IsWhitespace(last.PreviousSibling))
+                this.root.InsertAfter(entry, last);
+                var before = last.PreviousSibling;
+                if (IsWhitespace(before))
                 {
-                    root.InsertAfter(last.PreviousSibling.CloneNode(false), last);
+                    this.root.InsertAfter(before.CloneNode(false), last);
                 }
             }
 
@@ -77,13 +78,13 @@ namespace Allors.Document.OpenDocument
         }
 
         /// <summary>The manifest as the package holds it: the template's bytes when nothing changed.</summary>
-        public byte[] ToBytes() => this.changed ? XmlOutput.Write(writer => this.document.DocumentElement.WriteTo(writer)) : this.original;
+        public byte[] ToBytes() => this.changed ? XmlOutput.Write(writer => this.root.WriteTo(writer)) : this.original;
 
-        private IEnumerable<XmlElement> Entries => this.document.DocumentElement.ChildNodes.OfType<XmlElement>().Where(v => v.NamespaceURI == Namespace && v.LocalName == "file-entry");
+        private IEnumerable<XmlElement> Entries => this.root.ChildNodes.OfType<XmlElement>().Where(v => v.NamespaceURI == Namespace && v.LocalName == "file-entry");
 
         private static string FullPath(XmlElement entry) => entry.GetAttribute("full-path", Namespace);
 
-        private static bool IsWhitespace(XmlNode node) => node is XmlWhitespace || node is XmlSignificantWhitespace;
+        private static bool IsWhitespace([NotNullWhen(true)] XmlNode? node) => node is XmlWhitespace || node is XmlSignificantWhitespace;
 
         private XmlAttribute Attribute(string prefix, string localName, string value)
         {

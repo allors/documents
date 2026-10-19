@@ -3,12 +3,12 @@
 // Licensed under the LGPL license. See LICENSE file in the project root for full license information.
 // </copyright>
 
-namespace Allos.Document.Models.Tests
+namespace Allors.Documents.Tests
 {
     using System;
     using System.Collections.Generic;
     using System.Globalization;
-    using Allors.Document.Models;
+    using Allors.Documents;
     using Xunit;
 
     public class FormattingTests
@@ -145,6 +145,26 @@ namespace Allos.Document.Models.Tests
         }
 
         [Fact]
+        public void EachKindHasItsPatternAndTheOthersHaveNone()
+        {
+            var formatting = Formatting.Default.With(Settings(("date", "dd-MMM-yyyy"), ("time", "HH:mm"), ("datetime", "yyyy-MM-dd HH:mm"), ("number", "N2")));
+
+            Assert.Equal("dd-MMM-yyyy", formatting.PatternFor(ValueKind.Date));
+            Assert.Equal("HH:mm", formatting.PatternFor(ValueKind.Time));
+            Assert.Equal("yyyy-MM-dd HH:mm", formatting.PatternFor(ValueKind.DateTime));
+            Assert.Equal("N2", formatting.PatternFor(ValueKind.Number));
+            Assert.Null(formatting.PatternFor(ValueKind.Text));
+            Assert.Null(formatting.PatternFor(ValueKind.Other));
+            Assert.Equal("HH:mm", formatting.With(Settings(("format", "TIME"))).PatternFor(ValueKind.Number));
+            Assert.Equal("0.0", formatting.With(Settings(("format", "0.0"))).PatternFor(ValueKind.Date));
+
+            Assert.Equal(ValueKind.Date, Formatting.KindOfSetting("Date"));
+            Assert.Equal(ValueKind.Number, Formatting.KindOfSetting("number"));
+            Assert.Null(Formatting.KindOfSetting("culture"));
+            Assert.Null(Formatting.KindOfSetting(null));
+        }
+
+        [Fact]
         public void ADateCultureSetsDatesAndTimesApartFromTheCulture()
         {
             var formatting = Formatting.Default.With(Settings(("culture", "nl-BE"), ("date-culture", "invariant"), ("number", "N2"), ("date", "dd-MMM-yyyy"), ("datetime", "dd-MMM-yyyy HH:mm")));
@@ -152,11 +172,11 @@ namespace Allos.Document.Models.Tests
             Assert.Equal("nl-BE", formatting.Culture.Name);
             Assert.Null(formatting.NumberCulture);
             Assert.Same(CultureInfo.InvariantCulture, formatting.DateCulture);
-            Assert.Same(formatting.Culture, formatting.CultureOf(Formatting.NumberSetting));
-            Assert.Same(CultureInfo.InvariantCulture, formatting.CultureOf(Formatting.DateSetting));
-            Assert.Same(CultureInfo.InvariantCulture, formatting.CultureOf(Formatting.DateTimeSetting));
-            Assert.Same(CultureInfo.InvariantCulture, formatting.CultureOf(Formatting.TimeSetting));
-            Assert.Same(formatting.Culture, formatting.CultureOf(null));
+            Assert.Same(formatting.Culture, formatting.CultureFor(ValueKind.Number));
+            Assert.Same(CultureInfo.InvariantCulture, formatting.CultureFor(ValueKind.Date));
+            Assert.Same(CultureInfo.InvariantCulture, formatting.CultureFor(ValueKind.DateTime));
+            Assert.Same(CultureInfo.InvariantCulture, formatting.CultureFor(ValueKind.Time));
+            Assert.Same(formatting.Culture, formatting.CultureFor(ValueKind.Text));
 
             Assert.Equal("1.250,50", Resolver.Format(1250.5m, formatting));
             Assert.Equal("14-Sep-2026", Resolver.Format(new DateTime(2026, 9, 14), formatting));

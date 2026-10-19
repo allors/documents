@@ -3,7 +3,7 @@
 // Licensed under the LGPL license. See LICENSE file in the project root for full license information.
 // </copyright>
 
-namespace Allors.Document.Rendering
+namespace Allors.Documents
 {
     /// <summary>
     /// What a path may start with at a point of the render: the loop variables and counters in scope, innermost first, then a member of the root.
@@ -11,9 +11,9 @@ namespace Allors.Document.Rendering
     /// </summary>
     internal sealed class Scope
     {
-        private readonly Scope parent;
-        private readonly string name;
-        private readonly object value;
+        private readonly Scope? parent;
+        private readonly string? name;
+        private readonly object? value;
         private readonly bool counter;
 
         public Scope(object root) => this.Root = root;
@@ -34,7 +34,7 @@ namespace Allors.Document.Rendering
         public Scope Push(string name, object value, bool counter = false) => new Scope(this, name, value, counter);
 
         /// <summary>The value of the innermost loop variable or counter with this name; false when no loop in scope declares it.</summary>
-        public bool TryGetVariable(string name, out object value)
+        public bool TryGetVariable(string name, out object? value)
         {
             var scope = this.Find(name);
             value = scope?.value;
@@ -44,7 +44,7 @@ namespace Allors.Document.Rendering
         /// <summary>True when the innermost loop variable or counter with this name is a counter.</summary>
         public bool IsCounter(string name) => this.Find(name)?.counter == true;
 
-        private Scope Find(string name)
+        private Scope? Find(string name)
         {
             for (var scope = this; scope != null; scope = scope.parent)
             {

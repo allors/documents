@@ -3,7 +3,7 @@
 // Licensed under the LGPL license. See LICENSE file in the project root for full license information.
 // </copyright>
 
-namespace Allors.Document.OpenDocument
+namespace Allors.Documents
 {
     using System;
     using System.Collections.Generic;
@@ -13,8 +13,9 @@ namespace Allors.Document.OpenDocument
     /// <summary>
     /// A picture format the library tells from the first bytes of a picture: the extension its file takes, the media type its manifest entry
     /// gets, and whether it is compressed already. Deflating a compressed picture costs time and saves nothing, so the package stores those, as LibreOffice does.
+    /// A picture processor gets the format of the bytes it is given and may give bytes in another; <see cref="Sniff"/> tells which.
     /// </summary>
-    internal sealed class PictureFormat
+    public sealed class PictureFormat
     {
         public static readonly PictureFormat Png = new PictureFormat("PNG", "png", "image/png", true);
         public static readonly PictureFormat Jpeg = new PictureFormat("JPEG", "jpg", "image/jpeg", true);
@@ -51,7 +52,7 @@ namespace Allors.Document.OpenDocument
         public static string Names => string.Join(", ", All.Take(All.Count - 1).Select(v => v.Name)) + " or " + All[All.Count - 1].Name;
 
         /// <summary>The format the bytes are in by their signature, or null when they are in none the library knows.</summary>
-        public static PictureFormat Sniff(byte[] bytes)
+        public static PictureFormat? Sniff(byte[]? bytes)
         {
             if (bytes == null)
             {

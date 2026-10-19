@@ -3,12 +3,12 @@
 // Licensed under the LGPL license. See LICENSE file in the project root for full license information.
 // </copyright>
 
-namespace Allors.Document.Tags
+namespace Allors.Documents
 {
     using System;
     using System.Collections.Generic;
+    using System.Diagnostics.CodeAnalysis;
     using System.Text.RegularExpressions;
-    using Allors.Document.Models;
 
     /// <summary>
     /// The tag language of a template: <c>&lt;$path attr="value"&gt;</c>, <c>&lt;@for variable path sort="key desc" index="n" separator=", "&gt;</c>,
@@ -16,7 +16,7 @@ namespace Allors.Document.Tags
     /// <c>&lt;@else ifdef path&gt;</c>, <c>&lt;@map Name&gt;</c> and <c>&lt;@end&gt;</c> in placeholder fields, and <c>&lt;$path empty="keep" fit="contain"&gt;</c>
     /// as the description of a picture frame. A path is a chain of member names; keywords are not case-sensitive.
     /// </summary>
-    public static class TagSyntax
+    internal static class TagSyntax
     {
         private static readonly Regex PathRegex = new Regex(@"^[A-Za-z_][A-Za-z0-9_]*(\.[A-Za-z_][A-Za-z0-9_]*)*$");
 
@@ -67,8 +67,8 @@ namespace Allors.Document.Tags
         /// <summary>The frame keeps its height; its width follows the picture's proportions.</summary>
         public const string HeightValue = "height";
 
-        /// <summary>The attributes a picture tag takes.</summary>
-        public static readonly IReadOnlyCollection<string> PictureAttributes = new[] { EmptyAttribute, FitAttribute };
+        /// <summary>The attributes a picture tag takes: empty, fit and format, which names a picture renderer.</summary>
+        public static readonly IReadOnlyCollection<string> PictureAttributes = new[] { EmptyAttribute, FitAttribute, Formatting.FormatAttribute };
 
         /// <summary>The attributes a binding takes: the formatting attributes, then map and blank.</summary>
         public static readonly IReadOnlyCollection<string> BindingAttributes = new[] { Formatting.FormatAttribute, Formatting.CultureSetting, Formatting.TrueSetting, Formatting.FalseSetting, MapAttribute, BlankAttribute };
@@ -79,14 +79,14 @@ namespace Allors.Document.Tags
         private static readonly Regex AttributeRegex = new Regex(@"\G\s+([A-Za-z_][A-Za-z0-9_-]*)\s*=\s*(?:""([^""]*)""|'([^']*)')");
 
         /// <summary>True when the text has the shape of a tag: it starts with <c>&lt;$</c> or <c>&lt;@</c> and ends with <c>&gt;</c>.</summary>
-        public static bool IsTag(string text)
+        public static bool IsTag([NotNullWhen(true)] string? text)
         {
             var trimmed = text?.Trim();
             return trimmed != null && trimmed.Length >= 3 && trimmed[0] == '<' && (trimmed[1] == '$' || trimmed[1] == '@') && trimmed[trimmed.Length - 1] == '>';
         }
 
         /// <summary>True when the text holds the start of a tag, <c>&lt;$</c> or <c>&lt;@</c>, anywhere: the author meant a tag, well-formed or not.</summary>
-        public static bool HoldsTag(string text) => text != null && (text.Contains("<$") || text.Contains("<@"));
+        public static bool HoldsTag([NotNullWhen(true)] string? text) => text != null && (text.Contains("<$") || text.Contains("<@"));
 
         /// <summary>True for an attribute a picture tag takes; names are not case-sensitive.</summary>
         public static bool IsPictureAttribute(string name) => Contains(PictureAttributes, name);
@@ -98,16 +98,16 @@ namespace Allors.Document.Tags
         public static bool IsLoopAttribute(string name) => Contains(LoopAttributes, name);
 
         /// <summary>True when a map's key is the default key, in any case.</summary>
-        public static bool IsDefaultKey(string key) => string.Equals(key?.Trim(), DefaultKey, StringComparison.OrdinalIgnoreCase);
+        public static bool IsDefaultKey(string? key) => string.Equals(key?.Trim(), DefaultKey, StringComparison.OrdinalIgnoreCase);
 
         /// <summary>True for a value the empty attribute takes: remove or keep, in any case.</summary>
-        public static bool IsEmptyValue(string value) => string.Equals(value?.Trim(), RemoveValue, StringComparison.OrdinalIgnoreCase) || KeepsWhenEmpty(value);
+        public static bool IsEmptyValue(string? value) => string.Equals(value?.Trim(), RemoveValue, StringComparison.OrdinalIgnoreCase) || KeepsWhenEmpty(value);
 
         /// <summary>True when the value of the empty attribute says keep.</summary>
-        public static bool KeepsWhenEmpty(string value) => string.Equals(value?.Trim(), KeepValue, StringComparison.OrdinalIgnoreCase);
+        public static bool KeepsWhenEmpty(string? value) => string.Equals(value?.Trim(), KeepValue, StringComparison.OrdinalIgnoreCase);
 
         /// <summary>Reads a value of the fit attribute, in any case: fill, contain, width or height; false for a value the attribute does not take.</summary>
-        public static bool TryParseFit(string value, out PictureFit fit)
+        public static bool TryParseFit(string? value, out PictureFit fit)
         {
             switch (value?.Trim().ToLowerInvariant())
             {
@@ -133,10 +133,10 @@ namespace Allors.Document.Tags
         public static PictureFit FitOf(Tag tag) => tag.Attributes.TryGetValue(FitAttribute, out var value) && TryParseFit(value, out var fit) ? fit : PictureFit.Fill;
 
         /// <summary>True when the text is a plain path: member names separated by dots.</summary>
-        public static bool IsPath(string text) => text != null && PathRegex.IsMatch(text);
+        public static bool IsPath([NotNullWhen(true)] string? text) => text != null && PathRegex.IsMatch(text);
 
         /// <summary>Parses the text of a placeholder. On failure the error says what is wrong, in the author's terms.</summary>
-        public static bool TryParse(string text, out Tag tag, out string error)
+        public static bool TryParse(string? text, [NotNullWhen(true)] out Tag? tag, [NotNullWhen(false)] out string? error)
         {
             tag = null;
             error = null;
@@ -253,7 +253,7 @@ namespace Allors.Document.Tags
         /// Parses the description of a picture frame as a picture tag: one <c>&lt;$path attr="value"&gt;</c> and nothing else.
         /// On failure the error says what is wrong, in the author's terms.
         /// </summary>
-        public static bool TryParsePicture(string description, out Tag tag, out string error)
+        public static bool TryParsePicture(string? description, [NotNullWhen(true)] out Tag? tag, [NotNullWhen(false)] out string? error)
         {
             tag = null;
             error = null;
@@ -287,7 +287,7 @@ namespace Allors.Document.Tags
             return true;
         }
 
-        private static bool TryParseBinding(string text, string inner, out Tag tag, out string error)
+        private static bool TryParseBinding(string text, string inner, [NotNullWhen(true)] out Tag? tag, [NotNullWhen(false)] out string? error)
         {
             tag = null;
 
@@ -301,7 +301,7 @@ namespace Allors.Document.Tags
         }
 
         /// <summary>The test of a condition: a path, with not before it to negate the test.</summary>
-        private static bool TryParseCondition(string keyword, string rest, out string path, out bool negated, out string error)
+        private static bool TryParseCondition(string keyword, string rest, [NotNullWhen(true)] out string? path, out bool negated, [NotNullWhen(false)] out string? error)
         {
             path = null;
             negated = false;
@@ -326,7 +326,7 @@ namespace Allors.Document.Tags
         }
 
         /// <summary>A path followed by zero or more name="value" attributes.</summary>
-        private static bool TryParsePathAndAttributes(string inner, string missingPathError, out string path, out Dictionary<string, string> attributes, out string error)
+        private static bool TryParsePathAndAttributes(string inner, string missingPathError, out string path, [NotNullWhen(true)] out Dictionary<string, string>? attributes, [NotNullWhen(false)] out string? error)
         {
             attributes = null;
             error = null;
@@ -358,7 +358,7 @@ namespace Allors.Document.Tags
         }
 
         /// <summary>The sort attribute of a loop: paths relative to the item, comma separated, each optionally followed by asc or desc.</summary>
-        private static bool TryParseSort(IReadOnlyDictionary<string, string> attributes, out IReadOnlyList<SortKey> sort, out string error)
+        private static bool TryParseSort(IReadOnlyDictionary<string, string> attributes, out IReadOnlyList<SortKey>? sort, [NotNullWhen(false)] out string? error)
         {
             sort = null;
             error = null;
@@ -402,7 +402,7 @@ namespace Allors.Document.Tags
         }
 
         /// <summary>The index attribute of a loop: the name under which the body reads the item's position, 1 for the first item in the loop's order.</summary>
-        private static bool TryParseIndex(IReadOnlyDictionary<string, string> attributes, string variable, out string index, out string error)
+        private static bool TryParseIndex(IReadOnlyDictionary<string, string> attributes, string variable, out string? index, [NotNullWhen(false)] out string? error)
         {
             index = null;
             error = null;

@@ -3,7 +3,7 @@
 // Licensed under the LGPL license. See LICENSE file in the project root for full license information.
 // </copyright>
 
-namespace Allors.Document.OpenDocument
+namespace Allors.Documents
 {
     using System.Collections.Generic;
     using System.IO;
@@ -15,7 +15,7 @@ namespace Allors.Document.OpenDocument
     /// </summary>
     internal sealed class Parts
     {
-        public Parts(byte[] content, byte[] styles, byte[] manifest, Dictionary<string, byte[]> files)
+        public Parts(byte[] content, byte[]? styles, byte[]? manifest, Dictionary<string, byte[]> files)
         {
             this.Content = content;
             this.Styles = styles;
@@ -27,10 +27,10 @@ namespace Allors.Document.OpenDocument
         public byte[] Content { get; }
 
         /// <summary>styles.xml: the styles and the master pages with their headers and footers; null when the document has none.</summary>
-        public byte[] Styles { get; }
+        public byte[]? Styles { get; }
 
         /// <summary>META-INF/manifest.xml; null when the document has none.</summary>
-        public byte[] Manifest { get; }
+        public byte[]? Manifest { get; }
 
         /// <summary>Every other file by its name in the package.</summary>
         public Dictionary<string, byte[]> Files { get; }
@@ -39,16 +39,7 @@ namespace Allors.Document.OpenDocument
         /// Reads a package or a flat document, whichever the bytes are. Throws <see cref="InvalidDataException"/> when they are neither,
         /// when the package has no content.xml or when the flat document is not an office:document.
         /// </summary>
-        public static Parts Read(byte[] document)
-        {
-            var parts = IsPackage(document) ? Package.Read(document) : Flat.Read(document);
-            if (parts.Content == null)
-            {
-                throw new InvalidDataException("the package has no content.xml: it is not an OpenDocument text");
-            }
-
-            return parts;
-        }
+        public static Parts Read(byte[] document) => IsPackage(document) ? Package.Read(document) : Flat.Read(document);
 
         /// <summary>A package is a zip file, which starts with the signature of its first entry; anything else is read as XML.</summary>
         private static bool IsPackage(byte[] document) => document.Length >= 2 && document[0] == 0x50 && document[1] == 0x4B;

@@ -3,7 +3,7 @@
 // Licensed under the LGPL license. See LICENSE file in the project root for full license information.
 // </copyright>
 
-namespace Allos.Document.OpenDocument.Tests
+namespace Allors.Documents.Tests
 {
     using System;
     using System.Collections.Generic;
@@ -12,10 +12,8 @@ namespace Allos.Document.OpenDocument.Tests
     using System.Reflection;
     using System.Text;
     using System.Xml.Linq;
-    using Allors.Document.Models;
-    using Allors.Document.OpenDocument;
-    using Allors.Document.Reflection;
-    using Allors.Document.Validation;
+    using Allors.Documents;
+    using Allors.Documents.Reflection;
     using Xunit;
 
     /// <summary>
@@ -142,7 +140,7 @@ namespace Allos.Document.OpenDocument.Tests
             var result = new OpenDocumentTemplate(template).Render(new Dictionary<string, object> { ["Total"] = 1234.5m });
 
             Assert.Equal("1,234.50", Odt.Paragraphs(Odt.Content(result.Document)));
-            Assert.Equal("N2", OpenDocumentTemplate.Inspect(template).Settings["number"]);
+            Assert.Equal("N2", new OpenDocumentTemplate(template).Inspection.Settings["number"]);
         }
 
         [Fact]
@@ -154,7 +152,7 @@ namespace Allos.Document.OpenDocument.Tests
             var package = Odt.Build(body, pictures, header, settings: new Dictionary<string, string> { ["number"] = "N2" });
             var model = new Dictionary<string, object> { ["Name"] = "Jane", ["Logo"] = OtherPng };
 
-            var result = new OpenDocumentTemplate(package).Render(model, Flat);
+            var result = new OpenDocumentTemplate(package, Flat).Render(model);
 
             Assert.StartsWith("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<office:document ", Encoding.UTF8.GetString(result.Document));
             var flat = Fodt.Document(result.Document);
@@ -193,7 +191,7 @@ namespace Allos.Document.OpenDocument.Tests
             var header = Fodt.H("<text:span text:style-name=\"T1\">", "<$Name>", "</text:span>");
             var template = Fodt.Build(body, header, automaticStyles);
 
-            var result = new OpenDocumentTemplate(template).Render(new Dictionary<string, object> { ["Name"] = "Jane" }, Flat);
+            var result = new OpenDocumentTemplate(template, Flat).Render(new Dictionary<string, object> { ["Name"] = "Jane" });
 
             var text = Encoding.UTF8.GetString(result.Document);
             var flat = Fodt.Document(result.Document);
@@ -227,9 +225,9 @@ namespace Allos.Document.OpenDocument.Tests
         [Fact]
         public void FilesNoElementShowsHaveNoPlaceInAFlatDocument()
         {
-            var template = new OpenDocumentTemplate<Model>(Resource("EmbeddedTemplate.odt"));
+            var template = new OpenDocumentTemplate<Model>(Resource("EmbeddedTemplate.odt"), Flat);
 
-            var result = template.Render(new Model(), Flat);
+            var result = template.Render(new Model());
 
             var text = Encoding.UTF8.GetString(result.Document);
             Assert.DoesNotContain("Thumbnails", text);
@@ -245,7 +243,7 @@ namespace Allos.Document.OpenDocument.Tests
         {
             var package = Odt.Build("<text:p>" + Odt.Frame("Web", "https://example.com/x.png") + "</text:p>");
 
-            var result = new OpenDocumentTemplate(package).Render(new Dictionary<string, object>(), Flat);
+            var result = new OpenDocumentTemplate(package, Flat).Render(new Dictionary<string, object>());
 
             var image = Fodt.Document(result.Document).Descendants(Odt.Draw + "image").Single();
             Assert.Equal("https://example.com/x.png", (string)image.Attribute(Odt.XLink + "href"));
@@ -268,8 +266,8 @@ namespace Allos.Document.OpenDocument.Tests
         {
             var template = Fodt.Build(Fodt.P("<$Name>"), Fodt.H("<$Nope>"));
 
-            var inspection = OpenDocumentTemplate.Inspect(template);
-            var validation = OpenDocumentTemplate.Validate(template, new DictionaryShape(new Dictionary<string, IShape> { ["Name"] = DictionaryShape.Open }));
+            var inspection = new OpenDocumentTemplate(template).Inspection;
+            var validation = new OpenDocumentTemplate(template).Validate(new DictionaryShape(new Dictionary<string, IShape> { ["Name"] = DictionaryShape.Open }));
 
             Assert.Equal(["Name", "Nope"], inspection.Bindings.Select(v => v.Tag.Path));
             Assert.Equal(["content.xml", "styles.xml"], inspection.Bindings.Select(v => v.Location.Part));
@@ -287,8 +285,8 @@ namespace Allos.Document.OpenDocument.Tests
 
             Assert.Throws<InvalidDataException>(() => new OpenDocumentTemplate(text));
             Assert.Throws<InvalidDataException>(() => new OpenDocumentTemplate(Array.Empty<byte>()));
-            Assert.Throws<InvalidDataException>(() => OpenDocumentTemplate.Inspect(text));
-            Assert.Throws<InvalidDataException>(() => OpenDocumentTemplate.Validate(text, DictionaryShape.Open));
+            Assert.Throws<InvalidDataException>(() => new OpenDocumentTemplate(text).Inspection);
+            Assert.Throws<InvalidDataException>(() => new OpenDocumentTemplate(text).Validate(DictionaryShape.Open));
             var exception = Assert.Throws<InvalidDataException>(() => new OpenDocumentTemplate(content));
             Assert.Contains("office:document-content, not office:document", exception.Message);
         }

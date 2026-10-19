@@ -3,7 +3,7 @@
 // Licensed under the LGPL license. See LICENSE file in the project root for full license information.
 // </copyright>
 
-namespace Allors.Document.Rendering
+namespace Allors.Documents
 {
     using System.Globalization;
     using System.Xml;
@@ -17,9 +17,9 @@ namespace Allors.Document.Rendering
     {
         private const string TextNamespace = "urn:oasis:names:tc:opendocument:xmlns:text:1.0";
 
-        public static void Write(XmlWriter writer, string text)
+        public static void Write(XmlWriter writer, string? text)
         {
-            if (string.IsNullOrEmpty(text))
+            if (text == null || text.Length == 0)
             {
                 return;
             }

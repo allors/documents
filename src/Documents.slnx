@@ -1,4 +1,6 @@
 <Solution>
+  <Project Path="Allors.Documents.Barcodes/Allors.Documents.Barcodes.csproj" />
+  <Project Path="Allors.Documents.Imaging/Allors.Documents.Imaging.csproj" />
   <Project Path="Allors.Documents.Reflection/Allors.Documents.Reflection.csproj" />
   <Project Path="Allors.Documents.Tests/Allors.Documents.Tests.csproj" />
   <Project Path="Allors.Documents/Allors.Documents.csproj" />

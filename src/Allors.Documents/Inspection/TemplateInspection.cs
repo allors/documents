@@ -3,11 +3,10 @@
 // Licensed under the LGPL license. See LICENSE file in the project root for full license information.
 // </copyright>
 
-namespace Allors.Document.Inspection
+namespace Allors.Documents
 {
     using System.Collections.Generic;
     using System.Linq;
-    using Allors.Document.Tags;
 
     /// <summary>
     /// What a template asks of its model: every tag in document order with the paragraph it sits in, the bound picture frames, the maps,
@@ -43,7 +42,7 @@ namespace Allors.Document.Inspection
         public IEnumerable<InspectedTag> All => Flatten(this.Tags);
 
         /// <summary>The paths the template reads, deduplicated, loop variables included as the author wrote them.</summary>
-        public IReadOnlyList<string> Paths => this.All.Where(v => v.Tag.Path != null).Select(v => v.Tag.Path).Concat(this.Pictures.Select(v => v.Path)).Distinct().ToList();
+        public IReadOnlyList<string> Paths => this.All.Select(v => v.Tag.Path).OfType<string>().Concat(this.Pictures.Select(v => v.Path)).Distinct().ToList();
 
         public IEnumerable<InspectedTag> Bindings => this.All.Where(v => v.Tag.Kind == TagKind.Binding);
 

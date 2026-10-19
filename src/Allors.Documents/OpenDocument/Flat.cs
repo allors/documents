@@ -3,17 +3,16 @@
 // Licensed under the LGPL license. See LICENSE file in the project root for full license information.
 // </copyright>
 
-namespace Allors.Document.OpenDocument
+namespace Allors.Documents
 {
     using System;
     using System.Collections.Generic;
+    using System.Diagnostics.CodeAnalysis;
     using System.IO;
     using System.Linq;
     using System.Security.Cryptography;
     using System.Text;
     using System.Xml;
-    using Allors.Document.Inspection;
-    using Allors.Document.Xml;
 
     /// <summary>
     /// A flat OpenDocument text (.fodt): the whole document in one XML file, an <c>office:document</c> whose sections hold the meta data, the
@@ -65,7 +64,7 @@ namespace Allors.Document.OpenDocument
 
             var version = root.GetAttribute("version", OfficeNamespace);
             var files = new Dictionary<string, byte[]> { [OpenDocumentTemplate.MimetypeFileName] = Encoding.ASCII.GetBytes(mimetype) };
-            var pictures = ExtractPictures(xml, files);
+            var pictures = ExtractPictures(root, files);
 
             var scripts = Child(root, "scripts");
             var fontFaces = Child(root, "font-face-decls");
@@ -78,7 +77,7 @@ namespace Allors.Document.OpenDocument
             var content = Part(root, "document-content", new[] { scripts, fontFaces, automaticStyles, body }, contentStyles);
             var parts = new List<string> { OpenDocumentTemplate.ContentFileName };
 
-            byte[] stylesPart = null;
+            byte[]? stylesPart = null;
             if (fontFaces != null || styles != null || automaticStyles != null || masterStyles != null)
             {
                 stylesPart = Part(root, "document-styles", new[] { fontFaces, styles, automaticStyles, masterStyles }, stylesStyles);
@@ -104,12 +103,12 @@ namespace Allors.Document.OpenDocument
         /// the body, each section starting a line of its own. Every element that links to a picture file of the package embeds the picture's
         /// bytes as base64 instead. A file no element links to, such as the thumbnail, has no place in a flat document.
         /// </summary>
-        public static byte[] Write(byte[] mimetype, byte[] content, byte[] styles, IReadOnlyDictionary<string, byte[]> files)
+        public static byte[] Write(byte[]? mimetype, byte[] content, byte[]? styles, IReadOnlyDictionary<string, byte[]> files)
         {
-            var contentRoot = Inspector.Load(content).DocumentElement;
-            var stylesRoot = styles == null ? null : Inspector.Load(styles).DocumentElement;
-            var metaRoot = files.TryGetValue(OpenDocumentTemplate.DocumentMetaFileName, out var meta) ? Inspector.Load(meta).DocumentElement : null;
-            var settingsRoot = files.TryGetValue(OpenDocumentTemplate.SettingsFileName, out var settings) ? Inspector.Load(settings).DocumentElement : null;
+            var contentRoot = Inspector.Root(Inspector.Load(content));
+            var stylesRoot = styles == null ? null : Inspector.Root(Inspector.Load(styles));
+            var metaRoot = files.TryGetValue(OpenDocumentTemplate.DocumentMetaFileName, out var meta) ? Inspector.Root(Inspector.Load(meta)) : null;
+            var settingsRoot = files.TryGetValue(OpenDocumentTemplate.SettingsFileName, out var settings) ? Inspector.Root(Inspector.Load(settings)) : null;
             var mediaType = mimetype == null ? TextMediaType : Encoding.ASCII.GetString(mimetype).Trim();
 
             return XmlOutput.Write(writer => new Merger(writer, files).Write(contentRoot, stylesRoot, metaRoot, settingsRoot, mediaType));
@@ -120,16 +119,16 @@ namespace Allors.Document.OpenDocument
         /// one file, with the extension and the media type its bytes say; the element links to the file the way a package has it.
         /// Returns the files with their media types, in document order.
         /// </summary>
-        private static List<KeyValuePair<string, string>> ExtractPictures(XmlDocument xml, Dictionary<string, byte[]> files)
+        private static List<KeyValuePair<string, string>> ExtractPictures(XmlElement root, Dictionary<string, byte[]> files)
         {
             var pictures = new List<KeyValuePair<string, string>>();
-            var xlink = xml.DocumentElement.GetPrefixOfNamespace(XLinkNamespace);
+            var xlink = root.GetPrefixOfNamespace(XLinkNamespace);
             if (string.IsNullOrEmpty(xlink))
             {
                 xlink = "xlink";
             }
 
-            foreach (var data in xml.GetElementsByTagName("binary-data", OfficeNamespace).Cast<XmlElement>().ToList())
+            foreach (var data in root.OwnerDocument.GetElementsByTagName("binary-data", OfficeNamespace).Cast<XmlElement>().ToList())
             {
                 if (!(data.ParentNode is XmlElement holder))
                 {
@@ -158,9 +157,9 @@ namespace Allors.Document.OpenDocument
                 RemoveWithWhitespaceBefore(data);
                 if (holder.ChildNodes.Cast<XmlNode>().All(IsWhitespace))
                 {
-                    while (holder.HasChildNodes)
+                    while (holder.FirstChild is XmlNode child)
                     {
-                        holder.RemoveChild(holder.FirstChild);
+                        holder.RemoveChild(child);
                     }
                 }
             }
@@ -192,7 +191,7 @@ namespace Allors.Document.OpenDocument
         /// Which automatic styles the body uses and which the styles and the master pages use, each closed over the automatic styles those
         /// use in turn. A style both sides use goes to both parts; a style neither uses goes with the body.
         /// </summary>
-        private static (HashSet<XmlElement> Content, HashSet<XmlElement> Styles) Partition(XmlElement automaticStyles, XmlElement body, XmlElement styles, XmlElement masterStyles)
+        private static (HashSet<XmlElement> Content, HashSet<XmlElement> Styles) Partition(XmlElement? automaticStyles, XmlElement? body, XmlElement? styles, XmlElement? masterStyles)
         {
             var definitions = new Dictionary<string, List<XmlElement>>(StringComparer.Ordinal);
             var all = automaticStyles?.ChildNodes.OfType<XmlElement>().ToList() ?? new List<XmlElement>();
@@ -250,7 +249,7 @@ namespace Allors.Document.OpenDocument
         }
 
         /// <summary>The names of the styles an element and its descendants refer to: the value of every attribute that names a style or a page layout.</summary>
-        private static IEnumerable<string> References(XmlElement element)
+        private static IEnumerable<string> References(XmlElement? element)
         {
             if (element == null)
             {
@@ -273,7 +272,7 @@ namespace Allors.Document.OpenDocument
         /// A part of the package: a root element with the namespaces and the version of the flat document, holding copies of the sections the
         /// document has, in order; the automatic styles section keeps only the styles the part uses.
         /// </summary>
-        private static byte[] Part(XmlElement root, string name, IEnumerable<XmlElement> sections, HashSet<XmlElement> automaticStyles)
+        private static byte[] Part(XmlElement root, string name, IEnumerable<XmlElement?> sections, HashSet<XmlElement>? automaticStyles)
         {
             var document = new XmlDocument { PreserveWhitespace = true };
             var element = document.CreateElement(root.Prefix, name, OfficeNamespace);
@@ -286,10 +285,10 @@ namespace Allors.Document.OpenDocument
             }
 
             document.AppendChild(element);
-            foreach (var section in sections.Where(v => v != null))
+            foreach (var section in sections.OfType<XmlElement>())
             {
                 var copy = (XmlElement)document.ImportNode(section, true);
-                if (Is(section, OfficeNamespace, "automatic-styles"))
+                if (automaticStyles != null && Is(section, OfficeNamespace, "automatic-styles"))
                 {
                     Prune(section, copy, automaticStyles);
                 }
@@ -317,7 +316,7 @@ namespace Allors.Document.OpenDocument
         /// <summary>The manifest of the package the flat document becomes: the document, its parts and its pictures with their media types.</summary>
         private static byte[] Manifest(string mimetype, string version, IEnumerable<string> parts, IEnumerable<KeyValuePair<string, string>> pictures)
         {
-            var ns = OpenDocument.Manifest.Namespace;
+            var ns = Allors.Documents.Manifest.Namespace;
             return XmlOutput.Write(writer =>
             {
                 writer.WriteStartElement("manifest", "manifest", ns);
@@ -343,9 +342,9 @@ namespace Allors.Document.OpenDocument
             });
         }
 
-        private static void Entry(XmlWriter writer, string fullPath, string mediaType, string version)
+        private static void Entry(XmlWriter writer, string fullPath, string mediaType, string? version)
         {
-            var ns = OpenDocument.Manifest.Namespace;
+            var ns = Allors.Documents.Manifest.Namespace;
             writer.WriteWhitespace(SectionBreak);
             writer.WriteStartElement("manifest", "file-entry", ns);
             writer.WriteAttributeString("manifest", "full-path", ns, fullPath);
@@ -390,6 +389,11 @@ namespace Allors.Document.OpenDocument
         private static void RemoveWithWhitespaceBefore(XmlNode node)
         {
             var parent = node.ParentNode;
+            if (parent == null)
+            {
+                return;
+            }
+
             var before = node.PreviousSibling;
             parent.RemoveChild(node);
             if (IsWhitespace(before))
@@ -398,13 +402,13 @@ namespace Allors.Document.OpenDocument
             }
         }
 
-        private static XmlElement Child(XmlElement parent, string localName) => parent?.ChildNodes.OfType<XmlElement>().FirstOrDefault(v => Is(v, OfficeNamespace, localName));
+        private static XmlElement? Child(XmlElement? parent, string localName) => parent?.ChildNodes.OfType<XmlElement>().FirstOrDefault(v => Is(v, OfficeNamespace, localName));
 
         private static bool Is(XmlNode node, string ns, string localName) => node is XmlElement element && element.LocalName == localName && element.NamespaceURI == ns;
 
         private static bool Is(XmlAttribute attribute, string ns, string localName) => attribute.LocalName == localName && attribute.NamespaceURI == ns;
 
-        private static bool IsWhitespace(XmlNode node) => node is XmlWhitespace || node is XmlSignificantWhitespace;
+        private static bool IsWhitespace([NotNullWhen(true)] XmlNode? node) => node is XmlWhitespace || node is XmlSignificantWhitespace;
 
         /// <summary>Writes the parts of one document as one flat document, embedding the pictures the elements link to.</summary>
         private sealed class Merger
@@ -418,9 +422,9 @@ namespace Allors.Document.OpenDocument
                 this.files = files;
             }
 
-            public void Write(XmlElement content, XmlElement styles, XmlElement meta, XmlElement settings, string mediaType)
+            public void Write(XmlElement content, XmlElement? styles, XmlElement? meta, XmlElement? settings, string mediaType)
             {
-                var roots = new[] { content, styles, meta, settings }.Where(v => v != null).ToList();
+                var roots = new[] { content, styles, meta, settings }.OfType<XmlElement>().ToList();
                 this.writer.WriteStartElement(content.Prefix, "document", OfficeNamespace);
 
                 // The namespaces of every part, each prefix declared once, in the order the parts declare them
@@ -464,7 +468,7 @@ namespace Allors.Document.OpenDocument
             private static bool CanEmbed(XmlElement element) =>
                 Is(element, DrawingNamespace, "image") || Is(element, DrawingNamespace, "object-ole") || Is(element, StyleNamespace, "background-image") || Is(element, TextNamespace, "list-level-style-image");
 
-            private void Section(XmlElement section)
+            private void Section(XmlElement? section)
             {
                 if (section != null)
                 {
@@ -474,7 +478,7 @@ namespace Allors.Document.OpenDocument
             }
 
             /// <summary>Two sections of one kind as one: the first's children, then those of the second whose key the first did not have.</summary>
-            private void Merged(XmlElement first, XmlElement second, Func<XmlElement, string> key)
+            private void Merged(XmlElement? first, XmlElement? second, Func<XmlElement, string> key)
             {
                 if (first == null || second == null)
                 {
@@ -500,7 +504,7 @@ namespace Allors.Document.OpenDocument
                     }
                 }
 
-                XmlNode pending = null;
+                XmlNode? pending = null;
                 for (var child = second.FirstChild; child != null; child = child.NextSibling)
                 {
                     if (IsWhitespace(child))
@@ -523,7 +527,7 @@ namespace Allors.Document.OpenDocument
                 this.writer.WriteFullEndElement();
             }
 
-            private void WritePending(ref XmlNode pending)
+            private void WritePending(ref XmlNode? pending)
             {
                 if (pending != null)
                 {
@@ -582,7 +586,7 @@ namespace Allors.Document.OpenDocument
                 this.writer.WriteFullEndElement();
             }
 
-            private void WriteAttributes(XmlElement element, byte[] picture)
+            private void WriteAttributes(XmlElement element, byte[]? picture)
             {
                 foreach (XmlAttribute attribute in element.Attributes)
                 {
@@ -594,7 +598,7 @@ namespace Allors.Document.OpenDocument
             }
 
             /// <summary>The bytes of the package file the element links to, when the element is one that may embed them; null otherwise.</summary>
-            private byte[] EmbeddedPicture(XmlElement element)
+            private byte[]? EmbeddedPicture(XmlElement element)
             {
                 if (!CanEmbed(element))
                 {

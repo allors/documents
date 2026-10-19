@@ -3,37 +3,17 @@
 // Licensed under the LGPL license. See LICENSE file in the project root for full license information.
 // </copyright>
 
-namespace Allors.Document.Validation
+namespace Allors.Documents
 {
-    using Allors.Document.Inspection;
-
-    /// <summary>One thing wrong or doubtful in a template, in the author's terms, with where it sits.</summary>
-    public sealed class Finding
+    /// <summary>One thing wrong or doubtful in a template, in the author's terms, with where it sits. A finding is a value: two findings with the same members are equal.</summary>
+    /// <param name="Kind">What is wrong.</param>
+    /// <param name="Severity">Whether the document misses a value, an error, or is complete but not as the template asked, a warning.</param>
+    /// <param name="Text">The tag, frame name or setting as the author typed it.</param>
+    /// <param name="Path">The path that was checked, when the finding is about one; null otherwise.</param>
+    /// <param name="Message">What is wrong and what to use instead, in the author's terms.</param>
+    /// <param name="Location">Where the text sits in the template.</param>
+    public sealed record Finding(FindingKind Kind, FindingSeverity Severity, string Text, string? Path, string Message, Location Location)
     {
-        internal Finding(FindingKind kind, FindingSeverity severity, string text, string path, string message, Location location)
-        {
-            this.Kind = kind;
-            this.Severity = severity;
-            this.Text = text;
-            this.Path = path;
-            this.Message = message;
-            this.Location = location;
-        }
-
-        public FindingKind Kind { get; }
-
-        public FindingSeverity Severity { get; }
-
-        /// <summary>The tag, frame name or setting as the author typed it.</summary>
-        public string Text { get; }
-
-        /// <summary>The path that was checked, when the finding is about one; null otherwise.</summary>
-        public string Path { get; }
-
-        public string Message { get; }
-
-        public Location Location { get; }
-
         public override string ToString() => this.Severity.ToString().ToLowerInvariant() + ": " + this.Text + ": " + this.Message + " (" + this.Location + ")";
     }
 }

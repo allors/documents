@@ -3,16 +3,13 @@
 // Licensed under the LGPL license. See LICENSE file in the project root for full license information.
 // </copyright>
 
-namespace Allos.Document.Rendering.Tests
+namespace Allors.Documents.Tests
 {
     using System.Collections.Generic;
     using System.Linq;
-    using Allors.Document;
-    using Allors.Document.OpenDocument;
-    using Allors.Document.Validation;
-    using Allos.Document.OpenDocument.Tests;
+    using Allors.Documents;
     using Xunit;
-    using static Allos.Document.Rendering.Tests.Render;
+    using static Allors.Documents.Tests.Render;
 
     /// <summary>Conditions and loops under the resolver engine: what keeps a block, what repeats it, what the cut costs, and what cannot render.</summary>
     public class BlockTests
@@ -219,9 +216,29 @@ namespace Allos.Document.Rendering.Tests
         }
 
         [Fact]
-        public void ABlockThatWouldCutATableThrowsWhenTheTemplateIsRead()
+        public void TwoBlocksMayEndInOneParagraph()
         {
-            var exception = Assert.Throws<TemplateException>(() => Template(Table(Row(P("<@if Flag>"), P("<@end>")))));
+            var model = new Dictionary<string, object> { ["Flag"] = true, ["Items"] = new object[] { Item("a"), Item("b") } };
+            var body = P("<@if Flag>") + P("<@for item Items>") + P("<$item.Name>") + P("<@end>", " ", "<@end>");
+
+            // The paragraph that holds both end tags is the end paragraph of both blocks and leaves the document once
+            Assert.Equal("a\nb", Text(body, model));
+        }
+
+        [Fact]
+        public void TwoBlocksMayBeginInOneParagraph()
+        {
+            var model = new Dictionary<string, object> { ["Flag"] = true, ["Items"] = new object[] { Item("a"), Item("b") } };
+            var body = P("<@if Flag>", " ", "<@for item Items>") + P("<$item.Name>") + P("<@end>") + P("<@end>");
+
+            // The paragraph that holds both begin tags is the begin paragraph of both blocks and leaves the document once
+            Assert.Equal("a\nb", Text(body, model));
+        }
+
+        [Fact]
+        public void ABlockThatWouldCutATableThrowsWhenTheTemplateRenders()
+        {
+            var exception = Assert.Throws<TemplateException>(() => Template(Table(Row(P("<@if Flag>"), P("<@end>")))).Render(new Dictionary<string, object>()));
 
             var finding = Assert.Single(exception.Findings);
             Assert.Equal(FindingKind.BlockStructure, finding.Kind);
@@ -231,9 +248,9 @@ namespace Allos.Document.Rendering.Tests
         }
 
         [Fact]
-        public void ABlockThatEndsOutsideItsTableThrowsWhenTheTemplateIsRead()
+        public void ABlockThatEndsOutsideItsTableThrowsWhenTheTemplateRenders()
         {
-            var exception = Assert.Throws<TemplateException>(() => Template(Table(Row(P("<@for line Lines>"))) + P("<@end>")));
+            var exception = Assert.Throws<TemplateException>(() => Template(Table(Row(P("<@for line Lines>"))) + P("<@end>")).Render(new Dictionary<string, object>()));
 
             var finding = Assert.Single(exception.Findings);
             Assert.Equal(FindingKind.BlockStructure, finding.Kind);
@@ -243,9 +260,9 @@ namespace Allos.Document.Rendering.Tests
         [Theory]
         [InlineData("<@for line Lines>", "this block never ends")]
         [InlineData("<@end>", "closes nothing")]
-        public void AnUnbalancedBlockThrowsWhenTheTemplateIsRead(string tag, string message)
+        public void AnUnbalancedBlockThrowsWhenTheTemplateRenders(string tag, string message)
         {
-            var exception = Assert.Throws<TemplateException>(() => Template(P("x") + P(tag)));
+            var exception = Assert.Throws<TemplateException>(() => Template(P("x") + P(tag)).Render(new Dictionary<string, object>()));
 
             var finding = Assert.Single(exception.Findings);
             Assert.Equal(FindingKind.UnbalancedBlock, finding.Kind);
@@ -256,11 +273,11 @@ namespace Allos.Document.Rendering.Tests
         }
 
         [Fact]
-        public void AnUnbalancedBlockInAHeaderThrowsWhenTheTemplateIsRead()
+        public void AnUnbalancedBlockInAHeaderThrowsWhenTheTemplateRenders()
         {
             var header = "<office:master-styles><style:master-page style:name=\"Standard\"><style:header>" + P("<@if Flag>") + "</style:header></style:master-page></office:master-styles>";
 
-            var exception = Assert.Throws<TemplateException>(() => Template(P("x"), styles: header));
+            var exception = Assert.Throws<TemplateException>(() => Template(P("x"), styles: header).Render(new Dictionary<string, object>()));
 
             var finding = Assert.Single(exception.Findings);
             Assert.Equal(FindingKind.UnbalancedBlock, finding.Kind);

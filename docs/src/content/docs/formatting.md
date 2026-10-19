@@ -17,7 +17,7 @@ A tag takes attributes after its path, with values quoted by `"` or `'`:
 
 | Tag | Attribute |
 |---|---|
-| `<$Invoice.Date format="yyyy-MM-dd">` | `format`: a .NET format string, or one of `date`, `time`, `datetime`, `number` to use the document's pattern for that kind. |
+| `<$Invoice.Date format="yyyy-MM-dd">` | `format`: the name of a renderer, one of `date`, `time`, `datetime`, `number` to use the document's pattern for that kind, or a .NET format string, looked up in that order. `upper`, `lower` and `cap` are the built-in renderers; [Renderers and picture processing](renderers.md) has the rest. |
 | `<$Total culture="en-GB">` | `culture`: the culture this value prints in, whatever its kind: a name like `nl-BE`, or `invariant`. |
 | `<$Paid true="yes" false="no">` | `true`, `false`: the words a boolean prints. |
 | `<@for line Invoice.Lines sort="Product.Name, Quantity desc">` | `sort`: paths relative to the item, comma separated, each optionally followed by `asc` or `desc`. The sort is stable. |
@@ -25,7 +25,7 @@ A tag takes attributes after its path, with values quoted by `"` or `'`:
 | `<@for tag Product.Tags separator=", ">` | `separator`: the text written between two items of a loop that sits in one paragraph, as typed. A loop whose tags sit in paragraphs or rows of their own writes none, which `Validate` reports. |
 | `<$Invoice.Comment blank="none">` | `blank`: the text printed when what the binding would print is empty or white space: a null value, empty or white-space text, an empty collection, a path that breaks. Zero prints as a number. |
 | `<$Invoice.IsCreditNote map="Titles">` | `map`: the value prints the text the map of that name gives for it, see [Maps](maps.md). |
-| `<$Issuer.Logo empty="keep" fit="contain">` | On a picture tag: `empty` and `fit`, see [Pictures](pictures.md). |
+| `<$Issuer.Logo empty="keep" fit="contain">` | On a picture tag: `empty`, `fit` and `format`, which names a picture renderer, see [Pictures](pictures.md). |
 
 An attribute a tag of that kind does not know is a validation error.
 
@@ -54,3 +54,14 @@ flowchart LR
 - Everything else prints through `ToString()`.
 
 Patterns are .NET format strings, applied in the culture of the value's kind: `number-culture` for a number, `date-culture` for a date or a time, and `culture` unless they say otherwise.
+
+## Patterns
+
+`Validate` checks every pattern by its grammar, without a value, because .NET prints a pattern such as `yyyy-MM-dd Q` or `EUR` without complaint and not as the author meant it. A pattern on a tag must also be of the family of the kind of value at its path, which the shape of the model tells: a date, time or date-time takes a date pattern, a number a number pattern. A pattern on text, a boolean, an object or a picture is ignored and reported as `FormatIgnored`; so are `true` and `false` words on anything but a boolean. An open value, or a value of another kind such as a `TimeSpan`, takes any pattern of either family.
+
+| Family | Standard | Custom |
+|---|---|---|
+| Date and time | One letter: `d`, `D`, `f`, `F`, `g`, `G`, `m`, `M`, `o`, `O`, `r`, `R`, `s`, `t`, `T`, `u`, `U`, `y`, `Y`. | Runs of `d`, `M`, `y`, `h`, `H`, `m`, `s`, `f`, `F`, `t`, `z`, `K` and `g`, with separators and other non-letters, text in `'` or `"` quotes, and `\` before a character to print it. Any other unquoted letter is an error: write `yyyy-MM-dd'T'HH:mm`, not `yyyy-MM-ddTHH:mm`. |
+| Number | One letter, with digits of precision or without: `N2`, `F0`, `C`, `P1`, `E3`, `D`, `G`, `R`, `X`, `B`. | At least one `0` or `#`, with separators, sections split by `;`, text in quotes and `\` escapes: `#,##0.00`, `0.##`, `#,##0.00 'EUR'`. |
+
+The document settings `date`, `time`, `datetime` and `number` follow the same grammar, each in its own family.

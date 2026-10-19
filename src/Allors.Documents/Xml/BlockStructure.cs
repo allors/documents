@@ -3,7 +3,7 @@
 // Licensed under the LGPL license. See LICENSE file in the project root for full license information.
 // </copyright>
 
-namespace Allors.Document.Xml
+namespace Allors.Documents
 {
     using System.Xml;
 
@@ -19,7 +19,7 @@ namespace Allors.Document.Xml
         private const string TableNamespace = "urn:oasis:names:tc:opendocument:xmlns:table:1.0";
 
         /// <summary>What is wrong with where this block begins, branches and ends, in the author's terms; null when it is fine.</summary>
-        public static string Problem(XmlPair pair)
+        public static string? Problem(XmlPair pair)
         {
             var begin = pair.BeginSibling;
             var finish = pair.EndSibling;

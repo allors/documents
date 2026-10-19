@@ -58,7 +58,7 @@ configures. His example: the renderer decides whether a negative number prints a
 | Model | The application's objects as the resolver presents them: their members, derived values such as totals and grouped lines, and the virtual members a resolver adds. Everything that computes, compares or decides lives here. |
 | View | The template: layout, static text, styles and pictures, with tags that say where a value goes, what repeats, what is shown or hidden, how a picture takes its frame and which words a map prints. |
 | Controller | The code that reads a template and calls `Render` with a model and settings, and that calls `Validate` when a template is saved and in a test over every template. |
-| Renderer | The resolver's formatting under the [formatting layers](formatting.md#document-settings): cultures, patterns and the words for true and false, from the library's defaults up to the tag's attributes. Named renderers that a tag selects, such as upper-case text or a barcode, are [planned](renderers.md). |
+| Renderer | The resolver's formatting under the [formatting layers](formatting.md#document-settings): cultures, patterns and the words for true and false, from the library's defaults up to the tag's attributes. Named [renderers](renderers.md) that a tag selects, such as upper-case text or a barcode, and the picture processor that prepares a picture for its frame. |
 
 A tag's `format` attribute is on the view's side of that line: it says how a value prints, not
 what it is.
@@ -96,7 +96,7 @@ A template mistake prints blank and is reported as a [finding](findings.md); the
 completes. A missing member, a loop that cannot be ordered, a value that is no picture, a tag
 that cannot be read: each has a defined result and a finding that names the tag, the part and the
 paragraph. Only a template whose blocks cannot be rendered, because a block never ends or would
-cut a table, is refused when it is read, with the same findings.
+cut a table, is refused at `Render`, with the same findings, which `Validate` reports before.
 
 The reason is where mistakes should surface. A document run that fails on one typo is worse than
 a document with one blank and a report that says where, and the typo should not reach a run at
@@ -120,5 +120,7 @@ The core package has no third-party dependencies and uses no reflection, targets
 `netstandard2.0` and `net10.0`, and is trimmable and AOT-compatible, so that it can sit in any
 host. Reflection over plain classes lives in `Allors.Documents.Reflection`; a host with an object
 model of its own implements the resolver and the shape instead. Capabilities that need a library
-of their own, such as barcodes or image scaling, are [planned](renderers.md) as separate packages
-on the renderer and picture processing extension points, so that the core stays as it is.
+of their own, such as barcodes or image scaling, come as optional [packages](renderers.md)
+on the renderer and picture processing extension points, so that the core stays as it is. An
+application that has such a capability wraps its own code on the same extension points and
+needs no package.

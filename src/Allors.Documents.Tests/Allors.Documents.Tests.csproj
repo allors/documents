@@ -16,6 +16,8 @@
     <PackageReference Include="xunit.runner.visualstudio" Version="2.5.7">
       <PrivateAssets>all</PrivateAssets>
     </PackageReference>
+    <!-- The imaging tests decode and encode pictures; CI runs them on Linux. Same version as the imaging package's SkiaSharp. -->
+    <PackageReference Include="SkiaSharp.NativeAssets.Linux" Version="4.151.5" />
   </ItemGroup>
 
   <ItemGroup>
@@ -38,6 +40,8 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Allors.Documents\Allors.Documents.csproj" />
+    <ProjectReference Include="..\Allors.Documents.Barcodes\Allors.Documents.Barcodes.csproj" />
+    <ProjectReference Include="..\Allors.Documents.Imaging\Allors.Documents.Imaging.csproj" />
     <ProjectReference Include="..\Allors.Documents.Reflection\Allors.Documents.Reflection.csproj" />
   </ItemGroup>
 </Project>

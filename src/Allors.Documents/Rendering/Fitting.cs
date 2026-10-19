@@ -3,11 +3,9 @@
 // Licensed under the LGPL license. See LICENSE file in the project root for full license information.
 // </copyright>
 
-namespace Allors.Document.Rendering
+namespace Allors.Documents
 {
     using System;
-    using Allors.Document.OpenDocument;
-    using Allors.Document.Tags;
 
     /// <summary>
     /// The size a bound frame takes for its picture under the fit its tag asks. Fill keeps the frame as the author drew it; contain shrinks the side
@@ -20,7 +18,7 @@ namespace Allors.Document.Rendering
         /// The frame's new width and height as OpenDocument lengths, null for a side that stays. False when the frame's width or height cannot be read
         /// as a length, in which case the frame stays as it is.
         /// </summary>
-        public static bool TryFit(PictureFit fit, string width, string height, double pictureWidth, double pictureHeight, out string fittedWidth, out string fittedHeight)
+        public static bool TryFit(PictureFit fit, string width, string height, double pictureWidth, double pictureHeight, out string? fittedWidth, out string? fittedHeight)
         {
             fittedWidth = null;
             fittedHeight = null;

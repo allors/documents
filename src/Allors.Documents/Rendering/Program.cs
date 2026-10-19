@@ -3,15 +3,11 @@
 // Licensed under the LGPL license. See LICENSE file in the project root for full license information.
 // </copyright>
 
-namespace Allors.Document.Rendering
+namespace Allors.Documents
 {
     using System.Collections.Generic;
     using System.Linq;
     using System.Xml;
-    using Allors.Document.Inspection;
-    using Allors.Document.Tags;
-    using Allors.Document.Validation;
-    using Allors.Document.Xml;
 
     /// <summary>
     /// A part of a template (content.xml or styles.xml) ready to render: its DOM with every tag replaced by an instruction element in the
@@ -48,8 +44,19 @@ namespace Allors.Document.Rendering
         /// <summary>Tags that cannot be read and render as the text the author typed; every render reports them.</summary>
         public IReadOnlyList<Finding> Findings { get; }
 
-        /// <summary>Builds a part's program; the maps found in it are added to the list, which the parts of one template share so that a name is defined once.</summary>
-        public static Program Build(string part, byte[] xml, List<InspectedMap> maps = null)
+        /// <summary>Builds a part's program, or throws <see cref="TemplateException"/> when the part cannot render; see <see cref="TryBuild"/>.</summary>
+        public static Program Build(string part, byte[] xml, List<InspectedMap>? maps = null)
+        {
+            var blocking = new List<Finding>();
+            return TryBuild(part, xml, maps, blocking) ?? throw new TemplateException(blocking);
+        }
+
+        /// <summary>
+        /// Builds a part's program, or gives null and adds to the blocking findings why the part cannot render: a block that never ends, an end
+        /// that opens nothing, an else that belongs to no condition, or a block that would cut a table. The maps found in the part are added to
+        /// the list, which the parts of one template share so that a name is defined once.
+        /// </summary>
+        public static Program? TryBuild(string part, byte[] xml, List<InspectedMap>? maps, List<Finding> blocking)
         {
             var document = Inspector.Load(xml);
             var tags = new List<InspectedTag>();
@@ -61,7 +68,8 @@ namespace Allors.Document.Rendering
             var unbalanced = problems.Where(v => v.IsUnbalanced).Select(v => new Finding(FindingKind.UnbalancedBlock, FindingSeverity.Error, v.Text, null, v.Message, v.Location)).ToList();
             if (unbalanced.Count > 0)
             {
-                throw new TemplateException(unbalanced);
+                blocking.AddRange(unbalanced);
+                return null;
             }
 
             var malformed = problems.Select(v => new Finding(FindingKind.MalformedTag, FindingSeverity.Error, v.Text, null, v.Message, v.Location)).ToList();
@@ -74,7 +82,8 @@ namespace Allors.Document.Rendering
             Prepare(tags, root, document, instructions, tagByPair, branchesByPair, misplaced);
             if (misplaced.Count > 0)
             {
-                throw new TemplateException(misplaced);
+                blocking.AddRange(misplaced);
+                return null;
             }
 
             foreach (var picture in pictures)
@@ -84,7 +93,7 @@ namespace Allors.Document.Rendering
 
             foreach (var map in maps.Where(v => v.Element.OwnerDocument == document))
             {
-                map.Element.ParentNode.RemoveChild(map.Element);
+                map.Element.ParentNode?.RemoveChild(map.Element);
             }
 
             root.Rewrite(
@@ -115,14 +124,14 @@ namespace Allors.Document.Rendering
                 {
                     case TagKind.Binding:
                         var binding = document.CreateElement(Prefix, Name(TagKind.Binding), Namespace);
-                        tag.Element.ParentNode.ReplaceChild(binding, tag.Element);
+                        tag.Element.ParentNode?.ReplaceChild(binding, tag.Element);
                         instructions.Add(binding, new Instruction(tag.Tag, tag.Location));
                         break;
 
                     case TagKind.For:
                     case TagKind.If:
                     case TagKind.IfDef:
-                        var pair = new XmlPair(parent, tag.Element) { End = tag.End.Element };
+                        var pair = new XmlPair(parent, tag.Element) { End = tag.End?.Element };
                         parent.Children.Add(pair);
                         tagByPair.Add(pair, tag);
 

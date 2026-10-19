@@ -3,19 +3,15 @@
 // Licensed under the LGPL license. See LICENSE file in the project root for full license information.
 // </copyright>
 
-namespace Allors.Document.Validation
+namespace Allors.Documents
 {
     using System;
     using System.Collections.Generic;
+    using System.Diagnostics.CodeAnalysis;
     using System.Globalization;
     using System.Linq;
     using System.Text;
     using System.Xml;
-    using Allors.Document.Inspection;
-    using Allors.Document.Models;
-    using Allors.Document.Tags;
-    using Allors.Document.Xml;
-    using Formatting = Allors.Document.Models.Formatting;
 
     /// <summary>Checks an inspected template against a model shape.</summary>
     internal sealed class Validator
@@ -23,9 +19,10 @@ namespace Allors.Document.Validation
         private static readonly Location SettingsLocation = new Location("meta.xml", 0, string.Empty);
 
         /// <summary>A loop counter is a number: it has no members and is not a collection.</summary>
-        private static readonly IShape CounterShape = new DictionaryShape(new Dictionary<string, IShape>(), "the loop counter");
+        private static readonly IShape CounterShape = new ValueShape(ValueKind.Number, "the loop counter");
 
         private readonly IShape root;
+        private readonly Renderers renderers;
         private readonly List<Finding> findings = new List<Finding>();
         private readonly Dictionary<InspectedTag, Scope> scopeByBranch = new Dictionary<InspectedTag, Scope>();
         private readonly HashSet<XmlElement> blockElements = new HashSet<XmlElement>();
@@ -33,12 +30,16 @@ namespace Allors.Document.Validation
         private readonly Dictionary<string, InspectedMap> mapsByName = new Dictionary<string, InspectedMap>();
         private readonly HashSet<InspectedMap> mapsUsed = new HashSet<InspectedMap>();
 
-        private Validator(IShape root) => this.root = root ?? throw new ArgumentNullException(nameof(root));
-
-        public static TemplateValidation Validate(byte[] package, IShape root)
+        private Validator(IShape root, Renderers? renderers)
         {
-            var inspection = Inspector.Inspect(package);
-            var validator = new Validator(root);
+            this.root = root ?? throw new ArgumentNullException(nameof(root));
+            this.renderers = renderers ?? Renderers.Default;
+        }
+
+        /// <summary>Validates against the shape and the template's renderers; null stands for the built-in renderers alone.</summary>
+        public static TemplateValidation Validate(TemplateInspection inspection, IShape root, Renderers? renderers = null)
+        {
+            var validator = new Validator(root, renderers);
             validator.Run(inspection);
             return new TemplateValidation(validator.Sorted(), inspection);
         }
@@ -79,11 +80,15 @@ namespace Allors.Document.Validation
             this.CheckSettings(inspection.Settings);
         }
 
+        /// <summary>
+        /// A frame's tag binds a picture, or a value a picture renderer draws when its format names one; the attributes are empty, fit and format.
+        /// </summary>
         private void CheckPicture(InspectedPicture picture, Scope scope)
         {
             var tag = picture.Tag;
-            this.CheckPath(tag.Path, scope, tag.Text, picture.Location);
+            var shape = this.CheckPath(picture.Path, scope, tag.Text, picture.Location);
 
+            var drawn = false;
             foreach (var attribute in tag.Attributes)
             {
                 if (!TagSyntax.IsPictureAttribute(attribute.Key))
@@ -97,11 +102,40 @@ namespace Allors.Document.Validation
                         this.Add(FindingKind.BadValue, FindingSeverity.Error, tag.Text, null, TagSyntax.FitAttribute + "=\"" + attribute.Value + "\": use " + TagSyntax.FillValue + ", " + TagSyntax.ContainValue + ", " + TagSyntax.WidthValue + " or " + TagSyntax.HeightValue, picture.Location);
                     }
                 }
+                else if (string.Equals(attribute.Key, Formatting.FormatAttribute, StringComparison.OrdinalIgnoreCase))
+                {
+                    drawn = this.CheckPictureFormat(attribute.Value, tag.Text, picture.Location);
+                }
                 else if (!TagSyntax.IsEmptyValue(attribute.Value))
                 {
                     this.Add(FindingKind.BadValue, FindingSeverity.Error, tag.Text, null, TagSyntax.EmptyAttribute + "=\"" + attribute.Value + "\": use " + TagSyntax.RemoveValue + " or " + TagSyntax.KeepValue, picture.Location);
                 }
             }
+
+            // A picture renderer draws the frame's picture for a value of any kind; without one the value must be a picture
+            if (!drawn && shape != null && shape.Kind != ValueKind.Picture && shape.Kind != ValueKind.Open)
+            {
+                this.Add(FindingKind.NotAPicture, FindingSeverity.Error, tag.Text, tag.Path, "'" + tag.Path + "' is " + KindText(shape) + ", not a picture: bind the frame to a member that holds the bytes of a picture", picture.Location);
+            }
+        }
+
+        /// <summary>A picture tag's format names a picture renderer and nothing else; true when it does.</summary>
+        private bool CheckPictureFormat(string format, string text, Location location)
+        {
+            var use = this.renderers.PictureNames.Length == 0 ? "none is registered" : "use " + this.renderers.PictureNames;
+            if (!this.renderers.TryGet(format, out var renderer))
+            {
+                this.Add(FindingKind.BadValue, FindingSeverity.Error, text, null, Formatting.FormatAttribute + "=\"" + format + "\" names no picture renderer: " + use, location);
+                return false;
+            }
+
+            if (!(renderer is IPictureRenderer))
+            {
+                this.Add(FindingKind.BadValue, FindingSeverity.Error, text, null, Formatting.FormatAttribute + "=\"" + format + "\" renders text, not a picture: " + use, location);
+                return false;
+            }
+
+            return true;
         }
 
         private void Visit(InspectedTag tag, Scope scope)
@@ -121,9 +155,9 @@ namespace Allors.Document.Validation
                     var body = this.CheckLoop(tag, scope);
                     this.scopeByBranch[tag] = body;
                     var pair = this.CheckStructure(tag);
-                    if (tag.Tag.Separator != null && pair != null && !BlockStructure.IsInline(pair))
+                    if (tag.Tag.Separator != null && pair?.BeginSibling is XmlElement begin && !BlockStructure.IsInline(pair))
                     {
-                        this.Add(FindingKind.SeparatorIgnored, FindingSeverity.Warning, tag.Tag.Text, null, "the separator is not written: it goes between the items of a loop that sits in one paragraph, and this loop's tags sit in " + BlockStructure.Describe(pair.BeginSibling) + "s of their own", tag.Location);
+                        this.Add(FindingKind.SeparatorIgnored, FindingSeverity.Warning, tag.Tag.Text, null, "the separator is not written: it goes between the items of a loop that sits in one paragraph, and this loop's tags sit in " + BlockStructure.Describe(begin) + "s of their own", tag.Location);
                     }
 
                     foreach (var child in tag.Children)
@@ -169,12 +203,12 @@ namespace Allors.Document.Validation
             var holds = new Scope(evaluation, null, null);
             fallthrough = new Scope(evaluation, null, null);
 
-            var path = test.Tag.Path;
+            // A condition, and an else with a test, has a path
+            var path = test.Tag.Path!;
             var split = new Split();
-            var walk = this.Resolve(path, evaluation, split);
-            if (walk.Failed)
+            if (!this.TryResolve(path, evaluation, split, out _, out var failure))
             {
-                this.AddUnknownMember(walk, path, test.Tag.Text, test.Location);
+                this.AddUnknownMember(failure, path, test.Tag.Text, test.Location);
                 return holds;
             }
 
@@ -198,9 +232,9 @@ namespace Allors.Document.Validation
 
         private void CheckBinding(InspectedTag tag, Scope scope)
         {
-            this.CheckPath(tag.Tag.Path, scope, tag.Tag.Text, tag.Location);
+            // A binding has a path
+            var shape = this.CheckPath(tag.Tag.Path!, scope, tag.Tag.Text, tag.Location);
 
-            var culture = CultureInfo.InvariantCulture;
             foreach (var attribute in tag.Tag.Attributes)
             {
                 if (!TagSyntax.IsBindingAttribute(attribute.Key))
@@ -209,7 +243,7 @@ namespace Allors.Document.Validation
                 }
                 else if (string.Equals(attribute.Key, Formatting.CultureSetting, StringComparison.OrdinalIgnoreCase))
                 {
-                    culture = this.CheckCulture(attribute.Value, tag.Tag.Text, tag.Location) ?? culture;
+                    this.CheckCulture(attribute.Value, tag.Tag.Text, tag.Location);
                 }
                 else if (string.Equals(attribute.Key, TagSyntax.MapAttribute, StringComparison.OrdinalIgnoreCase))
                 {
@@ -224,30 +258,111 @@ namespace Allors.Document.Validation
                 }
             }
 
-            if (tag.Tag.Attributes.TryGetValue(Formatting.FormatAttribute, out var format) && !Formatting.IsNamedFormat(format) && !IsDatePattern(format, culture) && !IsNumberPattern(format, culture))
+            var kind = PrintedKind(shape);
+            if (tag.Tag.Attributes.TryGetValue(Formatting.FormatAttribute, out var format) && !string.IsNullOrEmpty(format))
             {
-                this.Add(FindingKind.BadPattern, FindingSeverity.Error, tag.Tag.Text, null, "'" + format + "' is not a format: use a .NET format string, or date, time, datetime or number for the document's pattern", tag.Location);
+                this.CheckFormat(tag, format, kind);
             }
+
+            if ((tag.Tag.Attributes.ContainsKey(Formatting.TrueSetting) || tag.Tag.Attributes.ContainsKey(Formatting.FalseSetting)) && shape != null && kind != ValueKind.Boolean && kind != ValueKind.Open)
+            {
+                this.Add(FindingKind.FormatIgnored, FindingSeverity.Warning, tag.Tag.Text, tag.Tag.Path, "the true and false words are ignored: '" + tag.Tag.Path + "' is " + KindText(shape) + ", not a boolean", tag.Location);
+            }
+        }
+
+        /// <summary>
+        /// A format must be of the family of the kind it prints: a date, time or date-time takes a date pattern, a number a number pattern,
+        /// and a kind that prints without a pattern ignores it. An open or other value takes any pattern of either family.
+        /// </summary>
+        private void CheckFormat(InspectedTag tag, string format, ValueKind kind)
+        {
+            var path = tag.Tag.Path;
+            if (this.renderers.TryGet(format, out var renderer))
+            {
+                if (!(renderer is ITextRenderer))
+                {
+                    this.Add(FindingKind.BadValue, FindingSeverity.Error, tag.Tag.Text, path, Formatting.FormatAttribute + "=\"" + format + "\" renders a picture, not text: use " + this.renderers.TextNames + ", a pattern, or date, time, datetime or number for the document's pattern", tag.Location);
+                }
+
+                return;
+            }
+
+            var named = Formatting.KindOfSetting(format);
+            switch (kind)
+            {
+                case ValueKind.Date:
+                case ValueKind.Time:
+                case ValueKind.DateTime:
+                    if (named == ValueKind.Number)
+                    {
+                        this.Add(FindingKind.BadPattern, FindingSeverity.Error, tag.Tag.Text, path, "'" + format + "' names the document's number pattern, and '" + path + "' is " + KindText(kind) + ": use date, time or datetime, or a date pattern", tag.Location);
+                    }
+                    else if (named == null && !Patterns.IsDate(format))
+                    {
+                        this.Add(FindingKind.BadPattern, FindingSeverity.Error, tag.Tag.Text, path, "'" + format + "' is not a date pattern, and '" + path + "' is " + KindText(kind) + ": use the letters d, M, y, h, H, m, s, f, F, t, z, K and g with separators and quoted text, such as dd-MMM-yyyy, or a standard letter such as d, D or g", tag.Location);
+                    }
+
+                    break;
+
+                case ValueKind.Number:
+                    if (named != null && named != ValueKind.Number)
+                    {
+                        this.Add(FindingKind.BadPattern, FindingSeverity.Error, tag.Tag.Text, path, "'" + format + "' names the document's " + format.ToLowerInvariant() + " pattern, and '" + path + "' is a number: use number, or a number pattern", tag.Location);
+                    }
+                    else if (named == null && !Patterns.IsNumber(format))
+                    {
+                        this.Add(FindingKind.BadPattern, FindingSeverity.Error, tag.Tag.Text, path, "'" + format + "' is not a number pattern, and '" + path + "' is a number: use a standard letter with its precision such as N2, F0 or C, or a pattern with 0 and # such as #,##0.00", tag.Location);
+                    }
+
+                    break;
+
+                case ValueKind.Text:
+                case ValueKind.Boolean:
+                case ValueKind.Object:
+                case ValueKind.Picture:
+                    this.Add(FindingKind.FormatIgnored, FindingSeverity.Warning, tag.Tag.Text, path, "the format is ignored: '" + path + "' is " + KindText(kind) + " and prints without a pattern", tag.Location);
+                    break;
+
+                default:
+                    if (named == null && !Patterns.IsDate(format) && !Patterns.IsNumber(format))
+                    {
+                        this.Add(FindingKind.BadPattern, FindingSeverity.Error, tag.Tag.Text, path, "'" + format + "' is not a format: use a date or number pattern, date, time, datetime or number for the document's pattern, or a renderer: " + this.renderers.TextNames, tag.Location);
+                    }
+
+                    break;
+            }
+        }
+
+        /// <summary>The kind a binding prints: a collection prints its items, so their kind; an unknown path is open.</summary>
+        private static ValueKind PrintedKind(IShape? shape)
+        {
+            while (shape != null && shape.Kind == ValueKind.Collection)
+            {
+                shape = shape.Element;
+            }
+
+            return shape?.Kind ?? ValueKind.Open;
         }
 
         private Scope CheckLoop(InspectedTag tag, Scope scope)
         {
+            // A loop has a path and a variable
             var variable = tag.Tag.Variable;
-            var walk = this.Resolve(tag.Tag.Path, scope, null);
+            var path = tag.Tag.Path!;
             IShape variableShape;
-            if (walk.Failed)
+            if (!this.TryResolve(path, scope, null, out var shape, out var failure))
             {
-                this.AddUnknownMember(walk, tag.Tag.Path, tag.Tag.Text, tag.Location);
+                this.AddUnknownMember(failure, path, tag.Tag.Text, tag.Location);
                 variableShape = DictionaryShape.Open;
             }
-            else if (walk.Shape.IsCollection)
+            else if (shape.Kind == ValueKind.Collection || shape.Kind == ValueKind.Open)
             {
-                variableShape = walk.Shape.Element ?? DictionaryShape.Open;
+                variableShape = shape.Element ?? DictionaryShape.Open;
             }
             else
             {
-                this.Add(FindingKind.NotACollection, FindingSeverity.Warning, tag.Tag.Text, tag.Tag.Path, "'" + tag.Tag.Path + "' is " + Describe(walk.Shape) + ", not a collection: the loop runs once over the value", tag.Location);
-                variableShape = walk.Shape;
+                this.Add(FindingKind.NotACollection, FindingSeverity.Warning, tag.Tag.Text, path, "'" + path + "' is " + Describe(shape) + ", not a collection: the loop runs once over the value", tag.Location);
+                variableShape = shape;
             }
 
             foreach (var attribute in tag.Tag.Attributes)
@@ -260,10 +375,13 @@ namespace Allors.Document.Validation
 
             foreach (var key in tag.Tag.Sort)
             {
-                var keyWalk = Walk.Relative(variableShape, key.Path);
-                if (keyWalk.Failed)
+                if (!TryResolveRelative(variableShape, key.Path, out var keyShape, out var keyFailure))
                 {
-                    this.Add(FindingKind.UnknownMember, FindingSeverity.Error, tag.Tag.Text, key.Path, "sort key '" + key.Path + "': " + UnknownMemberText(keyWalk), tag.Location);
+                    this.Add(FindingKind.UnknownMember, FindingSeverity.Error, tag.Tag.Text, key.Path, "sort key '" + key.Path + "': " + UnknownMemberText(keyFailure), tag.Location);
+                }
+                else if (keyShape.Kind == ValueKind.Object || keyShape.Kind == ValueKind.Collection || keyShape.Kind == ValueKind.Picture)
+                {
+                    this.Add(FindingKind.CannotSort, FindingSeverity.Error, tag.Tag.Text, key.Path, "sort key '" + key.Path + "' is " + KindText(keyShape) + ", which does not order: sort by a text, number, boolean, date or time member of it, such as " + key.Path + ".Name", tag.Location);
                 }
             }
 
@@ -276,48 +394,87 @@ namespace Allors.Document.Validation
             return new Scope(body, tag.Tag.Index, CounterShape);
         }
 
-        private void CheckPath(string path, Scope scope, string text, Location location)
+        /// <summary>The shape at the path, or null after reporting that the path breaks.</summary>
+        private IShape? CheckPath(string path, Scope scope, string text, Location location)
         {
-            var walk = this.Resolve(path, scope, null);
-            if (walk.Failed)
+            if (!this.TryResolve(path, scope, null, out var shape, out var failure))
             {
-                this.AddUnknownMember(walk, path, text, location);
+                this.AddUnknownMember(failure, path, text, location);
             }
+
+            return shape;
         }
 
-        private void AddUnknownMember(Walk walk, string path, string text, Location location)
+        private void AddUnknownMember(Failure failure, string path, string text, Location location)
         {
-            var message = UnknownMemberText(walk);
-            if (walk.VariantsWith.Count > 0)
+            var message = UnknownMemberText(failure);
+            if (failure.VariantsWith.Count > 0)
             {
-                var guard = walk.Guard;
+                var guard = failure.Guard;
                 message += ": put the block in <@ifdef " + guard + "> or <@if " + guard + ">";
             }
 
             this.Add(FindingKind.UnknownMember, FindingSeverity.Error, text, path, message, location);
         }
 
-        private static string UnknownMemberText(Walk walk)
+        private static string UnknownMemberText(Failure failure)
         {
-            if (walk.VariantsWith.Count > 0)
+            if (failure.VariantsWith.Count > 0)
             {
-                return walk.Segment + " is a member of " + string.Join(" and ", walk.VariantsWith.Select(v => v.Name)) + " but not of every " + walk.At.Name;
+                return failure.Segment + " is a member of " + string.Join(" and ", failure.VariantsWith.Select(v => v.Name)) + " but not of every " + failure.At.Name;
             }
 
-            return Describe(walk.At) + " has no member " + walk.Segment;
+            return Describe(failure.At) + " has no member " + failure.Segment;
         }
 
         private static string Describe(IShape shape) => shape is DictionaryShape dictionary && dictionary.IsOpen ? "an open value" : shape.Name;
 
+        /// <summary>The kind of a shape in the author's words, with the shape's name when it adds something: "an object (Party)", "text".</summary>
+        private static string KindText(IShape shape)
+        {
+            var kind = KindText(shape.Kind);
+            return shape.Kind == ValueKind.Object || shape.Kind == ValueKind.Collection || shape.Kind == ValueKind.Other ? kind + " (" + shape.Name + ")" : kind;
+        }
+
+        private static string KindText(ValueKind kind)
+        {
+            switch (kind)
+            {
+                case ValueKind.Open:
+                    return "an open value";
+                case ValueKind.Object:
+                    return "an object";
+                case ValueKind.Collection:
+                    return "a collection";
+                case ValueKind.Text:
+                    return "text";
+                case ValueKind.Number:
+                    return "a number";
+                case ValueKind.Boolean:
+                    return "a boolean";
+                case ValueKind.Date:
+                    return "a date";
+                case ValueKind.Time:
+                    return "a time";
+                case ValueKind.DateTime:
+                    return "a date and time";
+                case ValueKind.Picture:
+                    return "a picture";
+                default:
+                    return "a value of another kind";
+            }
+        }
+
         /// <summary>
         /// Walks a path from a scope: the first segment is a loop variable in scope, innermost first, or a member of the root; the rest are members.
         /// With a split, a segment that only some variants have is noted in it and the walk goes on over those variants instead of failing.
+        /// True with the shape the path reaches; false with where it failed.
         /// </summary>
-        private Walk Resolve(string path, Scope scope, Split split)
+        private bool TryResolve(string path, Scope scope, Split? split, [NotNullWhen(true)] out IShape? shape, [NotNullWhen(false)] out Failure? failure)
         {
             var segments = path.Split('.');
             var frame = scope.Frame(segments[0]);
-            var @base = (object)frame ?? this.root;
+            var @base = (object?)frame ?? this.root;
             var current = frame?.VariableShape ?? this.root;
             var start = frame == null ? 0 : 1;
             var prefix = string.Empty;
@@ -333,19 +490,48 @@ namespace Allors.Document.Validation
                     var with = current.Variants.Where(v => v.Member(segment) != null).ToList();
                     if (with.Count == 0 || split == null)
                     {
-                        return Walk.Failure(current, segment, with, string.Join(".", segments.Take(i + 1)));
+                        shape = null;
+                        failure = new Failure(current, segment, with, string.Join(".", segments.Take(i + 1)));
+                        return false;
                     }
 
                     var without = current.Variants.Where(v => v.Member(segment) == null).ToList();
                     split.Narrowings.Add(new Narrowing(@base, prefix, with, without, i == segments.Length - 1));
-                    member = Shape(with).Member(segment);
+
+                    // Every variant in with has the member, so their common shape has it too
+                    member = Shape(with).Member(segment)!;
                 }
 
                 prefix = prefix.Length == 0 ? segment : prefix + "." + segment;
                 current = scope.Narrowed(@base, prefix) ?? member;
             }
 
-            return Walk.Success(current);
+            shape = current;
+            failure = null;
+            return true;
+        }
+
+        /// <summary>Walks a path over a shape alone, as a sort key is relative to the item. True with the shape the path reaches; false with where it failed.</summary>
+        private static bool TryResolveRelative(IShape shape, string path, [NotNullWhen(true)] out IShape? result, [NotNullWhen(false)] out Failure? failure)
+        {
+            var current = shape;
+            var segments = path.Split('.');
+            for (var i = 0; i < segments.Length; i++)
+            {
+                var member = current.Member(segments[i]);
+                if (member == null)
+                {
+                    result = null;
+                    failure = new Failure(current, segments[i], current.Variants.Where(v => v.Member(segments[i]) != null).ToList(), string.Join(".", segments.Take(i + 1)));
+                    return false;
+                }
+
+                current = member;
+            }
+
+            result = current;
+            failure = null;
+            return true;
         }
 
         /// <summary>
@@ -353,16 +539,16 @@ namespace Allors.Document.Validation
         /// hold them, keeping or repeating what sits between. Tags in one paragraph cost only their text runs; tags in two cells of one row cost
         /// the cells; a tag inside a table whose partner is outside costs the whole table. The block's pair, for what else depends on its shape; null when it has none.
         /// </summary>
-        private XmlPair CheckStructure(InspectedTag block)
+        private XmlPair? CheckStructure(InspectedTag block)
         {
             var end = block.End;
-            if (end == null || block.Element == null || end.Element == null)
+            if (end == null)
             {
                 return null;
             }
 
             var pair = new XmlPair(null, block.Element) { End = end.Element };
-            var elses = block.Elses.Where(v => v.Element != null).ToList();
+            var elses = block.Elses.ToList();
             foreach (var @else in elses)
             {
                 pair.AddSeparator(@else.Element);
@@ -385,7 +571,11 @@ namespace Allors.Document.Validation
             this.CheckMixedText(begin, block);
             for (var i = 0; i < elses.Count; i++)
             {
-                this.CheckMixedText(pair.SeparatorSiblings[i], elses[i]);
+                // Without a problem every else sits in a child of the container
+                if (pair.SeparatorSiblings[i] is XmlElement separator)
+                {
+                    this.CheckMixedText(separator, elses[i]);
+                }
             }
 
             this.CheckMixedText(finish, end);
@@ -434,7 +624,7 @@ namespace Allors.Document.Validation
             }
         }
 
-        /// <summary>Every setting must be known and every culture a culture; a pattern is tried in the culture its kind prints in.</summary>
+        /// <summary>Every setting must be known and every culture a culture; a pattern must be of the family of its setting.</summary>
         private void CheckSettings(IReadOnlyDictionary<string, string> settings)
         {
             foreach (var setting in settings)
@@ -449,28 +639,25 @@ namespace Allors.Document.Validation
                 }
             }
 
-            var formatting = Formatting.Default.With(settings);
             foreach (var setting in settings)
             {
-                var name = setting.Key.ToLowerInvariant();
-                var isDate = name == Formatting.DateSetting || name == Formatting.TimeSetting || name == Formatting.DateTimeSetting;
-                var isNumber = name == Formatting.NumberSetting;
-                if (string.IsNullOrEmpty(setting.Value) || (!isDate && !isNumber))
+                var kind = Formatting.KindOfSetting(setting.Key);
+                if (string.IsNullOrEmpty(setting.Value) || kind == null)
                 {
                     continue;
                 }
 
-                var culture = formatting.CultureOf(name);
-                if (isDate ? !IsDatePattern(setting.Value, culture) : !IsNumberPattern(setting.Value, culture))
+                var isNumber = kind == ValueKind.Number;
+                if (isNumber ? !Patterns.IsNumber(setting.Value) : !Patterns.IsDate(setting.Value))
                 {
-                    this.Add(FindingKind.BadPattern, FindingSeverity.Error, setting.Key, null, "'" + setting.Value + "' is not a " + (isDate ? "date" : "number") + " format", SettingsLocation);
+                    this.Add(FindingKind.BadPattern, FindingSeverity.Error, setting.Key, null, "'" + setting.Value + "' is not a " + (isNumber ? "number" : "date") + " format", SettingsLocation);
                 }
             }
         }
 
-        private CultureInfo CheckCulture(string name, string text, Location location)
+        private CultureInfo? CheckCulture(string name, string text, Location location)
         {
-            if (string.IsNullOrEmpty(name))
+            if (name.Length == 0)
             {
                 return null;
             }
@@ -484,7 +671,7 @@ namespace Allors.Document.Validation
             return culture;
         }
 
-        private void Add(FindingKind kind, FindingSeverity severity, string text, string path, string message, Location location) =>
+        private void Add(FindingKind kind, FindingSeverity severity, string text, string? path, string message, Location location) =>
             this.findings.Add(new Finding(kind, severity, text, path, message, location));
 
         private IReadOnlyList<Finding> Sorted() =>
@@ -505,32 +692,6 @@ namespace Allors.Document.Validation
                     return 1;
                 default:
                     return 2;
-            }
-        }
-
-        private static bool IsDatePattern(string pattern, CultureInfo culture)
-        {
-            try
-            {
-                new DateTime(2026, 10, 14, 13, 45, 30).ToString(pattern, culture);
-                return true;
-            }
-            catch (FormatException)
-            {
-                return false;
-            }
-        }
-
-        private static bool IsNumberPattern(string pattern, CultureInfo culture)
-        {
-            try
-            {
-                1234.5m.ToString(pattern, culture);
-                return true;
-            }
-            catch (FormatException)
-            {
-                return false;
             }
         }
 
@@ -557,21 +718,21 @@ namespace Allors.Document.Validation
         {
             private readonly List<(object Base, string Prefix, IShape Shape)> narrowings = new List<(object, string, IShape)>();
 
-            public Scope(Scope parent, string variable, IShape variableShape)
+            public Scope(Scope? parent, string? variable, IShape? variableShape)
             {
                 this.Parent = parent;
                 this.Variable = variable;
                 this.VariableShape = variableShape;
             }
 
-            public Scope Parent { get; }
+            public Scope? Parent { get; }
 
-            public string Variable { get; }
+            public string? Variable { get; }
 
-            public IShape VariableShape { get; }
+            public IShape? VariableShape { get; }
 
             /// <summary>The innermost loop frame binding this name, or null when the name is a root member.</summary>
-            public Scope Frame(string name)
+            public Scope? Frame(string name)
             {
                 for (var scope = this; scope != null; scope = scope.Parent)
                 {
@@ -587,7 +748,7 @@ namespace Allors.Document.Validation
             public void Narrow(object @base, string prefix, IShape shape) => this.narrowings.Add((@base, prefix, shape));
 
             /// <summary>The narrowed shape of a prefix under a base, from the innermost branch that narrowed it; null when none did.</summary>
-            public IShape Narrowed(object @base, string prefix)
+            public IShape? Narrowed(object @base, string prefix)
             {
                 for (var scope = this; scope != null; scope = scope.Parent)
                 {
@@ -635,21 +796,16 @@ namespace Allors.Document.Validation
             public List<Narrowing> Narrowings { get; } = new List<Narrowing>();
         }
 
-        /// <summary>The outcome of walking a path: the shape it reaches, or where it failed and which variants would have had the member.</summary>
-        private sealed class Walk
+        /// <summary>Where a walk over a path failed: the shape it was at, the segment that shape has no member for, and which variants would have had it.</summary>
+        private sealed class Failure
         {
-            private Walk(IShape shape, IShape at, string segment, IReadOnlyList<IShape> variantsWith, string guard)
+            public Failure(IShape at, string segment, IReadOnlyList<IShape> variantsWith, string guard)
             {
-                this.Shape = shape;
                 this.At = at;
                 this.Segment = segment;
                 this.VariantsWith = variantsWith;
                 this.Guard = guard;
             }
-
-            public bool Failed => this.Shape == null;
-
-            public IShape Shape { get; }
 
             public IShape At { get; }
 
@@ -659,29 +815,6 @@ namespace Allors.Document.Validation
 
             /// <summary>The path up to and including the failing segment, as the author would write it in a guard.</summary>
             public string Guard { get; }
-
-            public static Walk Success(IShape shape) => new Walk(shape, null, null, Array.Empty<IShape>(), null);
-
-            public static Walk Failure(IShape at, string segment, IReadOnlyList<IShape> variantsWith, string guard) => new Walk(null, at, segment, variantsWith, guard);
-
-            /// <summary>Walks a path over a shape alone, as a sort key is relative to the item.</summary>
-            public static Walk Relative(IShape shape, string path)
-            {
-                var current = shape;
-                var segments = path.Split('.');
-                for (var i = 0; i < segments.Length; i++)
-                {
-                    var member = current.Member(segments[i]);
-                    if (member == null)
-                    {
-                        return Failure(current, segments[i], current.Variants.Where(v => v.Member(segments[i]) != null).ToList(), string.Join(".", segments.Take(i + 1)));
-                    }
-
-                    current = member;
-                }
-
-                return Success(current);
-            }
         }
     }
 }

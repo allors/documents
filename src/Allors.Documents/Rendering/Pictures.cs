@@ -3,13 +3,12 @@
 // Licensed under the LGPL license. See LICENSE file in the project root for full license information.
 // </copyright>
 
-namespace Allors.Document.Rendering
+namespace Allors.Documents
 {
     using System;
     using System.Collections.Generic;
     using System.Linq;
     using System.Security.Cryptography;
-    using Allors.Document.OpenDocument;
 
     /// <summary>
     /// The pictures a render puts into the package. A picture is stored once, however many frames show it, under <c>Pictures/&lt;path&gt;.&lt;ext&gt;</c>
@@ -51,7 +50,7 @@ namespace Allors.Document.Rendering
         /// The files of the rendered package and its manifest: the template's files without the pictures no link shows any more, plus the
         /// pictures this render added, each with a manifest entry. Both pass through untouched when nothing changed.
         /// </summary>
-        public (IReadOnlyDictionary<string, byte[]> Files, byte[] Manifest) Files(IReadOnlyDictionary<string, byte[]> template, ICollection<string> hrefs, byte[] manifest)
+        public (IReadOnlyDictionary<string, byte[]> Files, byte[]? Manifest) Files(IReadOnlyDictionary<string, byte[]> template, ICollection<string> hrefs, byte[]? manifest)
         {
             var unreferenced = template.Keys.Where(v => IsPictureFile(v) && !hrefs.Contains(v)).ToList();
             if (unreferenced.Count == 0 && this.added.Count == 0)

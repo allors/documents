@@ -3,10 +3,10 @@
 // Licensed under the LGPL license. See LICENSE file in the project root for full license information.
 // </copyright>
 
-namespace Allos.Document.Tags.Tests
+namespace Allors.Documents.Tests
 {
     using System.Linq;
-    using Allors.Document.Tags;
+    using Allors.Documents;
     using Xunit;
 
     public class TagSyntaxTests
@@ -366,6 +366,17 @@ namespace Allos.Document.Tags.Tests
             Assert.False(TagSyntax.IsLoopAttribute("map"));
             Assert.True(TagSyntax.IsDefaultKey(" Default "));
             Assert.False(TagSyntax.IsDefaultKey("defaults"));
+        }
+
+        [Fact]
+        public void SortKeysWithTheSameValuesAreEqual()
+        {
+            Assert.True(TagSyntax.TryParse("<@for line Lines sort=\"Product, Quantity desc\">", out var first, out var error), error);
+            Assert.True(TagSyntax.TryParse("<@for line Lines sort=\"Product, Quantity desc\">", out var second, out error), error);
+
+            Assert.Equal(first.Sort, second.Sort);
+            Assert.NotEqual(first.Sort[0], first.Sort[1]);
+            Assert.Equal("Quantity desc", first.Sort[1].ToString());
         }
     }
 }

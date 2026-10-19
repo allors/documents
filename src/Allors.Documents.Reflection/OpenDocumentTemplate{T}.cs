@@ -3,17 +3,17 @@
 // Licensed under the LGPL license. See LICENSE file in the project root for full license information.
 // </copyright>
 
-namespace Allors.Document.Reflection
+namespace Allors.Documents.Reflection
 {
     using System;
     using System.Collections.Generic;
     using System.Reflection;
-    using Allors.Document.OpenDocument;
+    using Allors.Documents;
 
     /// <summary>
     /// A template over a model type. A render sees the public properties of <typeparamref name="T"/> by their exact names, the root that
     /// <see cref="ReflectionShape.Arguments{T}"/> gives Validate, and reads what is below them through <see cref="ReflectionResolver"/>,
-    /// unless the settings of the render name another resolver.
+    /// unless the settings name another resolver.
     /// </summary>
 #if NET
     [System.Diagnostics.CodeAnalysis.RequiresUnreferencedCode("Reads the members of a type through reflection.")]
@@ -25,15 +25,19 @@ namespace Allors.Document.Reflection
         private readonly PropertyInfo[] properties;
 
         /// <summary>
-        /// Reads a template. Throws <see cref="System.IO.InvalidDataException"/> when the package is not an OpenDocument text, and
-        /// <see cref="TemplateException"/> when a block never ends, an end opens nothing or a block would cut a table.
+        /// Reads a template with the settings every render uses; null settings are the library's defaults. Throws
+        /// <see cref="System.IO.InvalidDataException"/> when the bytes are not an OpenDocument text; a template whose blocks cannot be
+        /// rendered is read, reported by <see cref="OpenDocumentTemplate.Validate"/> and thrown at <see cref="Render"/>.
         /// </summary>
-        public OpenDocumentTemplate(byte[] document)
-            : base(document, ReflectionResolver.Instance) =>
+        public OpenDocumentTemplate(byte[] document, RenderSettings? settings = null)
+            : base(document, settings) =>
             this.properties = typeof(T).GetProperties();
 
-        /// <summary>Renders the template for a model; see <see cref="OpenDocumentTemplate.Render(object, RenderSettings)"/>.</summary>
-        public RenderResult Render(T model, RenderSettings settings = null)
+        /// <summary>The resolver a render reads through when the settings name none: the reflection resolver.</summary>
+        protected override IResolver DefaultResolver => ReflectionResolver.Instance;
+
+        /// <summary>Renders the template for a model; see <see cref="OpenDocumentTemplate.Render(object)"/>.</summary>
+        public RenderResult Render(T model)
         {
             if (model == null)
             {
@@ -41,7 +45,7 @@ namespace Allors.Document.Reflection
             }
 
             // The root is a dictionary of the properties as written: a path starts with a property name in its exact case, as Validate checks it
-            var root = new Dictionary<string, object>(StringComparer.Ordinal);
+            var root = new Dictionary<string, object?>(StringComparer.Ordinal);
             foreach (var property in this.properties)
             {
                 if (property.GetIndexParameters().Length == 0 && !root.ContainsKey(property.Name))
@@ -50,7 +54,7 @@ namespace Allors.Document.Reflection
                 }
             }
 
-            return this.Render((object)root, settings);
+            return this.Render((object)root);
         }
     }
 }

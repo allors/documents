@@ -3,12 +3,12 @@
 // Licensed under the LGPL license. See LICENSE file in the project root for full license information.
 // </copyright>
 
-namespace Allors.Document.Models
+namespace Allors.Documents
 {
     using System.Collections.Generic;
 
     /// <summary>
-    /// The static view of a model: which members a value has and what a loop over it yields, without any data.
+    /// The static view of a model: what kind of value it is, which members it has and what a loop over it yields, without any data.
     /// Validation walks a template's paths over shapes. An open shape accepts every member and can be iterated.
     /// </summary>
     public interface IShape
@@ -16,17 +16,17 @@ namespace Allors.Document.Models
         /// <summary>A name for findings, such as the type name.</summary>
         string Name { get; }
 
-        /// <summary>The members this shape declares; empty for an open shape.</summary>
+        /// <summary>The kind of value: what a loop does with it, which pattern family formats it, whether it sorts and whether it is a picture.</summary>
+        ValueKind Kind { get; }
+
+        /// <summary>The members this shape declares; empty for an open shape and for a leaf.</summary>
         IEnumerable<string> Members { get; }
 
         /// <summary>The shape of the member with this name, or null when the member is unknown.</summary>
-        IShape Member(string name);
+        IShape? Member(string name);
 
-        /// <summary>True when a loop over a value of this shape yields its items.</summary>
-        bool IsCollection { get; }
-
-        /// <summary>The shape of one item of the collection; null unless <see cref="IsCollection"/>.</summary>
-        IShape Element { get; }
+        /// <summary>The shape of one item of a collection; null unless <see cref="Kind"/> is <see cref="ValueKind.Collection"/> or <see cref="ValueKind.Open"/>.</summary>
+        IShape? Element { get; }
 
         /// <summary>
         /// The concrete shapes a value of this shape may have at runtime when the shape is abstract, such as the classes behind an interface;

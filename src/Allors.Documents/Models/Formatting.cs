@@ -3,7 +3,7 @@
 // Licensed under the LGPL license. See LICENSE file in the project root for full license information.
 // </copyright>
 
-namespace Allors.Document.Models
+namespace Allors.Documents
 {
     using System;
     using System.Collections.Generic;
@@ -48,7 +48,10 @@ namespace Allors.Document.Models
         /// <summary>The word for false.</summary>
         public const string FalseSetting = "false";
 
-        /// <summary>A tag's own format: a .NET format string, or the name of a pattern setting (date, time, datetime, number).</summary>
+        /// <summary>
+        /// A tag's own format: the name of a renderer, the name of a pattern setting (date, time, datetime, number) or a .NET format string, looked up
+        /// in that order; on a picture tag, the name of a picture renderer. Here it is the pattern or format string: a renderer's name is taken out before the resolver formats.
+        /// </summary>
         public const string FormatAttribute = "format";
 
         /// <summary>The names a template's document settings may use.</summary>
@@ -60,7 +63,7 @@ namespace Allors.Document.Models
         /// <summary>The library's defaults: the invariant culture for every kind, no patterns, "true" and "false".</summary>
         public static readonly Formatting Default = new Formatting(CultureInfo.InvariantCulture, null, null, null, null, null, null, null, "true", "false");
 
-        private Formatting(CultureInfo culture, CultureInfo numberCulture, CultureInfo dateCulture, string format, string date, string time, string dateTime, string number, string trueWord, string falseWord)
+        private Formatting(CultureInfo culture, CultureInfo? numberCulture, CultureInfo? dateCulture, string? format, string? date, string? time, string? dateTime, string? number, string trueWord, string falseWord)
         {
             this.Culture = culture;
             this.NumberCulture = numberCulture;
@@ -78,21 +81,25 @@ namespace Allors.Document.Models
         public CultureInfo Culture { get; }
 
         /// <summary>The culture numbers print in when they have one of their own; null when they print in <see cref="Culture"/>.</summary>
-        public CultureInfo NumberCulture { get; }
+        public CultureInfo? NumberCulture { get; }
 
         /// <summary>The culture dates, times and date-times print in when they have one of their own; null when they print in <see cref="Culture"/>.</summary>
-        public CultureInfo DateCulture { get; }
+        public CultureInfo? DateCulture { get; }
 
         /// <summary>The tag's format attribute; null when the tag has none.</summary>
-        public string Format { get; }
+        public string? Format { get; }
 
-        public string Date { get; }
+        /// <summary>The pattern for a date without a time; null for the culture's default.</summary>
+        public string? Date { get; }
 
-        public string Time { get; }
+        /// <summary>The pattern for a time without a date; null for the culture's default.</summary>
+        public string? Time { get; }
 
-        public string DateTime { get; }
+        /// <summary>The pattern for a date with a time; null for the culture's default.</summary>
+        public string? DateTime { get; }
 
-        public string Number { get; }
+        /// <summary>The pattern for a number; null for the culture's default.</summary>
+        public string? Number { get; }
 
         public string True { get; }
 
@@ -108,7 +115,7 @@ namespace Allors.Document.Models
         public static bool IsBindingAttribute(string name) => Contains(BindingAttributes, name);
 
         /// <summary>True when the format names a pattern setting instead of being a format string.</summary>
-        public static bool IsNamedFormat(string format)
+        public static bool IsNamedFormat(string? format)
         {
             switch (format?.ToLowerInvariant())
             {
@@ -123,9 +130,9 @@ namespace Allors.Document.Models
         }
 
         /// <summary>The culture with this name, the invariant culture for "invariant", or null when there is none.</summary>
-        public static CultureInfo ToCulture(string name)
+        public static CultureInfo? ToCulture(string? name)
         {
-            if (string.IsNullOrEmpty(name))
+            if (name == null || name.Length == 0)
             {
                 return null;
             }
@@ -175,8 +182,8 @@ namespace Allors.Document.Models
 
             var hasNumberCulture = false;
             var hasDateCulture = false;
-            string numberCultureName = null;
-            string dateCultureName = null;
+            string? numberCultureName = null;
+            string? dateCultureName = null;
 
             foreach (var pair in overrides)
             {
@@ -245,7 +252,7 @@ namespace Allors.Document.Models
         /// A formatting with these cultures as one layer: the culture, when given, resets the cultures per kind of the layers below it;
         /// the number culture and the date culture, when given, set their kind apart from the culture.
         /// </summary>
-        public Formatting WithCulture(CultureInfo culture, CultureInfo numberCulture, CultureInfo dateCulture)
+        public Formatting WithCulture(CultureInfo? culture, CultureInfo? numberCulture, CultureInfo? dateCulture)
         {
             var reset = culture != null;
             return new Formatting(
@@ -265,15 +272,15 @@ namespace Allors.Document.Models
         /// The culture a value of this kind prints in: the number culture for a number, the date culture for a date, a time or a date-time,
         /// each when it has one of its own, and otherwise the culture.
         /// </summary>
-        public CultureInfo CultureOf(string settingOfKind)
+        public CultureInfo CultureFor(ValueKind kind)
         {
-            switch (settingOfKind)
+            switch (kind)
             {
-                case NumberSetting:
+                case ValueKind.Number:
                     return this.NumberCulture ?? this.Culture;
-                case DateSetting:
-                case TimeSetting:
-                case DateTimeSetting:
+                case ValueKind.Date:
+                case ValueKind.Time:
+                case ValueKind.DateTime:
                     return this.DateCulture ?? this.Culture;
                 default:
                     return this.Culture;
@@ -281,15 +288,15 @@ namespace Allors.Document.Models
         }
 
         /// <summary>
-        /// The pattern a value should use: the tag's format when it is a format string, the named setting when the tag names one
-        /// (date, time, datetime or number), otherwise the setting the value's kind falls under.
+        /// The pattern a value of this kind prints with: the tag's format when it is a format string, the named setting when the tag names one
+        /// (date, time, datetime or number), otherwise the setting of the kind: date, time, datetime or number, and none for the other kinds.
         /// </summary>
-        public string Pattern(string settingOfKind)
+        public string? PatternFor(ValueKind kind)
         {
             switch (this.Format?.ToLowerInvariant())
             {
                 case null:
-                    return this.Setting(settingOfKind);
+                    return this.SettingFor(kind);
                 case DateSetting:
                     return this.Date;
                 case TimeSetting:
@@ -300,6 +307,24 @@ namespace Allors.Document.Models
                     return this.Number;
                 default:
                     return this.Format;
+            }
+        }
+
+        /// <summary>The kind a pattern setting formats: date, time, datetime or number; null for another name.</summary>
+        public static ValueKind? KindOfSetting(string? name)
+        {
+            switch (name?.ToLowerInvariant())
+            {
+                case DateSetting:
+                    return ValueKind.Date;
+                case TimeSetting:
+                    return ValueKind.Time;
+                case DateTimeSetting:
+                    return ValueKind.DateTime;
+                case NumberSetting:
+                    return ValueKind.Number;
+                default:
+                    return null;
             }
         }
 
@@ -316,17 +341,17 @@ namespace Allors.Document.Models
             return false;
         }
 
-        private string Setting(string name)
+        private string? SettingFor(ValueKind kind)
         {
-            switch (name)
+            switch (kind)
             {
-                case DateSetting:
+                case ValueKind.Date:
                     return this.Date;
-                case TimeSetting:
+                case ValueKind.Time:
                     return this.Time;
-                case DateTimeSetting:
+                case ValueKind.DateTime:
                     return this.DateTime;
-                case NumberSetting:
+                case ValueKind.Number:
                     return this.Number;
                 default:
                     return null;

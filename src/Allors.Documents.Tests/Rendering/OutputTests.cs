@@ -3,7 +3,7 @@
 // Licensed under the LGPL license. See LICENSE file in the project root for full license information.
 // </copyright>
 
-namespace Allos.Document.Rendering.Tests
+namespace Allors.Documents.Tests
 {
     using System.Collections.Generic;
     using System.IO;
@@ -12,11 +12,10 @@ namespace Allos.Document.Rendering.Tests
     using System.Text;
     using System.Threading.Tasks;
     using System.Xml.Linq;
-    using Allors.Document.OpenDocument;
-    using Allors.Document.Reflection;
-    using Allos.Document.OpenDocument.Tests;
+    using Allors.Documents;
+    using Allors.Documents.Reflection;
     using Xunit;
-    using static Allos.Document.Rendering.Tests.Render;
+    using static Allors.Documents.Tests.Render;
 
     /// <summary>What the resolver engine writes around the values: the parts as the template had them, the package, and the other files.</summary>
     public class OutputTests
@@ -50,7 +49,7 @@ namespace Allos.Document.Rendering.Tests
             var package = Odt.Build(P("x"));
             var template = Encoding.UTF8.GetString(Odt.Entry(package, "content.xml").Bytes);
 
-            var result = new OpenDocumentTemplate(package).Render(new Dictionary<string, object>(), new RenderSettings());
+            var result = new OpenDocumentTemplate(package).Render(new Dictionary<string, object>());
 
             var rendered = Encoding.UTF8.GetString(Odt.Entry(result.Document, "content.xml").Bytes);
             Assert.Equal(StartTag(template, "office:document-content"), StartTag(rendered, "office:document-content"));
@@ -74,7 +73,7 @@ namespace Allos.Document.Rendering.Tests
             var package = Odt.Build(P(Odt.Frame("Logo", "Pictures/placeholder.png", "The company logo") + Odt.Frame("$Logo", "Pictures/placeholder.png")), pictures);
             var model = new Dictionary<string, object> { ["Logo"] = new byte[] { 9, 9, 9 } };
 
-            var result = new OpenDocumentTemplate(package).Render(model, new RenderSettings());
+            var result = new OpenDocumentTemplate(package).Render(model);
 
             // A frame binds by the tag in its description; a plain description or a name starting with $ binds nothing under this engine
             Assert.Equal([("Logo", "Pictures/placeholder.png"), ("$Logo", "Pictures/placeholder.png")], Odt.Frames(Odt.Content(result.Document)));
@@ -103,9 +102,9 @@ namespace Allos.Document.Rendering.Tests
         [Fact]
         public void ThePackageStartsWithTheMimetypeAndKeepsTheOtherFiles()
         {
-            var template = new OpenDocumentTemplate(Resource("EmbeddedTemplate.odt"));
+            var template = new OpenDocumentTemplate(Resource("EmbeddedTemplate.odt"), new RenderSettings { Resolver = ReflectionResolver.Instance });
 
-            var result = template.Render(new Model(), new RenderSettings { Resolver = ReflectionResolver.Instance });
+            var result = template.Render(new Model());
 
             var entries = Odt.Entries(result.Document);
             Assert.Equal("mimetype", entries[0].Name);
@@ -127,9 +126,9 @@ namespace Allos.Document.Rendering.Tests
                 People = [new ModelPerson { FirstName = "John" }, new ModelPerson { FirstName = "Jenny" }],
                 Images = ["number1", "number2", "number3"],
             };
-            var template = new OpenDocumentTemplate(Resource("EmbeddedTemplate.odt"));
+            var template = new OpenDocumentTemplate(Resource("EmbeddedTemplate.odt"), new RenderSettings { Resolver = ReflectionResolver.Instance });
 
-            var result = template.Render(model, new RenderSettings { Resolver = ReflectionResolver.Instance });
+            var result = template.Render(model);
 
             var paragraphs = Paragraphs(result);
             Assert.Contains("Jane", paragraphs);
@@ -150,10 +149,10 @@ namespace Allos.Document.Rendering.Tests
         {
             var model = new Dictionary<string, object> { ["Items"] = new object[] { Item("a"), Item("b") }, ["Name"] = "x" };
             var template = Template(P("<$Name>") + P("<@for item Items index=\"n\">") + P("<$n>", " ", "<$item.Name>") + P("<@end>"));
-            var expected = Odt.Entry(template.Render(model, new RenderSettings()).Document, "content.xml").Bytes;
+            var expected = Odt.Entry(template.Render(model).Document, "content.xml").Bytes;
 
             var contents = new byte[16][];
-            Parallel.For(0, contents.Length, i => contents[i] = Odt.Entry(template.Render(model, new RenderSettings()).Document, "content.xml").Bytes);
+            Parallel.For(0, contents.Length, i => contents[i] = Odt.Entry(template.Render(model).Document, "content.xml").Bytes);
 
             Assert.All(contents, v => Assert.Equal(expected, v));
         }

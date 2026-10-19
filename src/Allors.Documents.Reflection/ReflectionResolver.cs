@@ -3,9 +3,9 @@
 // Licensed under the LGPL license. See LICENSE file in the project root for full license information.
 // </copyright>
 
-namespace Allors.Document.Reflection
+namespace Allors.Documents.Reflection
 {
-    using Allors.Document.Models;
+    using Allors.Documents;
 
     /// <summary>
     /// Resolves members on classes and dictionaries as the StringTemplate engine of 1.x and 2.x did. A dictionary has its keys as written
@@ -19,7 +19,7 @@ namespace Allors.Document.Reflection
     {
         public static readonly ReflectionResolver Instance = new ReflectionResolver();
 
-        public override bool TryGetMember(object scope, string name, out object value)
+        public override bool TryGetMember(object scope, string name, out object? value)
         {
             if (IsDictionary(scope))
             {

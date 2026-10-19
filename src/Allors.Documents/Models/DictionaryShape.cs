@@ -3,7 +3,7 @@
 // Licensed under the LGPL license. See LICENSE file in the project root for full license information.
 // </copyright>
 
-namespace Allors.Document.Models
+namespace Allors.Documents
 {
     using System.Collections.Generic;
     using System.Linq;
@@ -17,12 +17,12 @@ namespace Allors.Document.Models
         /// <summary>The open shape: anything goes.</summary>
         public static readonly DictionaryShape Open = new DictionaryShape(null);
 
-        private readonly IReadOnlyDictionary<string, IShape> members;
+        private readonly IReadOnlyDictionary<string, IShape>? members;
 
-        private readonly string name;
+        private readonly string? name;
 
         /// <summary>A closed shape over these members; null for an open shape. The name is for findings.</summary>
-        public DictionaryShape(IReadOnlyDictionary<string, IShape> members, string name = null)
+        public DictionaryShape(IReadOnlyDictionary<string, IShape>? members, string? name = null)
         {
             this.members = members;
             this.name = name;
@@ -32,18 +32,18 @@ namespace Allors.Document.Models
 
         public bool IsOpen => this.members == null;
 
+        /// <summary>Open: an open shape can stand for anything, a collection included. Closed: a dictionary is an object, not looped over.</summary>
+        public ValueKind Kind => this.IsOpen ? ValueKind.Open : ValueKind.Object;
+
         public IEnumerable<string> Members => this.members?.Keys ?? Enumerable.Empty<string>();
 
-        /// <summary>Open: an open shape can stand for anything, a collection included. Closed: a dictionary is not looped over.</summary>
-        public bool IsCollection => this.IsOpen;
-
-        public IShape Element => this.IsOpen ? this : null;
+        public IShape? Element => this.IsOpen ? this : null;
 
         public IEnumerable<IShape> Variants => Enumerable.Empty<IShape>();
 
-        public IShape Member(string name)
+        public IShape? Member(string name)
         {
-            if (this.IsOpen)
+            if (this.members == null)
             {
                 return this;
             }
@@ -51,6 +51,6 @@ namespace Allors.Document.Models
             return name != null && this.members.TryGetValue(name, out var member) ? member : null;
         }
 
-        public override string ToString() => this.IsOpen ? "open dictionary" : "dictionary {" + string.Join(", ", this.members.Keys) + "}";
+        public override string ToString() => this.members == null ? "open dictionary" : "dictionary {" + string.Join(", ", this.members.Keys) + "}";
     }
 }

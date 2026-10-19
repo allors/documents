@@ -3,7 +3,7 @@
 // Licensed under the LGPL license. See LICENSE file in the project root for full license information.
 // </copyright>
 
-namespace Allors.Document.Tags
+namespace Allors.Documents
 {
     using System.Collections.Generic;
 
@@ -43,7 +43,7 @@ namespace Allors.Document.Tags
 
         private static readonly IReadOnlyList<SortKey> NoSort = new SortKey[0];
 
-        internal Tag(TagKind kind, string text, string path, string variable, IReadOnlyDictionary<string, string> attributes, IReadOnlyList<SortKey> sort = null, string index = null, string separator = null, bool defined = false, bool negated = false)
+        internal Tag(TagKind kind, string text, string? path, string? variable, IReadOnlyDictionary<string, string>? attributes, IReadOnlyList<SortKey>? sort = null, string? index = null, string? separator = null, bool defined = false, bool negated = false)
         {
             this.Kind = kind;
             this.Text = text;
@@ -62,10 +62,10 @@ namespace Allors.Document.Tags
         public string Text { get; }
 
         /// <summary>The path of a binding, a picture, a loop or a condition, the path an else tests, or the name of a map; null for an end tag and for an else without a test.</summary>
-        public string Path { get; }
+        public string? Path { get; }
 
         /// <summary>The loop variable of a for tag; null otherwise.</summary>
-        public string Variable { get; }
+        public string? Variable { get; }
 
         /// <summary>The attributes of a binding, a picture or a loop, by name (case-insensitive); empty otherwise.</summary>
         public IReadOnlyDictionary<string, string> Attributes { get; }
@@ -74,10 +74,10 @@ namespace Allors.Document.Tags
         public IReadOnlyList<SortKey> Sort { get; }
 
         /// <summary>The name of a loop's counter, from its index attribute: 1 for the first item in the loop's order; null when the loop declares none.</summary>
-        public string Index { get; }
+        public string? Index { get; }
 
         /// <summary>The text a loop writes between two items, from its separator attribute; null when the loop declares none.</summary>
-        public string Separator { get; }
+        public string? Separator { get; }
 
         /// <summary>True when a condition tests whether the member at its path exists, as ifdef and else ifdef do, rather than whether its value is true.</summary>
         public bool Defined { get; }

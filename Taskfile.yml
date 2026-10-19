@@ -50,6 +50,14 @@ tasks:
         dotnet pack src/Allors.Documents.Reflection
         --configuration {{.CONFIGURATION}}
         --output {{.ARTIFACTS}}/nuget
+      - >-
+        dotnet pack src/Allors.Documents.Barcodes
+        --configuration {{.CONFIGURATION}}
+        --output {{.ARTIFACTS}}/nuget
+      - >-
+        dotnet pack src/Allors.Documents.Imaging
+        --configuration {{.CONFIGURATION}}
+        --output {{.ARTIFACTS}}/nuget
 
   ci:
     desc: Build, test and pack

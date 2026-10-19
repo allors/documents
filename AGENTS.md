@@ -10,16 +10,18 @@
   `Allors.Documents.Reflection`; a capability that needs a third-party library comes as a separate
   package.
 - A render never throws for what a template says: what the model cannot give prints blank and is
-  reported as a finding. Only a template whose blocks cannot be rendered throws, when it is read.
-  `Validate` reports everything it can tell from the template and the shape of its model.
+  reported as a finding. Only a template whose blocks cannot be rendered throws, at `Render`.
+  `Validate` reports everything it can tell from the template and the shape of its model, that
+  included.
 - Describe Allors Documents independently in documentation, comments, commit messages and GitHub
   text. Do not name private projects, or the organizations and installations that use the library.
 - Ask before introducing a breaking change outside an agreed major version.
 
 ## Development notes
 
-- The solution is `src/Documents.slnx`: `Allors.Documents`, `Allors.Documents.Reflection` and
-  `Allors.Documents.Tests` (xunit). Build with `dotnet build src/Documents.slnx` and test with
+- The solution is `src/Documents.slnx`: `Allors.Documents`, `Allors.Documents.Reflection`,
+  `Allors.Documents.Barcodes`, `Allors.Documents.Imaging` and `Allors.Documents.Tests` (xunit).
+  Build with `dotnet build src/Documents.slnx` and test with
   `dotnet test src/Allors.Documents.Tests`. CI runs `task ci CONFIGURATION=Release`, which builds,
   tests and packs; [Task](https://taskfile.dev) is a prerequisite for `Taskfile.yml`, not for `dotnet`.
 - Error messages and findings are actionable: they say what is wrong in the author's terms and what

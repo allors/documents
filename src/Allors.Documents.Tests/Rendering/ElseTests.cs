@@ -3,15 +3,13 @@
 // Licensed under the LGPL license. See LICENSE file in the project root for full license information.
 // </copyright>
 
-namespace Allos.Document.Rendering.Tests
+namespace Allors.Documents.Tests
 {
     using System.Collections.Generic;
     using System.Linq;
-    using Allors.Document;
-    using Allors.Document.Validation;
-    using Allos.Document.OpenDocument.Tests;
+    using Allors.Documents;
     using Xunit;
-    using static Allos.Document.Rendering.Tests.Render;
+    using static Allors.Documents.Tests.Render;
 
     /// <summary>The branches of a condition: else, else if, else ifdef and not; where an else may sit; what cannot render.</summary>
     public class ElseTests
@@ -139,11 +137,11 @@ namespace Allos.Document.Rendering.Tests
         [InlineData("<@for i Items><@else><@end>", "sits in a loop")]
         [InlineData("<@if A><@else><@else><@end>", "already has an <@else>")]
         [InlineData("<@if A><@else><@else if B><@end>", "comes after the <@else>")]
-        public void AnElseThatBelongsToNoConditionThrowsWhenTheTemplateIsRead(string tags, string message)
+        public void AnElseThatBelongsToNoConditionThrowsWhenTheTemplateRenders(string tags, string message)
         {
             var body = string.Concat(tags.Split('>').Where(v => v.Length > 0).Select(v => P(v + ">")));
 
-            var exception = Assert.Throws<TemplateException>(() => Template(body));
+            var exception = Assert.Throws<TemplateException>(() => Template(body).Render(new Dictionary<string, object>()));
 
             var finding = Assert.Single(exception.Findings);
             Assert.Equal(FindingKind.UnbalancedBlock, finding.Kind);
@@ -152,9 +150,9 @@ namespace Allos.Document.Rendering.Tests
         }
 
         [Fact]
-        public void AnElseInTheParagraphOfTheBeginTagThrowsWhenTheTemplateIsRead()
+        public void AnElseInTheParagraphOfTheBeginTagThrowsWhenTheTemplateRenders()
         {
-            var exception = Assert.Throws<TemplateException>(() => Template(P("<@if A>", "<@else>") + P("x") + P("<@end>")));
+            var exception = Assert.Throws<TemplateException>(() => Template(P("<@if A>", "<@else>") + P("x") + P("<@end>")).Render(new Dictionary<string, object>()));
 
             var finding = Assert.Single(exception.Findings);
             Assert.Equal(FindingKind.BlockStructure, finding.Kind);
@@ -164,9 +162,9 @@ namespace Allos.Document.Rendering.Tests
         }
 
         [Fact]
-        public void AnElseInTheRowOfTheEndTagThrowsWhenTheTemplateIsRead()
+        public void AnElseInTheRowOfTheEndTagThrowsWhenTheTemplateRenders()
         {
-            var exception = Assert.Throws<TemplateException>(() => Template(Table(Row(P("<@if A>")), Row(P("x")), Row(P("<@else>") + P("<@end>")))));
+            var exception = Assert.Throws<TemplateException>(() => Template(Table(Row(P("<@if A>")), Row(P("x")), Row(P("<@else>") + P("<@end>")))).Render(new Dictionary<string, object>()));
 
             var finding = Assert.Single(exception.Findings);
             Assert.Equal(FindingKind.BlockStructure, finding.Kind);
@@ -174,9 +172,9 @@ namespace Allos.Document.Rendering.Tests
         }
 
         [Fact]
-        public void AnElseInATableWhileTheBlockIsOutsideThrowsWhenTheTemplateIsRead()
+        public void AnElseInATableWhileTheBlockIsOutsideThrowsWhenTheTemplateRenders()
         {
-            var exception = Assert.Throws<TemplateException>(() => Template(P("<@if A>") + Table(Row(P("<@else>"))) + P("<@end>")));
+            var exception = Assert.Throws<TemplateException>(() => Template(P("<@if A>") + Table(Row(P("<@else>"))) + P("<@end>")).Render(new Dictionary<string, object>()));
 
             var finding = Assert.Single(exception.Findings);
             Assert.Equal(FindingKind.BlockStructure, finding.Kind);

@@ -1,0 +1,45 @@
+<Project Sdk="Microsoft.NET.Sdk">
+	<PropertyGroup>
+		<TargetFrameworks>netstandard2.0;net10.0</TargetFrameworks>
+		<RootNamespace>Allors.Documents.Barcodes</RootNamespace>
+		<Title>Allors Documents Barcodes</Title>
+		<Authors>allors</Authors>
+		<Company>Allors bvba</Company>
+		<Copyright>(c) Allors bvba</Copyright>
+		<Description>The barcode picture renderers for Allors Documents: code128, ean13 and qr, drawn with ZXing.Net for the frame that shows them.</Description>
+		<PackageProjectUrl>https://github.com/Allors/Documents</PackageProjectUrl>
+		<PackageDescription>Draw barcodes into the picture frames of Allors Documents templates.</PackageDescription>
+		<PackageIcon>icon.png</PackageIcon>
+		<PackageReadmeFile>README.md</PackageReadmeFile>
+		<PackageLicenseExpression>LGPL-3.0-or-later</PackageLicenseExpression>
+		<PackageTags>office;libreoffice;openoffice;odt;generation;generator;template;barcode;code128;ean13;qr</PackageTags>
+		<RepositoryUrl>https://github.com/Allors/Documents.git</RepositoryUrl>
+		<EmbedUntrackedSources>true</EmbedUntrackedSources>
+		<IncludeSymbols>true</IncludeSymbols>
+		<SymbolPackageFormat>snupkg</SymbolPackageFormat>
+		<LangVersion>latest</LangVersion>
+		<Nullable>enable</Nullable>
+		<WarningsAsErrors>nullable</WarningsAsErrors>
+	</PropertyGroup>
+
+	<ItemGroup>
+		<None Include="icon.png" Pack="true" PackagePath="" />
+		<None Include="..\..\README.md" Pack="true" PackagePath="\"/>
+	</ItemGroup>
+
+	<ItemGroup>
+		<PackageReference Include="Microsoft.SourceLink.GitHub" Version="8.0.0">
+			<PrivateAssets>all</PrivateAssets>
+			<IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+		</PackageReference>
+		<PackageReference Include="ZXing.Net" Version="0.16.11" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<ProjectReference Include="..\Allors.Documents\Allors.Documents.csproj" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<InternalsVisibleTo Include="Allors.Documents.Tests" />
+	</ItemGroup>
+</Project>

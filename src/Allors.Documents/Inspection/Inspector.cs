@@ -3,7 +3,7 @@
 // Licensed under the LGPL license. See LICENSE file in the project root for full license information.
 // </copyright>
 
-namespace Allors.Document.Inspection
+namespace Allors.Documents
 {
     using System.Collections.Generic;
     using System.IO;
@@ -11,8 +11,6 @@ namespace Allors.Document.Inspection
     using System.Text;
     using System.Text.RegularExpressions;
     using System.Xml;
-    using Allors.Document.OpenDocument;
-    using Allors.Document.Tags;
 
     /// <summary>Reads the tags, bound pictures, maps and settings of a template package without rendering it.</summary>
     internal static class Inspector
@@ -25,10 +23,8 @@ namespace Allors.Document.Inspection
 
         private static readonly Regex WhitespaceRegex = new Regex(@"\s+");
 
-        public static TemplateInspection Inspect(byte[] document)
+        public static TemplateInspection Inspect(Parts parts)
         {
-            var parts = Parts.Read(document);
-
             var tags = new List<InspectedTag>();
             var pictures = new List<InspectedPicture>();
             var maps = new List<InspectedMap>();
@@ -56,6 +52,9 @@ namespace Allors.Document.Inspection
 
             return document;
         }
+
+        /// <summary>The root element of a loaded document. Every document <see cref="Load"/> gives has one: XML without a root element does not load.</summary>
+        internal static XmlElement Root(XmlDocument document) => document.DocumentElement!;
 
         /// <summary>The custom document properties of meta.xml (File, Properties, Custom Properties), by name.</summary>
         internal static IReadOnlyDictionary<string, string> Settings(XmlDocument meta)
@@ -154,7 +153,7 @@ namespace Allors.Document.Inspection
 
             public void Walk()
             {
-                this.Visit(this.document.DocumentElement);
+                this.Visit(Root(this.document));
 
                 while (this.blocks.Count > 0)
                 {
@@ -320,7 +319,7 @@ namespace Allors.Document.Inspection
                 }
 
                 var entries = new Dictionary<string, string>();
-                string defaultText = null;
+                string? defaultText = null;
                 var hasDefault = false;
                 foreach (var row in rows.Skip(1))
                 {
@@ -402,9 +401,9 @@ namespace Allors.Document.Inspection
             /// <summary>The cells of a row in order, a covered cell of a merge left out.</summary>
             private static List<XmlElement> Cells(XmlElement row) => row.ChildNodes.OfType<XmlElement>().Where(v => Is(v, TableNamespace, "table-cell")).ToList();
 
-            private static XmlElement FirstPlaceholder(XmlElement element) => element == null ? null : Descendants(element).FirstOrDefault(v => Is(v, TextNamespace, "placeholder"));
+            private static XmlElement? FirstPlaceholder(XmlElement? element) => element == null ? null : Descendants(element).FirstOrDefault(v => Is(v, TextNamespace, "placeholder"));
 
-            private static XmlElement FirstParagraph(XmlElement element) => Descendants(element).FirstOrDefault(IsParagraph);
+            private static XmlElement? FirstParagraph(XmlElement element) => Descendants(element).FirstOrDefault(IsParagraph);
 
             private static IEnumerable<XmlElement> Descendants(XmlElement element)
             {
@@ -439,7 +438,7 @@ namespace Allors.Document.Inspection
 
             private static string Keyword(Tag tag) => tag.HasTest ? (tag.Defined ? "<@else ifdef>" : "<@else if>") : "<@else>";
 
-            private static XmlElement Child(XmlElement element, string ns, string localName)
+            private static XmlElement? Child(XmlElement element, string ns, string localName)
             {
                 foreach (XmlNode child in element.ChildNodes)
                 {

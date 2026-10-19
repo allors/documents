@@ -3,11 +3,10 @@
 // Licensed under the LGPL license. See LICENSE file in the project root for full license information.
 // </copyright>
 
-namespace Allos.Document.OpenDocument.Tests
+namespace Allors.Documents.Tests
 {
     using System.Collections.Generic;
-    using Allors.Document.OpenDocument;
-    using Allors.Document.Tags;
+    using Allors.Documents;
     using Xunit;
 
     /// <summary>An ifdef keeps its block whenever the member exists, null included, and drops it in silence when it does not.</summary>
@@ -22,7 +21,7 @@ namespace Allos.Document.OpenDocument.Tests
         [Fact]
         public void ADefinedConditionIsABlock()
         {
-            var inspection = OpenDocumentTemplate.Inspect(Template);
+            var inspection = new OpenDocumentTemplate(Template).Inspection;
 
             var block = Assert.Single(inspection.Blocks);
             Assert.Equal(TagKind.IfDef, block.Tag.Kind);
