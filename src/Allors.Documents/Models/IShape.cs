@@ -23,10 +23,10 @@ namespace Allors.Documents
         IEnumerable<string> Members { get; }
 
         /// <summary>The shape of the member with this name, or null when the member is unknown.</summary>
-        IShape Member(string name);
+        IShape? Member(string name);
 
         /// <summary>The shape of one item of a collection; null unless <see cref="Kind"/> is <see cref="ValueKind.Collection"/> or <see cref="ValueKind.Open"/>.</summary>
-        IShape Element { get; }
+        IShape? Element { get; }
 
         /// <summary>
         /// The concrete shapes a value of this shape may have at runtime when the shape is abstract, such as the classes behind an interface;

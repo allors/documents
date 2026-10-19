@@ -29,7 +29,7 @@ namespace Allors.Documents.Reflection
         /// <see cref="System.IO.InvalidDataException"/> when the bytes are not an OpenDocument text; a template whose blocks cannot be
         /// rendered is read, reported by <see cref="OpenDocumentTemplate.Validate"/> and thrown at <see cref="Render"/>.
         /// </summary>
-        public OpenDocumentTemplate(byte[] document, RenderSettings settings = null)
+        public OpenDocumentTemplate(byte[] document, RenderSettings? settings = null)
             : base(document, settings) =>
             this.properties = typeof(T).GetProperties();
 
@@ -45,7 +45,7 @@ namespace Allors.Documents.Reflection
             }
 
             // The root is a dictionary of the properties as written: a path starts with a property name in its exact case, as Validate checks it
-            var root = new Dictionary<string, object>(StringComparer.Ordinal);
+            var root = new Dictionary<string, object?>(StringComparer.Ordinal);
             foreach (var property in this.properties)
             {
                 if (property.GetIndexParameters().Length == 0 && !root.ContainsKey(property.Name))

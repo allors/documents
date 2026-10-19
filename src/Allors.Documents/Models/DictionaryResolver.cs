@@ -10,6 +10,6 @@ namespace Allors.Documents
     {
         public static readonly DictionaryResolver Instance = new DictionaryResolver();
 
-        public override bool TryGetMember(object scope, string name, out object value) => TryGetDictionaryMember(scope, name, out value);
+        public override bool TryGetMember(object scope, string name, out object? value) => TryGetDictionaryMember(scope, name, out value);
     }
 }

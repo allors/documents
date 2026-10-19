@@ -13,6 +13,6 @@ namespace Allors.Documents
         /// formatting, whose <see cref="Formatting.Format"/> is null here because the renderer's name took its place. The renderer may transform
         /// the text or render the value anew. It is never called for a null value. An exception is reported as RendererFailed and the binding prints blank.
         /// </summary>
-        string Render(object value, string text, Formatting formatting);
+        string? Render(object value, string text, Formatting formatting);
     }
 }

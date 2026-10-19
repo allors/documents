@@ -28,9 +28,9 @@ namespace Allors.Documents.Barcodes
         /// <summary>The size in pixels when the frame has none; 320 by 80 for a one-dimensional code.</summary>
         protected virtual (int Width, int Height) DefaultSize => (320, 80);
 
-        public byte[] Render(object value, string text, PictureFrame frame)
+        public byte[]? Render(object value, string text, PictureFrame frame)
         {
-            if (string.IsNullOrEmpty(text))
+            if (text == null || text.Length == 0)
             {
                 return null;
             }

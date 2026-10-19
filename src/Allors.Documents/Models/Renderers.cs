@@ -8,6 +8,7 @@ namespace Allors.Documents
     using System;
     using System.Collections;
     using System.Collections.Generic;
+    using System.Diagnostics.CodeAnalysis;
     using System.Linq;
 
     /// <summary>
@@ -24,7 +25,7 @@ namespace Allors.Documents
         private readonly Dictionary<string, IRenderer> byName = new Dictionary<string, IRenderer>(StringComparer.OrdinalIgnoreCase);
 
         /// <summary>The built-ins and the settings' renderers; a null renderer or one without a name is an argument error.</summary>
-        public Renderers(IEnumerable<IRenderer> renderers)
+        public Renderers(IEnumerable<IRenderer>? renderers)
         {
             foreach (var renderer in TextRenderers.All)
             {
@@ -64,10 +65,10 @@ namespace Allors.Documents
         public string PictureNames => Join(this.ordered.OfType<IPictureRenderer>().Select(v => v.Name));
 
         /// <summary>The renderer under this name, in any case and with white space around it ignored; false when there is none.</summary>
-        public bool TryGet(string name, out IRenderer renderer)
+        public bool TryGet(string? name, [NotNullWhen(true)] out IRenderer? renderer)
         {
             var key = name?.Trim();
-            if (string.IsNullOrEmpty(key))
+            if (key == null || key.Length == 0)
             {
                 renderer = null;
                 return false;

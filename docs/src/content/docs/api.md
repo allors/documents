@@ -23,6 +23,13 @@ document. The namespace is `Allors.Documents`, the name of the package, and
 | `Allors.Documents.Imaging` | `PictureScaling`, a picture processor over SkiaSharp that scales a picture down to its frame; see [Renderers and picture processing](renderers.md#packages). |
 
 `Allors.Documents` is all a render needs. The other packages are optional: reflection for an application without a resolver of its own, barcodes and imaging for one that draws no barcodes and scales no pictures of its own. An application that has those capabilities wraps its own code as a renderer or picture processor, as [Renderers and picture processing](renderers.md) shows.
+
+Every package is annotated for nullable reference types, on both target frameworks: a parameter,
+property or result that may be null says so, such as `RenderSettings? settings`, `IShape? Member(string name)`
+and `byte[]? Picture(object value)`, and everything else is never null. An application that
+implements `IResolver`, `IShape` or a renderer under `<Nullable>enable</Nullable>` matches those
+annotations; one without nullable reference types sees no difference.
+
 ## Template
 
 `OpenDocumentTemplate` reads a template from its bytes, with the settings every render uses, and

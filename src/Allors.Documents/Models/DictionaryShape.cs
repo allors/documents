@@ -17,12 +17,12 @@ namespace Allors.Documents
         /// <summary>The open shape: anything goes.</summary>
         public static readonly DictionaryShape Open = new DictionaryShape(null);
 
-        private readonly IReadOnlyDictionary<string, IShape> members;
+        private readonly IReadOnlyDictionary<string, IShape>? members;
 
-        private readonly string name;
+        private readonly string? name;
 
         /// <summary>A closed shape over these members; null for an open shape. The name is for findings.</summary>
-        public DictionaryShape(IReadOnlyDictionary<string, IShape> members, string name = null)
+        public DictionaryShape(IReadOnlyDictionary<string, IShape>? members, string? name = null)
         {
             this.members = members;
             this.name = name;
@@ -37,13 +37,13 @@ namespace Allors.Documents
 
         public IEnumerable<string> Members => this.members?.Keys ?? Enumerable.Empty<string>();
 
-        public IShape Element => this.IsOpen ? this : null;
+        public IShape? Element => this.IsOpen ? this : null;
 
         public IEnumerable<IShape> Variants => Enumerable.Empty<IShape>();
 
-        public IShape Member(string name)
+        public IShape? Member(string name)
         {
-            if (this.IsOpen)
+            if (this.members == null)
             {
                 return this;
             }
@@ -51,6 +51,6 @@ namespace Allors.Documents
             return name != null && this.members.TryGetValue(name, out var member) ? member : null;
         }
 
-        public override string ToString() => this.IsOpen ? "open dictionary" : "dictionary {" + string.Join(", ", this.members.Keys) + "}";
+        public override string ToString() => this.members == null ? "open dictionary" : "dictionary {" + string.Join(", ", this.members.Keys) + "}";
     }
 }

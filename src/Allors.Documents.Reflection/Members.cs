@@ -21,12 +21,12 @@ namespace Allors.Documents.Reflection
 
         private static readonly ConcurrentDictionary<Type, IReadOnlyList<string>> NamesByType = new ConcurrentDictionary<Type, IReadOnlyList<string>>();
 
-        private static readonly ConcurrentDictionary<Type, ConcurrentDictionary<string, Member>> MembersByType = new ConcurrentDictionary<Type, ConcurrentDictionary<string, Member>>();
+        private static readonly ConcurrentDictionary<Type, ConcurrentDictionary<string, Member?>> MembersByType = new ConcurrentDictionary<Type, ConcurrentDictionary<string, Member?>>();
 
         /// <summary>A found member: its type and how to read it.</summary>
         internal sealed class Member
         {
-            internal Member(Type type, Func<object, object> read)
+            internal Member(Type type, Func<object, object?> read)
             {
                 this.Type = type;
                 this.Read = read;
@@ -34,7 +34,7 @@ namespace Allors.Documents.Reflection
 
             public Type Type { get; }
 
-            public Func<object, object> Read { get; }
+            public Func<object, object?> Read { get; }
         }
 
         /// <summary>The names a type declares: properties, fields and Get methods (without the Get), as written, without duplicates.</summary>
@@ -47,9 +47,9 @@ namespace Allors.Documents.Reflection
 #if NET
         [System.Diagnostics.CodeAnalysis.RequiresUnreferencedCode("Reads the members of a type through reflection.")]
 #endif
-        public static Member Find(Type type, string name)
+        public static Member? Find(Type type, string name)
         {
-            var members = MembersByType.GetOrAdd(type, _ => new ConcurrentDictionary<string, Member>(StringComparer.Ordinal));
+            var members = MembersByType.GetOrAdd(type, _ => new ConcurrentDictionary<string, Member?>(StringComparer.Ordinal));
             return members.GetOrAdd(name, _ => Lookup(type, name));
         }
 
@@ -92,7 +92,7 @@ namespace Allors.Documents.Reflection
 #if NET
         [System.Diagnostics.CodeAnalysis.RequiresUnreferencedCode("Reads the members of a type through reflection.")]
 #endif
-        private static Member Lookup(Type type, string name)
+        private static Member? Lookup(Type type, string name)
         {
             var upper = char.ToUpperInvariant(name[0]) + name.Substring(1);
             var candidates = upper == name ? new[] { name } : new[] { upper, name };

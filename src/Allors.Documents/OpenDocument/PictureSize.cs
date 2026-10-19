@@ -21,7 +21,7 @@ namespace Allors.Documents
         private static readonly char[] ViewBoxSeparators = { ' ', ',', '\t', '\r', '\n' };
 
         /// <summary>The picture's width and height, in the format's own unit; false when the bytes do not tell them.</summary>
-        public static bool TryRead(PictureFormat format, byte[] bytes, out double width, out double height)
+        public static bool TryRead(PictureFormat? format, byte[]? bytes, out double width, out double height)
         {
             width = 0;
             height = 0;
@@ -307,9 +307,9 @@ namespace Allors.Documents
                 return false;
             }
 
-            string widthText = null;
-            string heightText = null;
-            string viewBox = null;
+            string? widthText = null;
+            string? heightText = null;
+            string? viewBox = null;
             foreach (Match match in SvgAttributeRegex.Matches(tag))
             {
                 var value = match.Groups[2].Success ? match.Groups[2].Value : match.Groups[3].Value;
@@ -378,7 +378,7 @@ namespace Allors.Documents
         }
 
         /// <summary>The root svg element's start tag, from its bracket to its closing bracket, with the quotes of its attributes respected; null when there is none.</summary>
-        private static string SvgStartTag(string text)
+        private static string? SvgStartTag(string text)
         {
             for (var at = text.IndexOf("<svg", StringComparison.Ordinal); at >= 0; at = text.IndexOf("<svg", at + 4, StringComparison.Ordinal))
             {

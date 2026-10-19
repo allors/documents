@@ -40,7 +40,7 @@ namespace Allors.Documents
 
             public string Name { get; }
 
-            public string Render(object value, string text, Formatting formatting) => text == null ? null : this.transform(text, (formatting ?? Formatting.Default).Culture);
+            public string? Render(object value, string text, Formatting formatting) => text == null ? null : this.transform(text, (formatting ?? Formatting.Default).Culture);
 
             public override string ToString() => this.Name;
         }

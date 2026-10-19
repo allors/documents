@@ -18,6 +18,7 @@
 		<IncludeSymbols>true</IncludeSymbols>
 		<SymbolPackageFormat>snupkg</SymbolPackageFormat>
 		<LangVersion>latest</LangVersion>
+		<Nullable>enable</Nullable>
 	</PropertyGroup>
 
 	<ItemGroup>

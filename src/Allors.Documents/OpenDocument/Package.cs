@@ -16,12 +16,15 @@ namespace Allors.Documents
     /// </summary>
     internal static class Package
     {
-        /// <summary>The parts of a package: the two that render and the manifest by themselves, every other file by its name.</summary>
+        /// <summary>
+        /// The parts of a package: the two that render and the manifest by themselves, every other file by its name.
+        /// Throws <see cref="InvalidDataException"/> when the package has no content.xml.
+        /// </summary>
         public static Parts Read(byte[] document)
         {
-            byte[] content = null;
-            byte[] styles = null;
-            byte[] manifest = null;
+            byte[]? content = null;
+            byte[]? styles = null;
+            byte[]? manifest = null;
             var files = new Dictionary<string, byte[]>();
 
             using (var zip = new MemoryStream(document))
@@ -58,10 +61,15 @@ namespace Allors.Documents
                 }
             }
 
+            if (content == null)
+            {
+                throw new InvalidDataException("the package has no content.xml: it is not an OpenDocument text");
+            }
+
             return new Parts(content, styles, manifest, files);
         }
 
-        public static byte[] Save(byte[] mimetype, byte[] content, byte[] styles, byte[] manifest, IEnumerable<KeyValuePair<string, byte[]>> files)
+        public static byte[] Save(byte[]? mimetype, byte[] content, byte[]? styles, byte[]? manifest, IEnumerable<KeyValuePair<string, byte[]>> files)
         {
             using (var zip = new MemoryStream())
             {

@@ -42,7 +42,7 @@ namespace Allors.Documents
         public IEnumerable<InspectedTag> All => Flatten(this.Tags);
 
         /// <summary>The paths the template reads, deduplicated, loop variables included as the author wrote them.</summary>
-        public IReadOnlyList<string> Paths => this.All.Where(v => v.Tag.Path != null).Select(v => v.Tag.Path).Concat(this.Pictures.Select(v => v.Path)).Distinct().ToList();
+        public IReadOnlyList<string> Paths => this.All.Select(v => v.Tag.Path).OfType<string>().Concat(this.Pictures.Select(v => v.Path)).Distinct().ToList();
 
         public IEnumerable<InspectedTag> Bindings => this.All.Where(v => v.Tag.Kind == TagKind.Binding);
 

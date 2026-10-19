@@ -36,7 +36,7 @@ namespace Allors.Documents.Reflection
 
         public IEnumerable<string> Members => Reflection.Members.Names(this.type);
 
-        public IShape Element
+        public IShape? Element
         {
             get
             {
@@ -88,9 +88,9 @@ namespace Allors.Documents.Reflection
             return ShapeByType.GetOrAdd(type, Create);
         }
 
-        public IShape Member(string name)
+        public IShape? Member(string name)
         {
-            if (string.IsNullOrEmpty(name))
+            if (name == null || name.Length == 0)
             {
                 return null;
             }
@@ -175,7 +175,7 @@ namespace Allors.Documents.Reflection
         }
 
         /// <summary>The element type of a collection, or null for text and anything that is not enumerable.</summary>
-        private static Type ElementType(Type type)
+        private static Type? ElementType(Type type)
         {
             if (type == typeof(string) || !typeof(IEnumerable).IsAssignableFrom(type))
             {

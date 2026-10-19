@@ -5,6 +5,7 @@
 
 namespace Allors.Documents
 {
+    using System.Diagnostics.CodeAnalysis;
     using System.Globalization;
     using System.Text.RegularExpressions;
 
@@ -20,7 +21,7 @@ namespace Allors.Documents
         /// Reads a length into its number and its unit, in lower case. A number without a unit takes the default unit, when there is one.
         /// False for text that is no length, or a unit that is not absolute.
         /// </summary>
-        public static bool TryParse(string text, string defaultUnit, out double value, out string unit)
+        public static bool TryParse(string? text, string? defaultUnit, out double value, [NotNullWhen(true)] out string? unit)
         {
             value = 0;
             unit = null;

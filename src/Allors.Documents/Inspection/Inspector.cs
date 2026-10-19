@@ -53,6 +53,9 @@ namespace Allors.Documents
             return document;
         }
 
+        /// <summary>The root element of a loaded document. Every document <see cref="Load"/> gives has one: XML without a root element does not load.</summary>
+        internal static XmlElement Root(XmlDocument document) => document.DocumentElement!;
+
         /// <summary>The custom document properties of meta.xml (File, Properties, Custom Properties), by name.</summary>
         internal static IReadOnlyDictionary<string, string> Settings(XmlDocument meta)
         {
@@ -150,7 +153,7 @@ namespace Allors.Documents
 
             public void Walk()
             {
-                this.Visit(this.document.DocumentElement);
+                this.Visit(Root(this.document));
 
                 while (this.blocks.Count > 0)
                 {
@@ -316,7 +319,7 @@ namespace Allors.Documents
                 }
 
                 var entries = new Dictionary<string, string>();
-                string defaultText = null;
+                string? defaultText = null;
                 var hasDefault = false;
                 foreach (var row in rows.Skip(1))
                 {
@@ -398,9 +401,9 @@ namespace Allors.Documents
             /// <summary>The cells of a row in order, a covered cell of a merge left out.</summary>
             private static List<XmlElement> Cells(XmlElement row) => row.ChildNodes.OfType<XmlElement>().Where(v => Is(v, TableNamespace, "table-cell")).ToList();
 
-            private static XmlElement FirstPlaceholder(XmlElement element) => element == null ? null : Descendants(element).FirstOrDefault(v => Is(v, TextNamespace, "placeholder"));
+            private static XmlElement? FirstPlaceholder(XmlElement? element) => element == null ? null : Descendants(element).FirstOrDefault(v => Is(v, TextNamespace, "placeholder"));
 
-            private static XmlElement FirstParagraph(XmlElement element) => Descendants(element).FirstOrDefault(IsParagraph);
+            private static XmlElement? FirstParagraph(XmlElement element) => Descendants(element).FirstOrDefault(IsParagraph);
 
             private static IEnumerable<XmlElement> Descendants(XmlElement element)
             {
@@ -435,7 +438,7 @@ namespace Allors.Documents
 
             private static string Keyword(Tag tag) => tag.HasTest ? (tag.Defined ? "<@else ifdef>" : "<@else if>") : "<@else>";
 
-            private static XmlElement Child(XmlElement element, string ns, string localName)
+            private static XmlElement? Child(XmlElement element, string ns, string localName)
             {
                 foreach (XmlNode child in element.ChildNodes)
                 {

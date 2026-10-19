@@ -11,9 +11,9 @@ namespace Allors.Documents
     /// </summary>
     internal sealed class Scope
     {
-        private readonly Scope parent;
-        private readonly string name;
-        private readonly object value;
+        private readonly Scope? parent;
+        private readonly string? name;
+        private readonly object? value;
         private readonly bool counter;
 
         public Scope(object root) => this.Root = root;
@@ -34,7 +34,7 @@ namespace Allors.Documents
         public Scope Push(string name, object value, bool counter = false) => new Scope(this, name, value, counter);
 
         /// <summary>The value of the innermost loop variable or counter with this name; false when no loop in scope declares it.</summary>
-        public bool TryGetVariable(string name, out object value)
+        public bool TryGetVariable(string name, out object? value)
         {
             var scope = this.Find(name);
             value = scope?.value;
@@ -44,7 +44,7 @@ namespace Allors.Documents
         /// <summary>True when the innermost loop variable or counter with this name is a counter.</summary>
         public bool IsCounter(string name) => this.Find(name)?.counter == true;
 
-        private Scope Find(string name)
+        private Scope? Find(string name)
         {
             for (var scope = this; scope != null; scope = scope.parent)
             {

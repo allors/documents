@@ -27,8 +27,8 @@ namespace Allors.Documents
 
         private static readonly IReadOnlyDictionary<string, InspectedMap> NoMaps = new Dictionary<string, InspectedMap>();
 
-        /// <summary>The layer that takes a renderer's name out of the formatting before the resolver sees it: a name is no .NET format string.</summary>
-        private static readonly KeyValuePair<string, string>[] NoFormat = { new KeyValuePair<string, string>(Formatting.FormatAttribute, null) };
+        /// <summary>The layer that takes a renderer's name out of the formatting before the resolver sees it: a name is no .NET format string. An empty value clears a setting.</summary>
+        private static readonly KeyValuePair<string, string>[] NoFormat = { new KeyValuePair<string, string>(Formatting.FormatAttribute, string.Empty) };
 
         private readonly IResolver resolver;
         private readonly Formatting formatting;
@@ -37,16 +37,17 @@ namespace Allors.Documents
         private readonly Pictures pictures;
         private readonly IReadOnlyDictionary<string, InspectedMap> maps;
         private readonly Renderers renderers;
-        private readonly IPictureProcessor processor;
+        private readonly IPictureProcessor? processor;
         private readonly List<Finding> findings = new List<Finding>();
         private readonly HashSet<(Instruction, FindingKind, string)> reported = new HashSet<(Instruction, FindingKind, string)>();
         private readonly HashSet<string> frameNames = new HashSet<string>();
         private readonly HashSet<string> hrefs = new HashSet<string>();
 
-        private Program program;
-        private XmlWriter writer;
+        /// <summary>The part being rendered and where it is written; both set by <see cref="Render"/> before the walk that uses them.</summary>
+        private Program program = null!;
+        private XmlWriter writer = null!;
 
-        public Renderer(IResolver resolver, Formatting formatting, object model, Pictures pictures, IReadOnlyDictionary<string, InspectedMap> maps = null, Renderers renderers = null, IPictureProcessor processor = null)
+        public Renderer(IResolver resolver, Formatting formatting, object model, Pictures pictures, IReadOnlyDictionary<string, InspectedMap>? maps = null, Renderers? renderers = null, IPictureProcessor? processor = null)
         {
             this.resolver = resolver;
             this.formatting = formatting;
@@ -56,8 +57,8 @@ namespace Allors.Documents
             this.renderers = renderers ?? Renderers.Default;
             this.processor = processor;
 
-            // The number pattern is for the model's amounts; a loop counter prints as a plain integer unless its tag says otherwise
-            this.counterFormatting = formatting.With(new[] { new KeyValuePair<string, string>(Formatting.NumberSetting, null) });
+            // The number pattern is for the model's amounts; a loop counter prints as a plain integer unless its tag says otherwise: an empty value clears the pattern
+            this.counterFormatting = formatting.With(new[] { new KeyValuePair<string, string>(Formatting.NumberSetting, string.Empty) });
         }
 
         /// <summary>Every finding of the parts rendered so far, in render order; a member, a loop, a key or a picture is reported once per tag.</summary>
@@ -78,7 +79,7 @@ namespace Allors.Documents
             return XmlOutput.Write(xmlWriter =>
             {
                 this.writer = xmlWriter;
-                this.Write(program.Document.DocumentElement, new Scope(this.model));
+                this.Write(Inspector.Root(program.Document), new Scope(this.model));
             });
         }
 
@@ -140,7 +141,7 @@ namespace Allors.Documents
         /// Attributes pass as they are, except that a frame's name is made unique in the document, as Writer requires of frames, and that a side of a
         /// frame a fit changed takes its new length and loses its relative size, which the length replaces; every link is noted.
         /// </summary>
-        private void WriteAttributes(XmlElement element, bool isFrame, string width = null, string height = null)
+        private void WriteAttributes(XmlElement element, bool isFrame, string? width = null, string? height = null)
         {
             if (!element.HasAttributes)
             {
@@ -216,8 +217,8 @@ namespace Allors.Documents
             var tag = instruction.Tag;
             var attributes = tag.Attributes;
 
-            string text = null;
-            if (this.TryResolve(instruction, tag.Path, scope, out var value) && value != null)
+            string? text = null;
+            if (this.TryResolve(instruction, instruction.Path, scope, out var value) && value != null)
             {
                 text = attributes.TryGetValue(TagSyntax.MapAttribute, out var map) ? this.Map(instruction, map, value, scope) : this.Format(instruction, value, scope);
             }
@@ -235,12 +236,13 @@ namespace Allors.Documents
         /// one: the name is taken out of the formatting first, so a renderer's name never reaches the resolver as a format string. A format that
         /// names a picture renderer is reported and the value prints without it; a renderer that throws is reported and the value prints blank.
         /// </summary>
-        private string Format(Instruction instruction, object value, Scope scope)
+        private string? Format(Instruction instruction, object value, Scope scope)
         {
             var tag = instruction.Tag;
             var attributes = tag.Attributes;
+            var path = instruction.Path;
 
-            ITextRenderer renderer = null;
+            ITextRenderer? renderer = null;
             var named = false;
             if (attributes.TryGetValue(Formatting.FormatAttribute, out var format) && this.renderers.TryGet(format, out var registered))
             {
@@ -248,12 +250,12 @@ namespace Allors.Documents
                 renderer = registered as ITextRenderer;
                 if (renderer == null)
                 {
-                    this.Report(instruction, FindingKind.BadValue, FindingSeverity.Error, tag.Path, Formatting.FormatAttribute + "=\"" + format + "\" renders a picture, not text: use " + this.renderers.TextNames + ", a pattern, or date, time, datetime or number for the document's pattern");
+                    this.Report(instruction, FindingKind.BadValue, FindingSeverity.Error, path, Formatting.FormatAttribute + "=\"" + format + "\" renders a picture, not text: use " + this.renderers.TextNames + ", a pattern, or date, time, datetime or number for the document's pattern");
                 }
             }
 
             // A loop counter prints as a plain integer unless its tag carries a pattern of its own; a renderer's name is no pattern
-            var effective = scope.IsCounter(tag.Path) && (format == null || named) ? this.counterFormatting : this.formatting;
+            var effective = scope.IsCounter(path) && (format == null || named) ? this.counterFormatting : this.formatting;
             if (attributes.Count > 0)
             {
                 effective = effective.With(attributes);
@@ -275,7 +277,7 @@ namespace Allors.Documents
             }
             catch (Exception e)
             {
-                this.Report(instruction, FindingKind.RendererFailed, FindingSeverity.Error, tag.Path, "the renderer '" + renderer.Name + "' failed on '" + tag.Path + "' and the value prints blank: " + e.Message);
+                this.Report(instruction, FindingKind.RendererFailed, FindingSeverity.Error, path, "the renderer '" + renderer.Name + "' failed on '" + path + "' and the value prints blank: " + e.Message);
                 return null;
             }
         }
@@ -285,12 +287,12 @@ namespace Allors.Documents
         /// map's default row. A map without a row for the key and without a default lets the value print as it is, reported once per tag and key;
         /// so does a name that is no map of the template, reported once per tag.
         /// </summary>
-        private string Map(Instruction instruction, string name, object value, Scope scope)
+        private string? Map(Instruction instruction, string name, object value, Scope scope)
         {
-            var tag = instruction.Tag;
+            var path = instruction.Path;
             if (!this.maps.TryGetValue(name, out var map))
             {
-                this.Report(instruction, FindingKind.UnknownMap, FindingSeverity.Error, tag.Path, "no map '" + name + "' in the template: a map is a table whose first cell holds <@map " + name + ">");
+                this.Report(instruction, FindingKind.UnknownMap, FindingSeverity.Error, path, "no map '" + name + "' in the template: a map is a table whose first cell holds <@map " + name + ">");
                 return this.Format(instruction, value, scope);
             }
 
@@ -300,7 +302,7 @@ namespace Allors.Documents
                 return text;
             }
 
-            this.Report(instruction, FindingKind.MissingKey, FindingSeverity.Warning, tag.Path, "the map '" + name + "' has no row for '" + key + "' and no default row: the value prints as it is", key);
+            this.Report(instruction, FindingKind.MissingKey, FindingSeverity.Warning, path, "the map '" + name + "' has no row for '" + key + "' and no default row: the value prints as it is", key);
             return this.Format(instruction, value, scope);
         }
 
@@ -341,7 +343,7 @@ namespace Allors.Documents
             }
             else
             {
-                this.TryResolve(instruction, tag.Path, scope, out var condition);
+                this.TryResolve(instruction, instruction.Path, scope, out var condition);
                 outcome = this.resolver.IsTrue(condition);
             }
 
@@ -356,28 +358,29 @@ namespace Allors.Documents
         /// </summary>
         private void WritePicture(Instruction instruction, XmlElement frame, Scope scope)
         {
-            var stored = this.TryStorePicture(instruction, frame, scope, out var href, out var format, out var bytes);
-            if (!stored && !(instruction.Tag.Attributes.TryGetValue(TagSyntax.EmptyAttribute, out var empty) && TagSyntax.KeepsWhenEmpty(empty)))
+            var stored = this.TryStorePicture(instruction, frame, scope);
+            if (stored == null && !(instruction.Tag.Attributes.TryGetValue(TagSyntax.EmptyAttribute, out var empty) && TagSyntax.KeepsWhenEmpty(empty)))
             {
                 return;
             }
 
-            string width = null;
-            string height = null;
-            if (stored)
+            string? width = null;
+            string? height = null;
+            XmlNode? image = null;
+            if (stored != null)
             {
-                this.Fit(instruction, frame, format, bytes, out width, out height);
+                this.Fit(instruction, frame, stored.Format, stored.Bytes, out width, out height);
+                image = frame.ChildNodes.Cast<XmlNode>().FirstOrDefault(v => Is(v, DrawingNamespace, "image"));
             }
 
             this.writer.WriteStartElement(frame.Prefix, frame.LocalName, frame.NamespaceURI);
             this.WriteAttributes(frame, true, width, height);
 
-            var image = stored ? frame.ChildNodes.Cast<XmlNode>().FirstOrDefault(v => Is(v, DrawingNamespace, "image")) : null;
             for (var child = frame.FirstChild; child != null; child = child.NextSibling)
             {
-                if (child == image)
+                if (stored != null && child == image)
                 {
-                    this.WriteImage((XmlElement)child, href, format.MediaType, scope);
+                    this.WriteImage((XmlElement)child, stored.Href, stored.Format.MediaType, scope);
                 }
                 else if (!Is(child, SvgNamespace, "desc"))
                 {
@@ -389,80 +392,84 @@ namespace Allors.Documents
         }
 
         /// <summary>
-        /// Stores the picture at the tag's path and gives the name of its file in the package, its format and its bytes; false when there is none: a null
+        /// Stores the picture at the tag's path and gives the name of its file in the package, its format and its bytes; null when there is none: a null
         /// value gives none in silence, and so does a picture renderer that gives null; an unknown member, a value that is no picture, bytes in no format the
         /// library knows and a renderer that fails give none and are reported once per tag. The bytes come from the picture renderer the tag's format names,
         /// else from the resolver; the processor, when the settings have one, gives the bytes the package stores.
         /// </summary>
-        private bool TryStorePicture(Instruction instruction, XmlElement frame, Scope scope, out string href, out PictureFormat format, out byte[] bytes)
+        private StoredPicture? TryStorePicture(Instruction instruction, XmlElement frame, Scope scope)
         {
-            href = null;
-            format = null;
-            bytes = null;
-
-            var path = instruction.Tag.Path;
+            var path = instruction.Path;
             if (!this.TryResolve(instruction, path, scope, out var value) || value == null)
             {
-                return false;
+                return null;
             }
 
-            var geometry = Geometry(frame, instruction.Tag);
+            var geometry = Geometry(frame, instruction);
             var renderer = this.PictureRendererOf(instruction);
+            byte[] bytes;
+            PictureFormat format;
             if (renderer != null)
             {
+                byte[]? rendered;
                 try
                 {
-                    bytes = renderer.Render(value, this.resolver.Format(value, Formatting.Default), geometry);
+                    rendered = renderer.Render(value, this.resolver.Format(value, Formatting.Default), geometry);
                 }
                 catch (Exception e)
                 {
                     this.Report(instruction, FindingKind.RendererFailed, FindingSeverity.Error, path, "the renderer '" + renderer.Name + "' failed on '" + path + "' and the frame has no picture: " + e.Message);
-                    return false;
+                    return null;
                 }
 
-                if (bytes == null)
+                if (rendered == null)
                 {
-                    return false;
+                    return null;
                 }
 
-                format = PictureFormat.Sniff(bytes);
-                if (format == null)
+                var sniffed = PictureFormat.Sniff(rendered);
+                if (sniffed == null)
                 {
                     this.Report(instruction, FindingKind.RendererFailed, FindingSeverity.Error, path, "the renderer '" + renderer.Name + "' gave bytes in no picture format the library knows for '" + path + "' and the frame has no picture");
-                    return false;
+                    return null;
                 }
+
+                bytes = rendered;
+                format = sniffed;
             }
             else
             {
-                bytes = this.resolver.Picture(value);
-                if (bytes == null)
+                var picture = this.resolver.Picture(value);
+                if (picture == null)
                 {
                     this.Report(instruction, FindingKind.NotAPicture, FindingSeverity.Error, path, "'" + path + "' is not a picture: it is a " + value.GetType().Name);
-                    return false;
+                    return null;
                 }
 
-                format = PictureFormat.Sniff(bytes);
-                if (format == null)
+                var sniffed = PictureFormat.Sniff(picture);
+                if (sniffed == null)
                 {
                     this.Report(instruction, FindingKind.NotAPicture, FindingSeverity.Error, path, "the bytes at '" + path + "' are in no picture format the library knows: use " + PictureFormat.Names);
-                    return false;
+                    return null;
                 }
+
+                bytes = picture;
+                format = sniffed;
             }
 
             if (this.processor != null)
             {
-                this.Process(instruction, geometry, ref bytes, ref format);
+                this.Process(instruction, this.processor, geometry, ref bytes, ref format);
             }
 
-            href = this.pictures.Add(path, bytes, format);
-            return true;
+            return new StoredPicture(this.pictures.Add(path, bytes, format), format, bytes);
         }
 
         /// <summary>
         /// The picture renderer the tag's format names; null when the tag names none. A name that is no picture renderer is reported once per
         /// tag, and the frame shows the resolver's picture for the value instead.
         /// </summary>
-        private IPictureRenderer PictureRendererOf(Instruction instruction)
+        private IPictureRenderer? PictureRendererOf(Instruction instruction)
         {
             var tag = instruction.Tag;
             if (!tag.Attributes.TryGetValue(Formatting.FormatAttribute, out var format))
@@ -473,14 +480,14 @@ namespace Allors.Documents
             var use = this.renderers.PictureNames.Length == 0 ? "none is registered" : "use " + this.renderers.PictureNames;
             if (!this.renderers.TryGet(format, out var renderer))
             {
-                this.Report(instruction, FindingKind.BadValue, FindingSeverity.Error, tag.Path, Formatting.FormatAttribute + "=\"" + format + "\" names no picture renderer: " + use);
+                this.Report(instruction, FindingKind.BadValue, FindingSeverity.Error, instruction.Path, Formatting.FormatAttribute + "=\"" + format + "\" names no picture renderer: " + use);
                 return null;
             }
 
             var picture = renderer as IPictureRenderer;
             if (picture == null)
             {
-                this.Report(instruction, FindingKind.BadValue, FindingSeverity.Error, tag.Path, Formatting.FormatAttribute + "=\"" + format + "\" renders text, not a picture: " + use);
+                this.Report(instruction, FindingKind.BadValue, FindingSeverity.Error, instruction.Path, Formatting.FormatAttribute + "=\"" + format + "\" renders text, not a picture: " + use);
             }
 
             return picture;
@@ -490,13 +497,13 @@ namespace Allors.Documents
         /// The bytes the processor gives for the picture take the place of the bytes it got, under the format they are in; the same bytes or null
         /// leave them as they are. A processor that throws or gives bytes in no format the library knows is reported once per tag, and the picture is stored as it was.
         /// </summary>
-        private void Process(Instruction instruction, PictureFrame frame, ref byte[] bytes, ref PictureFormat format)
+        private void Process(Instruction instruction, IPictureProcessor processor, PictureFrame frame, ref byte[] bytes, ref PictureFormat format)
         {
-            var path = instruction.Tag.Path;
-            byte[] processed;
+            var path = instruction.Path;
+            byte[]? processed;
             try
             {
-                processed = this.processor.Process(bytes, format, frame);
+                processed = processor.Process(bytes, format, frame);
             }
             catch (Exception e)
             {
@@ -521,8 +528,8 @@ namespace Allors.Documents
         }
 
         /// <summary>The frame as the author drew it, for a renderer or the processor: its size in inches, 0 for a side without an absolute length, and the fit its tag asks.</summary>
-        private static PictureFrame Geometry(XmlElement frame, Tag tag) =>
-            new PictureFrame(tag.Path, Inches(frame.GetAttribute("width", SvgNamespace)), Inches(frame.GetAttribute("height", SvgNamespace)), TagSyntax.FitOf(tag));
+        private static PictureFrame Geometry(XmlElement frame, Instruction instruction) =>
+            new PictureFrame(instruction.Path, Inches(frame.GetAttribute("width", SvgNamespace)), Inches(frame.GetAttribute("height", SvgNamespace)), TagSyntax.FitOf(instruction.Tag));
 
         private static double Inches(string length) => Length.TryParse(length, null, out var value, out var unit) && value > 0 ? Length.Convert(value, unit, "in") : 0;
 
@@ -530,7 +537,7 @@ namespace Allors.Documents
         /// The frame's size under the tag's fit, for the picture's proportions: null for a side that stays. A picture whose bytes do not tell its size,
         /// and a frame without a width and a height, are reported once per tag, and the picture fills the frame as the author drew it.
         /// </summary>
-        private void Fit(Instruction instruction, XmlElement frame, PictureFormat format, byte[] bytes, out string width, out string height)
+        private void Fit(Instruction instruction, XmlElement frame, PictureFormat format, byte[] bytes, out string? width, out string? height)
         {
             width = null;
             height = null;
@@ -541,7 +548,7 @@ namespace Allors.Documents
                 return;
             }
 
-            var path = instruction.Tag.Path;
+            var path = instruction.Path;
             if (!PictureSize.TryRead(format, bytes, out var pictureWidth, out var pictureHeight))
             {
                 this.Report(instruction, FindingKind.CannotFit, FindingSeverity.Warning, path, "the picture at '" + path + "' fills its frame instead of fitting it: its " + format.Name + " bytes do not tell its size");
@@ -617,7 +624,7 @@ namespace Allors.Documents
         private void WriteLoop(Instruction instruction, XmlElement element, Scope scope)
         {
             var tag = instruction.Tag;
-            this.TryResolve(instruction, tag.Path, scope, out var collection);
+            this.TryResolve(instruction, instruction.Path, scope, out var collection);
             var items = collection == null ? new List<object>() : this.resolver.Items(collection).ToList();
             if (tag.Sort.Count > 0 && items.Count > 1)
             {
@@ -634,7 +641,7 @@ namespace Allors.Documents
                     ValueWriter.Write(this.writer, separator);
                 }
 
-                var body = scope.Push(tag.Variable, item);
+                var body = scope.Push(tag.Variable!, item);
                 if (tag.Index != null)
                 {
                     body = body.Push(tag.Index, counter, counter: true);
@@ -656,8 +663,8 @@ namespace Allors.Documents
             }
             catch (Exception e) when (e is ArgumentException || e.InnerException is ArgumentException)
             {
-                var cause = (e as ArgumentException ?? e.InnerException).Message;
-                this.Report(instruction, FindingKind.CannotSort, FindingSeverity.Warning, instruction.Tag.Path, "the items keep the collection's order, they cannot be ordered by sort=\"" + string.Join(", ", keys) + "\": " + cause);
+                var cause = (e as ArgumentException ?? e.InnerException as ArgumentException)?.Message;
+                this.Report(instruction, FindingKind.CannotSort, FindingSeverity.Warning, instruction.Path, "the items keep the collection's order, they cannot be ordered by sort=\"" + string.Join(", ", keys) + "\": " + cause);
                 return items;
             }
         }
@@ -666,7 +673,7 @@ namespace Allors.Documents
         /// Walks a path: its first name is a loop variable or counter in scope, innermost first, else a member of the root; the rest are members.
         /// False when the path breaks: at a null before its end, which is nothing to report, or at a member the model does not have, reported once per tag.
         /// </summary>
-        private bool TryResolve(Instruction instruction, string path, Scope scope, out object value)
+        private bool TryResolve(Instruction instruction, string path, Scope scope, out object? value)
         {
             var segments = path.Split('.');
             var start = 0;
@@ -698,10 +705,10 @@ namespace Allors.Documents
         }
 
         /// <summary>A sort key is a path relative to the item.</summary>
-        private object ResolveKey(Instruction instruction, object item, string path)
+        private object? ResolveKey(Instruction instruction, object item, string path)
         {
             var segments = path.Split('.');
-            var value = item;
+            object? value = item;
             for (var i = 0; i < segments.Length; i++)
             {
                 if (value == null)
@@ -725,9 +732,9 @@ namespace Allors.Documents
         /// </summary>
         private bool IsDefined(Instruction instruction, Scope scope)
         {
-            var path = instruction.Tag.Path;
+            var path = instruction.Path;
             var dot = path.LastIndexOf('.');
-            object holder;
+            object? holder;
             if (dot < 0)
             {
                 if (scope.TryGetVariable(path, out _))
@@ -745,7 +752,7 @@ namespace Allors.Documents
             return this.resolver.TryGetMember(holder, path.Substring(dot + 1), out _);
         }
 
-        private void ReportUnknownMember(Instruction instruction, string path, string[] segments, int index, string variable)
+        private void ReportUnknownMember(Instruction instruction, string path, string[] segments, int index, string? variable)
         {
             var prefix = variable == null ? string.Empty : variable + ".";
             var holder = index == 0 ? variable ?? "the model" : prefix + string.Join(".", segments, 0, index);
@@ -753,7 +760,7 @@ namespace Allors.Documents
         }
 
         /// <summary>Adds a finding for the tag, once per tag, kind and path in a render, or once per tag, kind and key when a key is given.</summary>
-        private void Report(Instruction instruction, FindingKind kind, FindingSeverity severity, string path, string message, string key = null)
+        private void Report(Instruction instruction, FindingKind kind, FindingSeverity severity, string path, string message, string? key = null)
         {
             if (this.reported.Add((instruction, kind, key ?? path)))
             {
@@ -761,9 +768,26 @@ namespace Allors.Documents
             }
         }
 
-        private sealed class Keyed
+        /// <summary>A picture the render stored: the name of its file in the package, its format and its bytes.</summary>
+        private sealed class StoredPicture
         {
-            public Keyed(object item, object[] keys)
+            public StoredPicture(string href, PictureFormat format, byte[] bytes)
+            {
+                this.Href = href;
+                this.Format = format;
+                this.Bytes = bytes;
+            }
+
+            public string Href { get; }
+
+            public PictureFormat Format { get; }
+
+            public byte[] Bytes { get; }
+        }
+
+        private readonly struct Keyed
+        {
+            public Keyed(object item, object?[] keys)
             {
                 this.Item = item;
                 this.Keys = keys;
@@ -771,7 +795,7 @@ namespace Allors.Documents
 
             public object Item { get; }
 
-            public object[] Keys { get; }
+            public object?[] Keys { get; }
         }
 
         private sealed class KeyComparer : IComparer<Keyed>

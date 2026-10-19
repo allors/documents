@@ -15,6 +15,6 @@ namespace Allors.Documents
         /// the frame leaves the document or keeps the template's picture, as its empty attribute says. It is never called for a null value.
         /// An exception, or bytes in no format the library knows, is reported as RendererFailed and the frame has no picture.
         /// </summary>
-        byte[] Render(object value, string text, PictureFrame frame);
+        byte[]? Render(object value, string text, PictureFrame frame);
     }
 }

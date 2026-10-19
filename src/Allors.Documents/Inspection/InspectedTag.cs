@@ -14,7 +14,7 @@ namespace Allors.Documents
     {
         private readonly List<InspectedTag> children = new List<InspectedTag>();
 
-        internal InspectedTag(Tag tag, Location location, InspectedTag block, XmlElement element)
+        internal InspectedTag(Tag tag, Location location, InspectedTag? block, XmlElement element)
         {
             this.Tag = tag;
             this.Location = location;
@@ -30,10 +30,10 @@ namespace Allors.Documents
         public Location Location { get; }
 
         /// <summary>The loop or condition this tag sits in; null at the top level. An else sits in its condition.</summary>
-        public InspectedTag Block { get; }
+        public InspectedTag? Block { get; }
 
         /// <summary>The end tag of this loop or condition; null for a binding, an end tag or a block that never ends.</summary>
-        public InspectedTag End
+        public InspectedTag? End
         {
             get
             {
@@ -56,9 +56,9 @@ namespace Allors.Documents
                 var variables = new List<string>();
                 for (var block = this.Block; block != null; block = block.Block)
                 {
-                    if (block.Tag.Kind == TagKind.For)
+                    if (block.Tag.Kind == TagKind.For && block.Tag.Variable is string variable)
                     {
-                        variables.Insert(0, block.Tag.Variable);
+                        variables.Insert(0, variable);
                     }
                 }
 
@@ -67,7 +67,7 @@ namespace Allors.Documents
         }
 
         /// <summary>The else tag that opened the branch the next child goes into, or null while the children go into the first branch.</summary>
-        internal InspectedTag LastElse => this.children.LastOrDefault(v => v.Tag.Kind == TagKind.Else);
+        internal InspectedTag? LastElse => this.children.LastOrDefault(v => v.Tag.Kind == TagKind.Else);
 
         internal void Add(InspectedTag child) => this.children.Add(child);
 

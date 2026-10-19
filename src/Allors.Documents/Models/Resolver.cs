@@ -17,13 +17,13 @@ namespace Allors.Documents
     /// </summary>
     public abstract class Resolver : IResolver
     {
-        public abstract bool TryGetMember(object scope, string name, out object value);
+        public abstract bool TryGetMember(object scope, string name, out object? value);
 
         /// <summary>
         /// Null yields nothing. Text yields itself once. A dictionary yields its keys. Any other enumerable yields its items, null items skipped.
         /// Anything else yields itself once.
         /// </summary>
-        public virtual IEnumerable<object> Items(object value)
+        public virtual IEnumerable<object> Items(object? value)
         {
             switch (value)
             {
@@ -41,7 +41,7 @@ namespace Allors.Documents
         }
 
         /// <summary>Null, false, text that is empty or white space, zero and an empty collection are false; everything else is true.</summary>
-        public virtual bool IsTrue(object value)
+        public virtual bool IsTrue(object? value)
         {
             switch (value)
             {
@@ -66,7 +66,7 @@ namespace Allors.Documents
         /// format wins over the patterns. Enums print their name. A collection prints its items one after the other, each formatted, with
         /// nothing between them: a loop is what separates them. Everything else prints through <see cref="IFormattable"/> with the culture, or ToString.
         /// </summary>
-        public virtual string Format(object value, Formatting formatting)
+        public virtual string Format(object? value, Formatting formatting)
         {
             formatting = formatting ?? Formatting.Default;
 
@@ -78,8 +78,8 @@ namespace Allors.Documents
                     return text;
                 case bool flag:
                     return flag ? formatting.True : formatting.False;
-                case Enum _:
-                    return value.ToString();
+                case Enum enumeration:
+                    return enumeration.ToString();
                 case IEnumerable _:
                     var items = new StringBuilder();
                     foreach (var item in this.Items(value))
@@ -105,7 +105,7 @@ namespace Allors.Documents
                         ? formattable.ToString(formatting.PatternFor(ValueKind.Number), formatting.CultureFor(ValueKind.Number))
                         : formattable.ToString(NotNamed(formatting.Format), formatting.Culture);
                 default:
-                    return value.ToString();
+                    return value.ToString() ?? string.Empty;
             }
         }
 
@@ -113,7 +113,7 @@ namespace Allors.Documents
         /// Null sorts first. Text is compared in the formatting's culture, never in a culture per kind. Numbers compare across numeric types. Other values of one type
         /// compare through <see cref="IComparable"/>. Anything else throws.
         /// </summary>
-        public virtual int Compare(object x, object y, Formatting formatting)
+        public virtual int Compare(object? x, object? y, Formatting formatting)
         {
             if (x == null)
             {
@@ -144,13 +144,13 @@ namespace Allors.Documents
         }
 
         /// <summary>A byte array is a picture; anything else is not.</summary>
-        public virtual byte[] Picture(object value) => value as byte[];
+        public virtual byte[]? Picture(object value) => value as byte[];
 
         /// <summary>True when the scope is a dictionary, whose members are its keys and nothing else.</summary>
         protected static bool IsDictionary(object scope) => scope is IDictionary || scope is IDictionary<string, object> || scope is IReadOnlyDictionary<string, object>;
 
         /// <summary>Reads a key from a dictionary scope, exactly as written. False when the scope is not a dictionary or has no such key.</summary>
-        protected static bool TryGetDictionaryMember(object scope, string name, out object value)
+        protected static bool TryGetDictionaryMember(object scope, string name, out object? value)
         {
             switch (scope)
             {
@@ -226,7 +226,7 @@ namespace Allors.Documents
             }
         }
 
-        private static string NotNamed(string format) => Formatting.IsNamedFormat(format) ? null : format;
+        private static string? NotNamed(string? format) => Formatting.IsNamedFormat(format) ? null : format;
 
         private static IEnumerable<object> Enumerate(IEnumerable enumerable)
         {

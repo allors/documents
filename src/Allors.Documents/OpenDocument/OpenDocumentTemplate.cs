@@ -34,11 +34,13 @@ namespace Allors.Documents
 
         private readonly Dictionary<string, byte[]> fileByFileName;
 
-        private readonly byte[] manifest;
+        private readonly byte[]? manifest;
 
-        private readonly Program contentProgram;
+        /// <summary>The program of content.xml; null when the part cannot render, which <see cref="blocking"/> says why.</summary>
+        private readonly Program? contentProgram;
 
-        private readonly Program stylesProgram;
+        /// <summary>The program of styles.xml; null when the template has no styles.xml, or when the part cannot render.</summary>
+        private readonly Program? stylesProgram;
 
         private readonly IReadOnlyDictionary<string, InspectedMap> maps;
 
@@ -53,7 +55,7 @@ namespace Allors.Documents
         /// OpenDocument text. Never throws for what the template says: a block that never ends, an end that opens nothing, an else that
         /// belongs to no condition or a block that would cut a table are reported by <see cref="Validate"/>, with <see cref="DictionaryShape.Open"/> when there is no shape at hand, and thrown by <see cref="Render"/>.
         /// </summary>
-        public OpenDocumentTemplate(byte[] document, RenderSettings settings = null)
+        public OpenDocumentTemplate(byte[] document, RenderSettings? settings = null)
         {
             if (document == null)
             {
@@ -108,7 +110,7 @@ namespace Allors.Documents
                 throw new ArgumentNullException(nameof(model));
             }
 
-            if (this.blocking.Count > 0)
+            if (this.blocking.Count > 0 || this.contentProgram == null)
             {
                 throw new TemplateException(this.blocking);
             }

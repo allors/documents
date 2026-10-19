@@ -18,7 +18,7 @@ namespace Allors.Documents
         /// The frame's new width and height as OpenDocument lengths, null for a side that stays. False when the frame's width or height cannot be read
         /// as a length, in which case the frame stays as it is.
         /// </summary>
-        public static bool TryFit(PictureFit fit, string width, string height, double pictureWidth, double pictureHeight, out string fittedWidth, out string fittedHeight)
+        public static bool TryFit(PictureFit fit, string width, string height, double pictureWidth, double pictureHeight, out string? fittedWidth, out string? fittedHeight)
         {
             fittedWidth = null;
             fittedHeight = null;

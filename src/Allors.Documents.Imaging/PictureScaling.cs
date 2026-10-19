@@ -26,7 +26,7 @@ namespace Allors.Documents.Imaging
         /// <summary>The quality of a JPEG the processor writes, 1 to 100; 85 unless set.</summary>
         public int JpegQuality { get; init; } = 85;
 
-        public byte[] Process(byte[] bytes, PictureFormat format, PictureFrame frame)
+        public byte[]? Process(byte[] bytes, PictureFormat format, PictureFrame frame)
         {
             if (bytes == null || bytes.Length == 0 || format == PictureFormat.Svg || format == PictureFormat.Emf || format == PictureFormat.Wmf || format == PictureFormat.Tiff)
             {
@@ -108,8 +108,13 @@ namespace Allors.Documents.Imaging
         /// <summary>The scale that gives the frame the pixels it needs by its fit, at most 1: a picture is never scaled up.</summary>
         private double Scale(int width, int height, PictureFrame frame)
         {
-            var byWidth = frame != null && frame.Width > 0 ? frame.Width * this.Dpi / width : (double?)null;
-            var byHeight = frame != null && frame.Height > 0 ? frame.Height * this.Dpi / height : (double?)null;
+            if (frame == null)
+            {
+                return 1;
+            }
+
+            var byWidth = frame.Width > 0 ? frame.Width * this.Dpi / width : (double?)null;
+            var byHeight = frame.Height > 0 ? frame.Height * this.Dpi / height : (double?)null;
             if (byWidth == null && byHeight == null)
             {
                 return 1;

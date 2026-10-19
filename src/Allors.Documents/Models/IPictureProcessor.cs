@@ -17,6 +17,6 @@ namespace Allors.Documents
         /// The result is sniffed again, so a processor may change the format. An exception, or bytes in no format the library knows, is reported
         /// as RendererFailed and the original bytes are stored.
         /// </summary>
-        byte[] Process(byte[] bytes, PictureFormat format, PictureFrame frame);
+        byte[]? Process(byte[] bytes, PictureFormat format, PictureFrame frame);
     }
 }

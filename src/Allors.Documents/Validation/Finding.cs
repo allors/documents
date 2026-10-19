@@ -12,7 +12,7 @@ namespace Allors.Documents
     /// <param name="Path">The path that was checked, when the finding is about one; null otherwise.</param>
     /// <param name="Message">What is wrong and what to use instead, in the author's terms.</param>
     /// <param name="Location">Where the text sits in the template.</param>
-    public sealed record Finding(FindingKind Kind, FindingSeverity Severity, string Text, string Path, string Message, Location Location)
+    public sealed record Finding(FindingKind Kind, FindingSeverity Severity, string Text, string? Path, string Message, Location Location)
     {
         public override string ToString() => this.Severity.ToString().ToLowerInvariant() + ": " + this.Text + ": " + this.Message + " (" + this.Location + ")";
     }

@@ -19,7 +19,7 @@ namespace Allors.Documents.Reflection
     {
         public static readonly ReflectionResolver Instance = new ReflectionResolver();
 
-        public override bool TryGetMember(object scope, string name, out object value)
+        public override bool TryGetMember(object scope, string name, out object? value)
         {
             if (IsDictionary(scope))
             {

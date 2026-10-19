@@ -24,11 +24,11 @@ namespace Allors.Documents
 
         public IEnumerable<string> Members => this.variants.Skip(1).Aggregate((IEnumerable<string>)this.variants[0].Members, (common, variant) => common.Intersect(variant.Members));
 
-        public IShape Element => this.Kind == ValueKind.Collection || this.Kind == ValueKind.Open ? this.variants[0].Element : null;
+        public IShape? Element => this.Kind == ValueKind.Collection || this.Kind == ValueKind.Open ? this.variants[0].Element : null;
 
         public IEnumerable<IShape> Variants => this.variants;
 
-        public IShape Member(string name)
+        public IShape? Member(string name)
         {
             var first = this.variants[0].Member(name);
             return first != null && this.variants.Skip(1).All(v => v.Member(name) != null) ? first : null;

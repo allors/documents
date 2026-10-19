@@ -52,7 +52,7 @@ namespace Allors.Documents
         public static string Names => string.Join(", ", All.Take(All.Count - 1).Select(v => v.Name)) + " or " + All[All.Count - 1].Name;
 
         /// <summary>The format the bytes are in by their signature, or null when they are in none the library knows.</summary>
-        public static PictureFormat Sniff(byte[] bytes)
+        public static PictureFormat? Sniff(byte[]? bytes)
         {
             if (bytes == null)
             {

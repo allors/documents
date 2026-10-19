@@ -31,10 +31,10 @@ namespace Allors.Documents
 
         public static readonly ValueShape Other = new ValueShape(ValueKind.Other);
 
-        private readonly string name;
+        private readonly string? name;
 
         /// <summary>A leaf of this kind, named for findings; the kind's own name when there is none. Open, Object and Collection are no leaves.</summary>
-        public ValueShape(ValueKind kind, string name = null)
+        public ValueShape(ValueKind kind, string? name = null)
         {
             if (kind == ValueKind.Open || kind == ValueKind.Object || kind == ValueKind.Collection)
             {
@@ -51,7 +51,7 @@ namespace Allors.Documents
 
         public IEnumerable<string> Members => Enumerable.Empty<string>();
 
-        public IShape Element => null;
+        public IShape? Element => null;
 
         public IEnumerable<IShape> Variants => Enumerable.Empty<IShape>();
 
@@ -81,7 +81,7 @@ namespace Allors.Documents
             }
         }
 
-        public IShape Member(string name) => null;
+        public IShape? Member(string name) => null;
 
         public override string ToString() => this.Name;
     }

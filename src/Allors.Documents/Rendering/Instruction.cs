@@ -17,6 +17,9 @@ namespace Allors.Documents
 
         public Tag Tag { get; }
 
+        /// <summary>The tag's path. Every instruction the renderer resolves has one, a binding, a picture, a loop or the test of a condition; an else without a test is a branch and is never resolved.</summary>
+        public string Path => this.Tag.Path!;
+
         public Location Location { get; }
 
         /// <summary>True for a block that sits inside one paragraph: text may go between its items.</summary>
