@@ -65,7 +65,9 @@ number and date cultures of the layers below it. [Formatting](formatting.md) has
 asked for that the model does not have, every loop that could not be ordered and every tag that
 could not be read, each once, in document order, and empty when the template and the model
 agree. The document is complete either way: a missing value prints blank, an unordered loop
-keeps the collection's order and an unreadable tag prints as typed.
+keeps the collection's order and an unreadable tag prints as typed. `Errors` are the findings
+that say a value is missing from the document, `Warnings` those that say the document is complete
+but not as the template asked, as on a `TemplateValidation`.
 
 A `Finding` has its `Kind` and `Severity`, the `Text` of the tag, frame name or setting as the
 author typed it, the `Path` that was checked when the finding is about one, a `Message` and a

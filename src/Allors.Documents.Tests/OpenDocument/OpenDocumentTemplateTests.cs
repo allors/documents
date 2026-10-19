@@ -6,6 +6,7 @@
 namespace Allors.Documents.Tests
 {
     using System;
+    using System.Collections.Generic;
     using System.Globalization;
     using System.IO;
     using System.Linq;
@@ -120,6 +121,22 @@ namespace Allors.Documents.Tests
             using var output = new MemoryStream();
             resource.CopyTo(output);
             return output.ToArray();
+        }
+
+        [Fact]
+        public void TheResultSplitsItsFindingsIntoErrorsAndWarnings()
+        {
+            var body = "<text:p>" + Odt.Placeholder("<$Nope>") + "</text:p>" +
+                "<text:p>" + Odt.Placeholder("<@for p People sort=\"FirstName\">") + "</text:p><text:p>" + Odt.Placeholder("<$p.FirstName>") + "</text:p><text:p>" + Odt.Placeholder("<@end>") + "</text:p>";
+            var template = new OpenDocumentTemplate(Odt.Build(body));
+            var model = new Dictionary<string, object> { ["People"] = new object[] { new Dictionary<string, object> { ["FirstName"] = "Jane" }, new Dictionary<string, object> { ["FirstName"] = 7 } } };
+
+            var result = template.Render(model);
+
+            // The unknown member is an error, the loop that cannot be ordered a warning; Findings holds both in document order
+            Assert.Equal(2, result.Findings.Count);
+            Assert.Equal(FindingKind.UnknownMember, Assert.Single(result.Errors).Kind);
+            Assert.Equal(FindingKind.CannotSort, Assert.Single(result.Warnings).Kind);
         }
 
         private sealed class Invoice

@@ -11,6 +11,7 @@ All notable changes to this project are documented in this file. The format foll
 
 ### Added
 
+- `RenderResult.Errors` and `RenderResult.Warnings`: the findings of a render by severity, as `TemplateValidation` splits those of a validation. An error says a value is missing from the document; a warning says the document is complete but not as the template asked.
 - A documentation website under `docs/`, built with Astro and Starlight from pages for template authors, developers and maintainers, with Markdown exports and an `llms.txt` index generated from the same pages; the documentation workflow validates it for the `/documents/` and `/` deployment paths. The reference the README held moved to the pages, joined by new pages on writing a template in Writer, the design, the architecture and the planned renderers. The guide on writing a template says what to enter in Writer's dialogs: `$Invoice.Number` in the Placeholder box, which Writer saves as `<$Invoice.Number>`, and the complete tag with its brackets in a picture's description. The README is an introduction that links to the pages, and `AGENTS.md` holds the agent instructions.
 
 ## [3.2.0] - 2026-10-16

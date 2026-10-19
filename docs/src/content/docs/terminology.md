@@ -40,7 +40,7 @@ their declared spelling and capitalization.
 | Shape | The static view of a model that `Validate` walks: the members a value has, whether it is a collection, the shape of its items and the variants of an abstract shape. See [Resolve your own model](resolve-your-own-model.md). |
 | Resolver | The runtime view a render reads through: how a member is read, iterated, tested, formatted, ordered and turned into a picture. See [Resolve your own model](resolve-your-own-model.md). |
 | Render settings | The caller's resolver, cultures, patterns and output form for a render. See [API](api.md). |
-| Render result | The rendered document and the findings of the render. See [API](api.md). |
+| Render result | The rendered document and the findings of the render, split into errors and warnings. See [API](api.md). |
 | Inspection | What a template asks of its model, read without a model: the tags, the bound pictures, the maps, the document settings and the problems. See [API](api.md#inspect). |
 | Validation | The check of a template against a shape, without rendering: the findings and the inspection they came from. See [Validate templates](validate-templates.md). |
 | Finding | One thing wrong or doubtful, in the author's terms: its kind, severity, the tag as typed, the path, a message and the location. See [Findings](findings.md). |
