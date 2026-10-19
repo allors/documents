@@ -17,7 +17,7 @@ A tag takes attributes after its path, with values quoted by `"` or `'`:
 
 | Tag | Attribute |
 |---|---|
-| `<$Invoice.Date format="yyyy-MM-dd">` | `format`: a .NET format string, or one of `date`, `time`, `datetime`, `number` to use the document's pattern for that kind. |
+| `<$Invoice.Date format="yyyy-MM-dd">` | `format`: the name of a renderer, one of `date`, `time`, `datetime`, `number` to use the document's pattern for that kind, or a .NET format string, looked up in that order. `upper`, `lower` and `cap` are the built-in renderers; [Renderers and picture processing](renderers.md) has the rest. |
 | `<$Total culture="en-GB">` | `culture`: the culture this value prints in, whatever its kind: a name like `nl-BE`, or `invariant`. |
 | `<$Paid true="yes" false="no">` | `true`, `false`: the words a boolean prints. |
 | `<@for line Invoice.Lines sort="Product.Name, Quantity desc">` | `sort`: paths relative to the item, comma separated, each optionally followed by `asc` or `desc`. The sort is stable. |
@@ -25,7 +25,7 @@ A tag takes attributes after its path, with values quoted by `"` or `'`:
 | `<@for tag Product.Tags separator=", ">` | `separator`: the text written between two items of a loop that sits in one paragraph, as typed. A loop whose tags sit in paragraphs or rows of their own writes none, which `Validate` reports. |
 | `<$Invoice.Comment blank="none">` | `blank`: the text printed when what the binding would print is empty or white space: a null value, empty or white-space text, an empty collection, a path that breaks. Zero prints as a number. |
 | `<$Invoice.IsCreditNote map="Titles">` | `map`: the value prints the text the map of that name gives for it, see [Maps](maps.md). |
-| `<$Issuer.Logo empty="keep" fit="contain">` | On a picture tag: `empty` and `fit`, see [Pictures](pictures.md). |
+| `<$Issuer.Logo empty="keep" fit="contain">` | On a picture tag: `empty`, `fit` and `format`, which names a picture renderer, see [Pictures](pictures.md). |
 
 An attribute a tag of that kind does not know is a validation error.
 

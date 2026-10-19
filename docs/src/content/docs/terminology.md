@@ -40,7 +40,7 @@ their declared spelling and capitalization.
 | Shape | The static view of a model that `Validate` walks: the kind of a value, the members it has, the shape of its items and the variants of an abstract shape. See [Resolve your own model](resolve-your-own-model.md). |
 | Value kind | What kind of value a shape stands for: open, object, collection, or a leaf such as text, a number, a boolean, a date, a time, a date and time, a picture or another kind. `Validate` reads it to check loops, patterns, sort keys and picture frames. See [Resolve your own model](resolve-your-own-model.md). |
 | Resolver | The runtime view a render reads through: how a member is read, iterated, tested, formatted, ordered and turned into a picture. See [Resolve your own model](resolve-your-own-model.md). |
-| Render settings | The caller's resolver, cultures, patterns and output form, given to a template when it is read and used by every render of it. See [API](api.md). |
+| Render settings | The caller's resolver, cultures, patterns, renderers, picture processor and output form, given to a template when it is read and used by every render of it. See [API](api.md). |
 | Render result | The rendered document and the findings of the render, split into errors and warnings. See [API](api.md). |
 | Inspection | What a template asks of its model, read without a model: the tags, the bound pictures, the maps, the document settings and the problems. See [API](api.md#inspection). |
 | Validation | The check of a template against a shape, without rendering: the findings and the inspection they came from. See [Validate templates](validate-templates.md). |
@@ -48,8 +48,8 @@ their declared spelling and capitalization.
 | Lenient rendering | A render never throws for what the template says: what the model cannot give prints blank and is reported as a finding. Only a template whose blocks cannot be rendered throws, at `Render`; `Validate` reports it before. |
 | Package and flat document | The two forms of an OpenDocument text: a zip package (`.odt`) and one XML file with the pictures embedded (`.fodt`). See [Flat documents](api.md#flat-documents). |
 | Formatting | The effective cultures, patterns and words at a tag, the result of the formatting layers; also the name of the type that carries them. See [Formatting](formatting.md). |
-| Renderer | Planned: a display transformation of one value that a tag selects by name in its `format` attribute, such as upper-case text or a barcode, registered by the caller. See [Renderers and picture processing](renderers.md). The type inside the library that renders a program is named `Renderer` too; the architecture page qualifies it. |
-| Picture processor | Planned: the step between a picture's bytes and the package that scales or converts a picture for its frame, registered by the caller. See [Renderers and picture processing](renderers.md). |
+| Renderer | A display transformation of one value that a tag selects by name in its `format` attribute: a text renderer gives the text a binding prints, such as `upper`, a picture renderer the picture a frame shows, such as a barcode. The built-in text renderers are `upper`, `lower` and `cap`; the caller lists its own in the render settings. See [Renderers and picture processing](renderers.md). The type inside the library that renders a program is named `Renderer` too; the architecture page qualifies it. |
+| Picture processor | The step between a picture's bytes and the package that scales or converts a picture for its frame, set by the caller in the render settings. See [Renderers and picture processing](renderers.md). |
 
 ## Inside the library
 

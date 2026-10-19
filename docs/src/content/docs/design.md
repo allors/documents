@@ -58,7 +58,7 @@ configures. His example: the renderer decides whether a negative number prints a
 | Model | The application's objects as the resolver presents them: their members, derived values such as totals and grouped lines, and the virtual members a resolver adds. Everything that computes, compares or decides lives here. |
 | View | The template: layout, static text, styles and pictures, with tags that say where a value goes, what repeats, what is shown or hidden, how a picture takes its frame and which words a map prints. |
 | Controller | The code that reads a template and calls `Render` with a model and settings, and that calls `Validate` when a template is saved and in a test over every template. |
-| Renderer | The resolver's formatting under the [formatting layers](formatting.md#document-settings): cultures, patterns and the words for true and false, from the library's defaults up to the tag's attributes. Named renderers that a tag selects, such as upper-case text or a barcode, are [planned](renderers.md). |
+| Renderer | The resolver's formatting under the [formatting layers](formatting.md#document-settings): cultures, patterns and the words for true and false, from the library's defaults up to the tag's attributes. Named [renderers](renderers.md) that a tag selects, such as upper-case text or a barcode, and the picture processor that prepares a picture for its frame. |
 
 A tag's `format` attribute is on the view's side of that line: it says how a value prints, not
 what it is.
@@ -120,5 +120,5 @@ The core package has no third-party dependencies and uses no reflection, targets
 `netstandard2.0` and `net10.0`, and is trimmable and AOT-compatible, so that it can sit in any
 host. Reflection over plain classes lives in `Allors.Documents.Reflection`; a host with an object
 model of its own implements the resolver and the shape instead. Capabilities that need a library
-of their own, such as barcodes or image scaling, are [planned](renderers.md) as separate packages
+of their own, such as barcodes or image scaling, come as separate [packages](renderers.md)
 on the renderer and picture processing extension points, so that the core stays as it is.

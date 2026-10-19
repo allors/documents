@@ -26,7 +26,7 @@ A `Finding` says what is wrong in the author's terms: the kind, the severity, th
 | `UnknownMember` | error | A path segment the model does not have, on a binding, a loop, a condition, a sort key or a picture; it prints blank. | Validate, Render |
 | `NotACollection` | warning | A loop over a value that is not a collection; it runs once. | Validate |
 | `UnknownAttribute` | error | An attribute a tag of that kind does not know. | Validate |
-| `BadValue` | error | A value an attribute does not take, such as `empty="maybe"`. | Validate |
+| `BadValue` | error | A value an attribute does not take, such as `empty="maybe"`, or a `format` that names a picture renderer on a binding or no picture renderer on a picture tag; the binding prints without the renderer, the frame shows the resolver's picture. | Validate, Render |
 | `BadCulture` | error | A culture name that is no culture, in a tag's `culture` or in a document setting. | Validate |
 | `BadPattern` | error | A pattern that is no date, time or number pattern, or one of the wrong family for the kind of value it formats, in a tag or a document setting. | Validate |
 | `FormatIgnored` | warning | A `format`, or `true` and `false` words, on a value whose kind prints without them: text, a boolean, an object or a picture; the value prints as it is. | Validate |
@@ -40,3 +40,4 @@ A `Finding` says what is wrong in the author's terms: the kind, the severity, th
 | `UnusedMap` | warning | A map no binding prints through. | Validate |
 | `MapWithoutDefault` | warning | A map without a default row. | Validate |
 | `SeparatorIgnored` | warning | A separator on a loop whose tags sit in paragraphs or rows of their own; nothing is written between its items. | Validate |
+| `RendererFailed` | error, warning | A renderer that threw or gave bytes in no picture format the library knows is an error: the binding prints blank, the frame has no picture. The picture processor failing is a warning: the picture is stored as it was. | Render |

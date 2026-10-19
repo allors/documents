@@ -65,7 +65,8 @@ thread.
 
 `Render` builds the formatting for the render, the library's defaults with the caller's settings
 and the template's document settings applied as layers, picks the resolver, the settings' or the
-template's own, and creates one `Renderer` and one `Pictures` store for the render. The renderer
+template's own, and creates one `Renderer` and one `Pictures` store for the render. The template's
+renderers, the built-in text renderers and the settings' by name, were frozen when it was read. The renderer
 walks each program's DOM and writes it to an `XmlWriter` through `XmlOutput`, which writes the
 declaration as LibreOffice does and leaves the XML otherwise as the template had it. Ordinary
 nodes pass through; an instruction element executes:
@@ -73,7 +74,8 @@ nodes pass through; an instruction element executes:
 - A binding resolves its path through the `Scope`, which holds the loop variables and counters in
   scope, innermost first, before the root, and reads members through the resolver's
   `TryGetMember`. The value prints as the resolver formats it under the tag's attributes as the
-  last layer, or as the text its map gives for it, and `ValueWriter` writes it as Writer saves
+  last layer, through the text renderer the tag's `format` names when it names one, or as the
+  text its map gives for it, and `ValueWriter` writes it as Writer saves
   typed text: tabs, line breaks and runs of spaces as their elements. A path that breaks prints
   nothing; a member the model does not have is reported once per tag.
 - A condition writes the first branch whose test holds: the resolver's `IsTrue` for `<@if>`, the
@@ -82,8 +84,10 @@ nodes pass through; an instruction element executes:
   when the tag says so, and renders its body once per item with a scope pushed for the variable
   and the counter; the separator is written between the items of a loop that sits in one
   paragraph.
-- A bound frame asks the resolver for the picture, tells its format from the bytes with
-  `PictureFormat`, stores it in `Pictures` once per distinct content under
+- A bound frame asks the resolver for the picture, or the picture renderer the tag's `format`
+  names for one drawn to the frame's size, tells its format from the bytes with
+  `PictureFormat`, gives it to the settings' picture processor when there is one, stores it in
+  `Pictures` once per distinct content under
   `Pictures/<path>.<ext>`, reads its proportions from the header with `PictureSize`, and lets
   `Fitting` compute the frame's size for the tag's `fit`, in the unit the frame was drawn in,
   through `Length`. Frame names are made unique as they are written.

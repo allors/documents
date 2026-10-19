@@ -54,6 +54,7 @@ path down. Attributes after the path say how the value prints:
 | --- | --- |
 | `<$Invoice.Date format="dd MMMM yyyy">` | A pattern for this one value. `format="date"` uses the document's date pattern instead. |
 | `<$Invoice.Total format="N2">` | Two decimals, in the culture numbers print in. |
+| `<$Customer.Name format="upper">` | The text in upper case; `lower` and `cap` are the other built-in renderers. |
 | `<$Invoice.IsPaid true="paid" false="open">` | The words a yes or a no prints. |
 | `<$Invoice.Comment blank="none">` | What prints when there is no value. |
 

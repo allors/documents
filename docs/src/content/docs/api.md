@@ -38,7 +38,7 @@ RenderResult result = template.Render(model);
 
 A template is read once and rendered any number of times, from any thread. It may be a package (`.odt`) or a flat document (`.fodt`), and it renders a package unless the settings ask for a flat document. Reading a template throws `InvalidDataException` when the bytes are not an OpenDocument text, and nothing else: a block that never ends, an end that opens nothing, an else that belongs to no condition or a block that would cut a table are reported by `Validate`, with `DictionaryShape.Open` as the shape when there is no model at hand, and `Render` throws `TemplateException` whose `Findings` say which tags and where. A render never throws for what the template says: a value the model cannot give prints blank, and `Findings` reports it.
 
-A template never changes after it is read: a render keeps its own state, so renders may run concurrently, and `Inspection` and `Validate` may be read alongside them. The settings' resolver is shared by every render of the template, from any thread, so it keeps no state of a render; the model is not changed while a render reads it. A render with other settings, another culture or a flat document, comes from another template over the same bytes: reading one is cheap next to rendering it.
+A template never changes after it is read: a render keeps its own state, so renders may run concurrently, and `Inspection` and `Validate` may be read alongside them. The settings' resolver, renderers and picture processor are shared by every render of the template, from any thread, so they keep no state of a render; the model is not changed while a render reads it. A render with other settings, another culture or a flat document, comes from another template over the same bytes: reading one is cheap next to rendering it.
 
 `OpenDocumentTemplate<T>`, in `Allors.Documents.Reflection`, takes the same settings and adds a typed
 `Render(T model)`; it reads through `ReflectionResolver` unless the settings name a resolver, and
@@ -49,8 +49,9 @@ through both.
 ## Render settings
 
 `RenderSettings` carries how a render reads and formats its model: the resolver that binds paths
-to values, the caller's formatting defaults and the output form. A template takes its settings
-when it is read, and every render uses them; the properties are set by the initializer only. The
+to values, the caller's formatting defaults, the renderers a tag may name, the picture processor
+and the output form. A template takes its settings when it is read, and every render uses them;
+the properties are set by the initializer only. The
 template's own document settings win over these, and a tag's attributes win over both; a layer's
 culture resets the number and date cultures of the layers below it. [Formatting](formatting.md) has the rules.
 
@@ -63,6 +64,8 @@ culture resets the number and date cultures of the layers below it. [Formatting]
 | `Date`, `Time`, `DateTime`, `Number` | The patterns for a date without a time, a time without a date, a date with a time and a number; the culture's default when null. |
 | `True`, `False` | The words a true and a false value print; `true` and `false` when null. |
 | `Flat` | True to render a flat document (`.fodt`), one XML file with the pictures embedded; false, the default, renders a package (`.odt`). Either way the template may be a package or a flat document. |
+| `Renderers` | The renderers a tag may name in its `format` attribute, after the built-in text renderers `upper`, `lower` and `cap`, which every template has: `Renderers = [new WordsRenderer(), .. BarcodeRenderers.All]`. A later renderer replaces an earlier one with its name, built in or not; a name wins over the pattern names and over a .NET format string. A null renderer, or one without a name, is an `ArgumentException` when the template is read. [Renderers and picture processing](renderers.md) has the contracts. |
+| `PictureProcessor` | What the package stores for a bound picture: the processor sees the bytes the model or a renderer gave, their format and the frame, and gives the bytes to store, such as the picture scaled to the frame; null, the default, stores the bytes as they are. |
 
 ## Render result
 
@@ -104,7 +107,7 @@ A `Location` names the part (`content.xml` or `styles.xml`), the paragraph's ord
 
 `Validate(IShape root)` checks the template against the shape of its model, every path, attribute,
 pattern, block and document setting, as far as the kind of each value tells, without rendering it
-and returns a `TemplateValidation`: its `Findings` in document order,
+and against the template's renderers, built in and from the settings, and returns a `TemplateValidation`: its `Findings` in document order,
 `content.xml`, then `styles.xml`, then the document settings; `IsValid`, true when there is no
 error; and the `Inspection` the findings came from. [Validate templates](validate-templates.md)
 says which shape to pass and how a condition narrows what its branches see.

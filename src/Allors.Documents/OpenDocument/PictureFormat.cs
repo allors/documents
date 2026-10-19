@@ -13,8 +13,9 @@ namespace Allors.Documents
     /// <summary>
     /// A picture format the library tells from the first bytes of a picture: the extension its file takes, the media type its manifest entry
     /// gets, and whether it is compressed already. Deflating a compressed picture costs time and saves nothing, so the package stores those, as LibreOffice does.
+    /// A picture processor gets the format of the bytes it is given and may give bytes in another; <see cref="Sniff"/> tells which.
     /// </summary>
-    internal sealed class PictureFormat
+    public sealed class PictureFormat
     {
         public static readonly PictureFormat Png = new PictureFormat("PNG", "png", "image/png", true);
         public static readonly PictureFormat Jpeg = new PictureFormat("JPEG", "jpg", "image/jpeg", true);

@@ -67,5 +67,11 @@ namespace Allors.Documents
 
         /// <summary>A separator on a loop whose tags sit in paragraphs or rows of their own; nothing is written between its items.</summary>
         SeparatorIgnored,
+
+        /// <summary>
+        /// A renderer or the picture processor that threw, or gave bytes in no picture format the library knows: the binding prints blank,
+        /// the frame has no picture, or the picture is stored as it was.
+        /// </summary>
+        RendererFailed,
     }
 }

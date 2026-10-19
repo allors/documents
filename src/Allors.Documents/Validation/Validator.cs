@@ -21,6 +21,7 @@ namespace Allors.Documents
         private static readonly IShape CounterShape = new ValueShape(ValueKind.Number, "the loop counter");
 
         private readonly IShape root;
+        private readonly Renderers renderers;
         private readonly List<Finding> findings = new List<Finding>();
         private readonly Dictionary<InspectedTag, Scope> scopeByBranch = new Dictionary<InspectedTag, Scope>();
         private readonly HashSet<XmlElement> blockElements = new HashSet<XmlElement>();
@@ -28,11 +29,16 @@ namespace Allors.Documents
         private readonly Dictionary<string, InspectedMap> mapsByName = new Dictionary<string, InspectedMap>();
         private readonly HashSet<InspectedMap> mapsUsed = new HashSet<InspectedMap>();
 
-        private Validator(IShape root) => this.root = root ?? throw new ArgumentNullException(nameof(root));
-
-        public static TemplateValidation Validate(TemplateInspection inspection, IShape root)
+        private Validator(IShape root, Renderers renderers)
         {
-            var validator = new Validator(root);
+            this.root = root ?? throw new ArgumentNullException(nameof(root));
+            this.renderers = renderers ?? Renderers.Default;
+        }
+
+        /// <summary>Validates against the shape and the template's renderers; null stands for the built-in renderers alone.</summary>
+        public static TemplateValidation Validate(TemplateInspection inspection, IShape root, Renderers renderers = null)
+        {
+            var validator = new Validator(root, renderers);
             validator.Run(inspection);
             return new TemplateValidation(validator.Sorted(), inspection);
         }
@@ -73,15 +79,15 @@ namespace Allors.Documents
             this.CheckSettings(inspection.Settings);
         }
 
+        /// <summary>
+        /// A frame's tag binds a picture, or a value a picture renderer draws when its format names one; the attributes are empty, fit and format.
+        /// </summary>
         private void CheckPicture(InspectedPicture picture, Scope scope)
         {
             var tag = picture.Tag;
             var shape = this.CheckPath(tag.Path, scope, tag.Text, picture.Location);
-            if (shape != null && shape.Kind != ValueKind.Picture && shape.Kind != ValueKind.Open)
-            {
-                this.Add(FindingKind.NotAPicture, FindingSeverity.Error, tag.Text, tag.Path, "'" + tag.Path + "' is " + KindText(shape) + ", not a picture: bind the frame to a member that holds the bytes of a picture", picture.Location);
-            }
 
+            var drawn = false;
             foreach (var attribute in tag.Attributes)
             {
                 if (!TagSyntax.IsPictureAttribute(attribute.Key))
@@ -95,11 +101,40 @@ namespace Allors.Documents
                         this.Add(FindingKind.BadValue, FindingSeverity.Error, tag.Text, null, TagSyntax.FitAttribute + "=\"" + attribute.Value + "\": use " + TagSyntax.FillValue + ", " + TagSyntax.ContainValue + ", " + TagSyntax.WidthValue + " or " + TagSyntax.HeightValue, picture.Location);
                     }
                 }
+                else if (string.Equals(attribute.Key, Formatting.FormatAttribute, StringComparison.OrdinalIgnoreCase))
+                {
+                    drawn = this.CheckPictureFormat(attribute.Value, tag.Text, picture.Location);
+                }
                 else if (!TagSyntax.IsEmptyValue(attribute.Value))
                 {
                     this.Add(FindingKind.BadValue, FindingSeverity.Error, tag.Text, null, TagSyntax.EmptyAttribute + "=\"" + attribute.Value + "\": use " + TagSyntax.RemoveValue + " or " + TagSyntax.KeepValue, picture.Location);
                 }
             }
+
+            // A picture renderer draws the frame's picture for a value of any kind; without one the value must be a picture
+            if (!drawn && shape != null && shape.Kind != ValueKind.Picture && shape.Kind != ValueKind.Open)
+            {
+                this.Add(FindingKind.NotAPicture, FindingSeverity.Error, tag.Text, tag.Path, "'" + tag.Path + "' is " + KindText(shape) + ", not a picture: bind the frame to a member that holds the bytes of a picture", picture.Location);
+            }
+        }
+
+        /// <summary>A picture tag's format names a picture renderer and nothing else; true when it does.</summary>
+        private bool CheckPictureFormat(string format, string text, Location location)
+        {
+            var use = this.renderers.PictureNames.Length == 0 ? "none is registered" : "use " + this.renderers.PictureNames;
+            if (!this.renderers.TryGet(format, out var renderer))
+            {
+                this.Add(FindingKind.BadValue, FindingSeverity.Error, text, null, Formatting.FormatAttribute + "=\"" + format + "\" names no picture renderer: " + use, location);
+                return false;
+            }
+
+            if (!(renderer is IPictureRenderer))
+            {
+                this.Add(FindingKind.BadValue, FindingSeverity.Error, text, null, Formatting.FormatAttribute + "=\"" + format + "\" renders text, not a picture: " + use, location);
+                return false;
+            }
+
+            return true;
         }
 
         private void Visit(InspectedTag tag, Scope scope)
@@ -240,6 +275,16 @@ namespace Allors.Documents
         private void CheckFormat(InspectedTag tag, string format, ValueKind kind)
         {
             var path = tag.Tag.Path;
+            if (this.renderers.TryGet(format, out var renderer))
+            {
+                if (!(renderer is ITextRenderer))
+                {
+                    this.Add(FindingKind.BadValue, FindingSeverity.Error, tag.Tag.Text, path, Formatting.FormatAttribute + "=\"" + format + "\" renders a picture, not text: use " + this.renderers.TextNames + ", a pattern, or date, time, datetime or number for the document's pattern", tag.Location);
+                }
+
+                return;
+            }
+
             var named = Formatting.KindOfSetting(format);
             switch (kind)
             {
@@ -279,7 +324,7 @@ namespace Allors.Documents
                 default:
                     if (named == null && !Patterns.IsDate(format) && !Patterns.IsNumber(format))
                     {
-                        this.Add(FindingKind.BadPattern, FindingSeverity.Error, tag.Tag.Text, path, "'" + format + "' is not a format: use a date or number pattern, or date, time, datetime or number for the document's pattern", tag.Location);
+                        this.Add(FindingKind.BadPattern, FindingSeverity.Error, tag.Tag.Text, path, "'" + format + "' is not a format: use a date or number pattern, date, time, datetime or number for the document's pattern, or a renderer: " + this.renderers.TextNames, tag.Location);
                     }
 
                     break;

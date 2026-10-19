@@ -9,7 +9,7 @@ namespace Allors.Documents
     using System.Globalization;
 
     /// <summary>
-    /// How a render reads and formats its model: the resolver that binds paths to values, and the caller's formatting defaults.
+    /// How a render reads and formats its model: the resolver that binds paths to values, the caller's formatting defaults, the renderers a tag may name and the picture processor.
     /// A template takes its settings when it is read and every render uses them; a render that needs other settings, another culture or a flat
     /// document, comes from another template over the same bytes. The resolver is shared by every render of the template, from any thread.
     /// The template's own document settings win over these, and a tag's attributes win over both; a layer's culture resets the
@@ -52,6 +52,20 @@ namespace Allors.Documents
         /// False, the default, renders a package (.odt). Either way the template may be a package or a flat document.
         /// </summary>
         public bool Flat { get; init; }
+
+        /// <summary>
+        /// The renderers a tag may name in its format attribute, after the built-in text renderers upper, lower and cap, which every template has:
+        /// one at a time or a collection, such as the barcode renderers of a package: <c>Renderers = [new WordsRenderer(), .. BarcodeRenderers.All]</c>.
+        /// A later renderer replaces an earlier one with its name, built in or not. A name wins over the pattern names and over a .NET format
+        /// string. The template reads them once; a renderer is shared by every render, from any thread, and keeps no state of a render.
+        /// </summary>
+        public IEnumerable<IRenderer> Renderers { get; init; }
+
+        /// <summary>
+        /// What the package stores for a bound picture: the processor sees the bytes the model or a renderer gave, their format and the frame,
+        /// and gives the bytes to store, such as the picture scaled to the frame; null, the default, stores the bytes as they are.
+        /// </summary>
+        public IPictureProcessor PictureProcessor { get; init; }
 
         /// <summary>The caller's layer over the library's defaults.</summary>
         internal Formatting ToFormatting() => Formatting.Default.WithCulture(this.Culture, this.NumberCulture, this.DateCulture).With(this.Settings());

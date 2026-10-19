@@ -44,8 +44,11 @@ namespace Allors.Documents
 
         private readonly IReadOnlyList<Finding> blocking;
 
+        private readonly Renderers renderers;
+
         /// <summary>
         /// Reads a template, a package or a flat document, with the settings every render uses; null settings are the library's defaults.
+        /// A settings' renderer that is null or has no name is an <see cref="ArgumentException"/>.
         /// Throws <see cref="InvalidDataException"/> when the bytes are neither an OpenDocument package with a content.xml nor a flat
         /// OpenDocument text. Never throws for what the template says: a block that never ends, an end that opens nothing, an else that
         /// belongs to no condition or a block that would cut a table are reported by <see cref="Validate"/>, with <see cref="DictionaryShape.Open"/> when there is no shape at hand, and thrown by <see cref="Render"/>.
@@ -58,6 +61,7 @@ namespace Allors.Documents
             }
 
             this.Settings = settings ?? new RenderSettings();
+            this.renderers = this.Settings.Renderers == null ? Renderers.Default : new Renderers(this.Settings.Renderers);
 
             var parts = Parts.Read(document);
             this.fileByFileName = parts.Files;
@@ -83,9 +87,10 @@ namespace Allors.Documents
 
         /// <summary>
         /// Checks the template against the shape of its model without rendering it: every path, attribute, pattern, block and document setting,
-        /// as far as the kind of each value tells. Never throws for what the template says.
+        /// as far as the kind of each value tells. A format attribute is checked against
+        /// the template's renderers: the built-in text renderers and the settings'. Never throws for what the template says.
         /// </summary>
-        public TemplateValidation Validate(IShape root) => Validator.Validate(this.Inspection, root);
+        public TemplateValidation Validate(IShape root) => Validator.Validate(this.Inspection, root, this.renderers);
 
         /// <summary>
         /// Renders the template for a model. Every <c>&lt;$path&gt;</c> prints the value at its path, formatted by the settings, the template's
@@ -112,7 +117,7 @@ namespace Allors.Documents
             var formatting = this.Settings.ToFormatting().With(this.Inspection.Settings);
 
             var pictures = new Pictures(this.fileByFileName.Keys);
-            var renderer = new Renderer(resolver, formatting, model, pictures, this.maps);
+            var renderer = new Renderer(resolver, formatting, model, pictures, this.maps, this.renderers, this.Settings.PictureProcessor);
             var content = renderer.Render(this.contentProgram);
             var styles = this.stylesProgram == null ? null : renderer.Render(this.stylesProgram);
 
