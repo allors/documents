@@ -1,17 +1,17 @@
 ---
 title: "Documentation website"
-description: "Agreed website design, its adoption from the Allors3 documentation project, implementation subtasks and validation."
+description: "Agreed website design, its adoption from the Allors3 documentation project, implementation subtasks, validation and publication."
 audience: "Maintainers"
 kind: "Decision record"
-status: "Planned"
+status: "Current"
 sidebar:
   order: 4
 ---
 
-> **Status: Planned.** The website, its Markdown exports, the documentation workflow and the
-> editorial pages are built, and the checks that the workflow runs pass for both deployment paths.
-> Publication to GitHub Pages has not been run and the repository's Pages settings are unchanged;
-> the record stays Planned until the site is published.
+> **Status: Current.** The website, its Markdown exports, the documentation workflow and the
+> editorial pages are built, the checks that the workflow runs pass for both deployment paths,
+> and the website is published at `https://docs.allors.com/documents/`, beneath the Allors
+> documentation home, from the repository's Pages source **GitHub Actions**.
 
 This record describes the documentation website and where it comes from. The
 [writing guide](writing-documentation.md) owns the editorial rules and
@@ -28,7 +28,7 @@ development, validation and publication.
 | Source | The project is adopted from the Allors3 documentation website, [allors/allors3 pull request 284](https://github.com/allors/allors3/pull/284): the integrations for source links, scrollable content and Markdown exports, the link checker, the page title component, the stylesheet, the tooling and browser tests and the workflow, with the same dependency versions. The values that are specific to a project changed: the site title and sidebar, the repository and deployment base in `site.mjs`, the `llms.txt` heading, the link checker's defaults, the audience names and the test fixtures. |
 | Version label | Every page and export names the documented version. It is read from `version.json`, which Nerdbank.GitVersioning stamps on the packages: a prerelease version shows as unreleased work on `main`. |
 | Authoring | Markdown by default; MDX where a page needs a component, with the component implementation separate from the prose. |
-| Hosting | GitHub Pages, built with GitHub Actions, under `/documents/` next to the other Allors documentation areas. The workflow validates `/documents/` and `/`; publication is a manual run. |
+| Hosting | GitHub Pages, built with GitHub Actions, at the path `/documents/` beneath the shared origin `https://docs.allors.com`, whose root is the Allors documentation home, next to the other Allors documentation areas. The workflow validates `/documents/` and `/`; publication is a manual run. The sidebar's first entry links to the home, and the link checker leaves that link to the home's own build. The origin's own site and its custom domain belong to the documentation home, not to this repository. |
 | Visuals | Any diagram that helps explain the subject. Mermaid where suitable, rendered in the browser and verified there; editable sources and SVG for other drawings. |
 | Interaction | Ordinary JavaScript or TypeScript first; no UI framework is selected and no interactive example exists yet. |
 | Language and structure | Oxford English, precise practitioner terminology and Diátaxis, as the writing guide defines them. |
@@ -75,6 +75,5 @@ requires editorial review of changed pages and of representative exports.
 
 ## Follow-ups
 
-- Publication: enable GitHub Pages for the repository and run the workflow with publish selected, after approval.
-- After publication, point the README's documentation links at the published pages. Until then they go to the page sources on GitHub, which nuget.org can follow where it cannot follow a relative link.
+- Point the README's documentation links at the published pages. They go to the page sources on GitHub, which nuget.org can follow where it cannot follow a relative link; now that the site is published, the pages are the better target.
 - The policy for retaining the documentation of older released versions is not defined; the README packed into each release serves as its reference until then.

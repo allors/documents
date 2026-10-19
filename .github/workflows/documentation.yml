@@ -52,7 +52,7 @@ jobs:
       run:
         working-directory: docs
     env:
-      DOCS_SITE: https://allors.github.io
+      DOCS_SITE: https://docs.allors.com
       DOCS_BASE: ${{ matrix.base }}
     steps:
       - name: Checkout

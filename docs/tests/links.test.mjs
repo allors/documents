@@ -22,14 +22,14 @@ for (const base of ['/', '/documents/', '/preview/documents/']) {
       'index.html': `<h1 id="documentation">Documentation</h1>
         <link rel="stylesheet" href="${base}assets/site.css">
         <a href="${base}guide/#configuration">Guide</a>
-        <a href="https://allors.github.io${base}guide.md#configuration">Markdown</a>`,
+        <a href="https://docs.allors.com${base}guide.md#configuration">Markdown</a>`,
       'guide/index.html': `<h1 id="configuration">Configuration</h1>
         <a href="../#documentation">Home</a>
         <a href="https://github.com/allors/documents/blob/main/README.md#configuration">Repository</a>`,
       'index.md': `# Documentation\n[Guide](${base}guide.md#configuration)`,
       'guide.md': '# Guide\n\n[Home](index.md#documentation)',
       'assets/site.css': 'body { color: black; }',
-      'llms.txt': `# Documentation\n[Guide](https://allors.github.io${base}guide.md#configuration)`,
+      'llms.txt': `# Documentation\n[Guide](https://docs.allors.com${base}guide.md#configuration)`,
     });
     const result = await checkLinks(directory, base);
     assert.deepEqual(result.errors, []);
@@ -52,7 +52,7 @@ test('reports missing HTML assets, Markdown targets and canonical index links', 
   const directory = await fixture(t, {
     'index.html': '<script src="/documents/missing.js"></script>',
     'index.md': '[Missing](missing.md)',
-    'llms.txt': '[Missing](https://allors.github.io/documents/missing/)',
+    'llms.txt': '[Missing](https://docs.allors.com/documents/missing/)',
   });
   const { errors } = await checkLinks(directory, '/documents/');
   assert.equal(errors.length, 3);
@@ -67,7 +67,7 @@ test('reports missing HTML and exported Markdown fragments', async (t) => {
     'index.html': '<h1 id="documentation">Documentation</h1><a href="#unknown">Unknown</a>',
     'guide/index.html': '<h1 id="configuration">Configuration</h1>',
     'guide.md': '# Guide',
-    'llms.txt': '[Guide](https://allors.github.io/documents/guide.md#unknown)',
+    'llms.txt': '[Guide](https://docs.allors.com/documents/guide.md#unknown)',
   });
   const { errors } = await checkLinks(directory, '/documents/');
   assert.equal(errors.length, 2);
@@ -92,4 +92,23 @@ test('supports a complete deployment URL and encoded fragments', async (t) => {
   });
   const { errors } = await checkLinks(directory, 'https://docs.example.test/manual/');
   assert.deepEqual(errors, []);
+});
+
+test('leaves the link to the documentation home to its own build and counts it', async (t) => {
+  const directory = await fixture(t, {
+    'index.html': `<h1 id="documentation">Documentation</h1>
+      <a href="https://docs.allors.com/">Allors documentation</a>
+      <a href="/guide/">Guide</a>`,
+  });
+  const beneath = await checkLinks(directory, '/documents/', { home: 'https://docs.allors.com/' });
+  assert.equal(beneath.errors.length, 1);
+  assert.match(beneath.errors[0], /index\.html.*\/guide\/.*deployment base.*documents/);
+  assert.equal(beneath.links, 1);
+  assert.equal(beneath.unchecked, 1);
+
+  const root = await checkLinks(directory, '/', { home: 'https://docs.allors.com/' });
+  assert.equal(root.errors.length, 1);
+  assert.match(root.errors[0], /index\.html.*\/guide\/.*does not exist/);
+  assert.equal(root.links, 2);
+  assert.equal(root.unchecked, 0);
 });

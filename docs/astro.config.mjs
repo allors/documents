@@ -6,7 +6,7 @@ import sourceLinks from './integrations/source-links.mjs';
 import scrollableContent from './integrations/scrollable-content.mjs';
 import focusableCodeBlocks from './integrations/focusable-code-blocks.mjs';
 import documentationExports from './integrations/exports.mjs';
-import { site, base, repository } from './site.mjs';
+import { site, base, repository, home } from './site.mjs';
 
 export default defineConfig({
   site,
@@ -27,6 +27,7 @@ export default defineConfig({
       customCss: ['./src/styles/documentation.css'],
       expressiveCode: { plugins: [focusableCodeBlocks()] },
       sidebar: [
+        { label: 'Allors documentation', link: home },
         { label: 'Documentation', slug: '' },
         { label: 'For template authors', items: [
           { slug: 'write-a-template' }, { slug: 'tags' }, { slug: 'formatting' }, { slug: 'pictures' }, { slug: 'maps' }, { slug: 'findings' },
