@@ -1,0 +1,19 @@
+---
+import Default from '@astrojs/starlight/components/PageTitle.astro';
+import { version } from '../../site.mjs';
+
+const { entry, id } = Astro.locals.starlightRoute;
+const slug = id === 'index' ? '' : id;
+const { title, description, audience, kind, status } = entry.data;
+const metadata = { title, description, audience, kind, status, version, slug };
+const base = import.meta.env.BASE_URL.replace(/\/?$/, '/');
+---
+
+<p class="documentation-version" data-pagefind-ignore>{version}</p>
+<Default><slot /></Default>
+{audience && <div class="documentation-context" data-pagefind-ignore>
+  <span>{audience} · {kind} · {status}</span>
+  <a href={`${base}${slug || 'index'}.md`}>Markdown</a>
+  <a href={`${base}llms.txt`}>Agent index</a>
+</div>}
+{audience && <script is:inline type="application/json" data-documentation set:html={JSON.stringify(metadata).replace(/</g, '\\u003c')} />}
