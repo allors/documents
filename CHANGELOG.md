@@ -6,11 +6,7 @@ All notable changes to this project are documented in this file. The format foll
 
 ### Added
 
-- A documentation website under `docs/`, built with Astro and Starlight from pages for template authors, developers and maintainers, with Markdown exports and an `llms.txt` index generated from the same pages; the documentation workflow validates it for the `/documents/` and `/` deployment paths. The reference the README held moved to the pages, joined by new pages on writing a template in Writer, the design, the architecture and the planned renderers. The README is an introduction that links to the pages, and `AGENTS.md` holds the agent instructions.
-
-### Fixed
-
-- The template-writing guide and first-document tutorial explain that Writer supplies a placeholder's angle brackets: enter `$Invoice.Number` in its dialog to save `<$Invoice.Number>`. Picture descriptions take the complete tag, including its brackets.
+- A documentation website under `docs/`, built with Astro and Starlight from pages for template authors, developers and maintainers, with Markdown exports and an `llms.txt` index generated from the same pages; the documentation workflow validates it for the `/documents/` and `/` deployment paths. The reference the README held moved to the pages, joined by new pages on writing a template in Writer, the design, the architecture and the planned renderers. The guide on writing a template says what to enter in Writer's dialogs: `$Invoice.Number` in the Placeholder box, which Writer saves as `<$Invoice.Number>`, and the complete tag with its brackets in a picture's description. The README is an introduction that links to the pages, and `AGENTS.md` holds the agent instructions.
 
 ## [3.2.0] - 2026-10-16
 
