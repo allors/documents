@@ -216,6 +216,26 @@ namespace Allors.Documents.Tests
         }
 
         [Fact]
+        public void TwoBlocksMayEndInOneParagraph()
+        {
+            var model = new Dictionary<string, object> { ["Flag"] = true, ["Items"] = new object[] { Item("a"), Item("b") } };
+            var body = P("<@if Flag>") + P("<@for item Items>") + P("<$item.Name>") + P("<@end>", " ", "<@end>");
+
+            // The paragraph that holds both end tags is the end paragraph of both blocks and leaves the document once
+            Assert.Equal("a\nb", Text(body, model));
+        }
+
+        [Fact]
+        public void TwoBlocksMayBeginInOneParagraph()
+        {
+            var model = new Dictionary<string, object> { ["Flag"] = true, ["Items"] = new object[] { Item("a"), Item("b") } };
+            var body = P("<@if Flag>", " ", "<@for item Items>") + P("<$item.Name>") + P("<@end>") + P("<@end>");
+
+            // The paragraph that holds both begin tags is the begin paragraph of both blocks and leaves the document once
+            Assert.Equal("a\nb", Text(body, model));
+        }
+
+        [Fact]
         public void ABlockThatWouldCutATableThrowsWhenTheTemplateIsRead()
         {
             var exception = Assert.Throws<TemplateException>(() => Template(Table(Row(P("<@if Flag>"), P("<@end>")))));

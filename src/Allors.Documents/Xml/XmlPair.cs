@@ -71,8 +71,18 @@ namespace Allors.Documents
         public void Rewrite(Func<XmlPair, XmlElement> factory) => this.Rewrite(factory, null);
 
         /// <summary>Rewrites this block and its children; the branch factory makes the element for the branch after each separator, by its index.</summary>
-        public void Rewrite(Func<XmlPair, XmlElement> factory, Func<XmlPair, int, XmlElement> branchFactory)
+        public void Rewrite(Func<XmlPair, XmlElement> factory, Func<XmlPair, int, XmlElement> branchFactory) => this.Rewrite(factory, branchFactory, null);
+
+        public override string ToString() => this.Begin.LocalName + ": " + this.Begin.InnerText;
+
+        /// <summary>
+        /// Rewrites this block into an instruction element and then its children into theirs. A sibling that also began or ended the parent
+        /// block is gone by then, removed by the parent's rewrite: the block then starts at the first child of the parent's instruction, or
+        /// ends with its last.
+        /// </summary>
+        private void Rewrite(Func<XmlPair, XmlElement> factory, Func<XmlPair, int, XmlElement> branchFactory, XmlElement parentInstruction)
         {
+            XmlElement instructionElement = null;
             if (!this.IsRoot)
             {
                 if (this.separators.Count > 0 && branchFactory == null)
@@ -80,13 +90,14 @@ namespace Allors.Documents
                     throw new InvalidOperationException("a block with separators needs a branch factory");
                 }
 
-                var parentNode = this.BeginSibling.ParentNode;
+                var sharedBegin = this.BeginSibling.ParentNode == null;
+                var parentNode = sharedBegin ? parentInstruction : this.BeginSibling.ParentNode;
 
-                var instructionElement = factory(this);
+                instructionElement = factory(this);
                 var target = instructionElement;
                 var branch = 0;
 
-                var nextSibling = this.BeginSibling.NextSibling;
+                var nextSibling = sharedBegin ? parentNode.FirstChild : this.BeginSibling.NextSibling;
                 while (nextSibling != null && nextSibling != this.EndSibling)
                 {
                     if (branch < this.separatorSiblings.Count && nextSibling == this.separatorSiblings[branch])
@@ -101,22 +112,30 @@ namespace Allors.Documents
                         target.AppendChild(nextSibling);
                     }
 
-                    nextSibling = this.BeginSibling.NextSibling;
+                    nextSibling = sharedBegin ? parentNode.FirstChild : this.BeginSibling.NextSibling;
                 }
 
-                parentNode.InsertBefore(instructionElement, this.BeginSibling);
+                if (sharedBegin)
+                {
+                    parentNode.PrependChild(instructionElement);
+                }
+                else
+                {
+                    parentNode.InsertBefore(instructionElement, this.BeginSibling);
+                    parentNode.RemoveChild(this.BeginSibling);
+                }
 
-                parentNode.RemoveChild(this.BeginSibling);
-                parentNode.RemoveChild(this.EndSibling);
+                if (this.EndSibling.ParentNode == parentNode)
+                {
+                    parentNode.RemoveChild(this.EndSibling);
+                }
             }
 
             foreach (var child in this.Children)
             {
-                child.Rewrite(factory, branchFactory);
+                child.Rewrite(factory, branchFactory, instructionElement);
             }
         }
-
-        public override string ToString() => this.Begin.LocalName + ": " + this.Begin.InnerText;
 
         private void FindSiblings()
         {
