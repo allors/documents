@@ -1,0 +1,43 @@
+<Project Sdk="Microsoft.NET.Sdk">
+	<PropertyGroup>
+		<TargetFrameworks>netstandard2.0;net10.0</TargetFrameworks>
+		<RootNamespace>Allors.Documents.Imaging</RootNamespace>
+		<Title>Allors Documents Imaging</Title>
+		<Authors>allors</Authors>
+		<Company>Allors bvba</Company>
+		<Copyright>(c) Allors bvba</Copyright>
+		<Description>The picture processor for Allors Documents: scales a bound picture down to its frame with SkiaSharp, applies its orientation and keeps its format.</Description>
+		<PackageProjectUrl>https://github.com/Allors/Documents</PackageProjectUrl>
+		<PackageDescription>Scale the pictures of Allors Documents templates to their frames.</PackageDescription>
+		<PackageIcon>icon.png</PackageIcon>
+		<PackageReadmeFile>README.md</PackageReadmeFile>
+		<PackageLicenseExpression>LGPL-3.0-or-later</PackageLicenseExpression>
+		<PackageTags>office;libreoffice;openoffice;odt;generation;generator;template;image;picture;scaling;skiasharp</PackageTags>
+		<RepositoryUrl>https://github.com/Allors/Documents.git</RepositoryUrl>
+		<EmbedUntrackedSources>true</EmbedUntrackedSources>
+		<IncludeSymbols>true</IncludeSymbols>
+		<SymbolPackageFormat>snupkg</SymbolPackageFormat>
+		<LangVersion>latest</LangVersion>
+	</PropertyGroup>
+
+	<ItemGroup>
+		<None Include="icon.png" Pack="true" PackagePath="" />
+		<None Include="..\..\README.md" Pack="true" PackagePath="\"/>
+	</ItemGroup>
+
+	<ItemGroup>
+		<PackageReference Include="Microsoft.SourceLink.GitHub" Version="8.0.0">
+			<PrivateAssets>all</PrivateAssets>
+			<IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+		</PackageReference>
+		<PackageReference Include="SkiaSharp" Version="4.151.5" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<ProjectReference Include="..\Allors.Documents\Allors.Documents.csproj" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<InternalsVisibleTo Include="Allors.Documents.Tests" />
+	</ItemGroup>
+</Project>

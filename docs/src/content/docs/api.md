@@ -8,10 +8,10 @@ status: "Current"
 
 > **Status: Current.** Reference for developers.
 
-This page is the reference for the public API: the two packages, the template class and its
+This page is the reference for the public API: the four packages, the template class and its
 three operations, the settings a render takes, what a render returns, and the two forms of a
 document. The namespace is `Allors.Documents`, the name of the package, and
-`Allors.Documents.Reflection` for the reflection package.
+`Allors.Documents.Reflection`, `Allors.Documents.Barcodes` and `Allors.Documents.Imaging` for the other packages.
 
 ## Packages
 
@@ -19,6 +19,8 @@ document. The namespace is `Allors.Documents`, the name of the package, and
 |---|---|
 | `Allors.Documents` | The template and its renderer, the tag language, the inspection, `Validate`, the model contracts (`IShape`, `IResolver`) and the dictionary shape and resolver. Targets netstandard2.0 and net10.0, is trimmable and AOT-compatible, uses no reflection and has no dependencies. |
 | `Allors.Documents.Reflection` | `OpenDocumentTemplate<T>`, `ReflectionShape` and `ReflectionResolver`: templates over plain classes and dictionaries, their members read through reflection. |
+| `Allors.Documents.Barcodes` | The picture renderers `code128`, `ean13` and `qr`, drawn with ZXing.Net; see [Renderers and picture processing](renderers.md#packages). |
+| `Allors.Documents.Imaging` | `PictureScaling`, a picture processor over SkiaSharp that scales a picture down to its frame; see [Renderers and picture processing](renderers.md#packages). |
 
 ## Template
 

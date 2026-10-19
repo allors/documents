@@ -19,8 +19,9 @@
 
 ## Development notes
 
-- The solution is `src/Documents.slnx`: `Allors.Documents`, `Allors.Documents.Reflection` and
-  `Allors.Documents.Tests` (xunit). Build with `dotnet build src/Documents.slnx` and test with
+- The solution is `src/Documents.slnx`: `Allors.Documents`, `Allors.Documents.Reflection`,
+  `Allors.Documents.Barcodes`, `Allors.Documents.Imaging` and `Allors.Documents.Tests` (xunit).
+  Build with `dotnet build src/Documents.slnx` and test with
   `dotnet test src/Allors.Documents.Tests`. CI runs `task ci CONFIGURATION=Release`, which builds,
   tests and packs; [Task](https://taskfile.dev) is a prerequisite for `Taskfile.yml`, not for `dotnet`.
 - Error messages and findings are actionable: they say what is wrong in the author's terms and what

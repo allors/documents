@@ -12,6 +12,8 @@ Embed template tags inside OpenDocument texts: write the template in LibreOffice
 |---|---|
 | `Allors.Documents` | The template and its renderer, the tag language, the inspection, `Validate`, the model contracts (`IShape`, `IResolver`) and the dictionary shape and resolver. Targets netstandard2.0 and net10.0, is trimmable and AOT-compatible, uses no reflection and has no dependencies. |
 | `Allors.Documents.Reflection` | `OpenDocumentTemplate<T>`, `ReflectionShape` and `ReflectionResolver`: templates over plain classes and dictionaries, their members read through reflection. |
+| `Allors.Documents.Barcodes` | The picture renderers `code128`, `ean13` and `qr`: a barcode of the value's text, drawn with ZXing.Net for the frame that shows it. |
+| `Allors.Documents.Imaging` | `PictureScaling`, a picture processor that scales a picture down to its frame with SkiaSharp, turns a photo upright and keeps its format. |
 
 # Usage
 
@@ -37,7 +39,7 @@ The documentation is written for template authors, developers and maintainers. T
 
 **For template authors:** [Write a template](https://github.com/allors/documents/blob/main/docs/src/content/docs/write-a-template.md) · [Tags](https://github.com/allors/documents/blob/main/docs/src/content/docs/tags.md) · [Formatting](https://github.com/allors/documents/blob/main/docs/src/content/docs/formatting.md) · [Pictures](https://github.com/allors/documents/blob/main/docs/src/content/docs/pictures.md) · [Maps](https://github.com/allors/documents/blob/main/docs/src/content/docs/maps.md) · [Findings](https://github.com/allors/documents/blob/main/docs/src/content/docs/findings.md)
 
-**For developers:** [Render your first document](https://github.com/allors/documents/blob/main/docs/src/content/docs/render-your-first-document.md) · [Validate templates](https://github.com/allors/documents/blob/main/docs/src/content/docs/validate-templates.md) · [Resolve your own model](https://github.com/allors/documents/blob/main/docs/src/content/docs/resolve-your-own-model.md) · [Renderers and picture processing](https://github.com/allors/documents/blob/main/docs/src/content/docs/renderers.md) (planned) · [API](https://github.com/allors/documents/blob/main/docs/src/content/docs/api.md) · [Design](https://github.com/allors/documents/blob/main/docs/src/content/docs/design.md)
+**For developers:** [Render your first document](https://github.com/allors/documents/blob/main/docs/src/content/docs/render-your-first-document.md) · [Validate templates](https://github.com/allors/documents/blob/main/docs/src/content/docs/validate-templates.md) · [Resolve your own model](https://github.com/allors/documents/blob/main/docs/src/content/docs/resolve-your-own-model.md) · [Renderers and picture processing](https://github.com/allors/documents/blob/main/docs/src/content/docs/renderers.md) · [API](https://github.com/allors/documents/blob/main/docs/src/content/docs/api.md) · [Design](https://github.com/allors/documents/blob/main/docs/src/content/docs/design.md)
 
 **For everyone:** [Terminology](https://github.com/allors/documents/blob/main/docs/src/content/docs/terminology.md) · [Documentation index](https://github.com/allors/documents/blob/main/docs/src/content/docs/index.md)
 
