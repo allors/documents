@@ -10,8 +10,9 @@
   `Allors.Documents.Reflection`; a capability that needs a third-party library comes as a separate
   package.
 - A render never throws for what a template says: what the model cannot give prints blank and is
-  reported as a finding. Only a template whose blocks cannot be rendered throws, when it is read.
-  `Validate` reports everything it can tell from the template and the shape of its model.
+  reported as a finding. Only a template whose blocks cannot be rendered throws, at `Render`;
+  `CanRender` says so when it is read. `Validate` reports everything it can tell from the template
+  and the shape of its model.
 - Describe Allors Documents independently in documentation, comments, commit messages and GitHub
   text. Do not name private projects, or the organizations and installations that use the library.
 - Ask before introducing a breaking change outside an agreed major version.

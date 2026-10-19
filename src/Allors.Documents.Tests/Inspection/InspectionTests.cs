@@ -23,7 +23,7 @@ namespace Allors.Documents.Tests
                 "<text:p>" + Odt.Placeholder("<$line.Description>") + " " + Odt.Placeholder("<$line.Amount format=\"N2\">") + "</text:p>" +
                 "<text:p>" + Odt.Placeholder("<@end>") + "</text:p>");
 
-            var inspection = OpenDocumentTemplate.Inspect(package);
+            var inspection = new OpenDocumentTemplate(package).Inspection;
 
             Assert.Empty(inspection.Problems);
             Assert.Equal(["<$Receiver.Name>", "<@for line Lines>"], inspection.Tags.Select(v => v.Tag.Text));
@@ -50,7 +50,7 @@ namespace Allors.Documents.Tests
             var frames = Odt.Frame("Logo", "Pictures/placeholder.png", "<$Issuer.LogoImage empty=\"keep\">", "The issuer's logo") + Odt.Frame("Barcode", "Pictures/placeholder.png", "The barcode") + Odt.Frame("$Legacy", "Pictures/placeholder.png");
             var package = Odt.Build("<text:p>" + frames + "</text:p>", new Dictionary<string, byte[]> { ["placeholder.png"] = new byte[] { 1 } }, header);
 
-            var inspection = OpenDocumentTemplate.Inspect(package);
+            var inspection = new OpenDocumentTemplate(package).Inspection;
 
             var page = Assert.Single(inspection.Tags);
             Assert.Equal("styles.xml", page.Location.Part);
@@ -76,7 +76,7 @@ namespace Allors.Documents.Tests
                 "<text:p>" + Odt.Frame("Photo", "Pictures/p.png", "<$item.Photo>") + "</text:p>" +
                 "<text:p>" + Odt.Placeholder("<@end>") + "</text:p>");
 
-            var inspection = OpenDocumentTemplate.Inspect(package);
+            var inspection = new OpenDocumentTemplate(package).Inspection;
 
             var picture = Assert.Single(inspection.Pictures);
             Assert.Equal("item.Photo", picture.Path);
@@ -96,7 +96,7 @@ namespace Allors.Documents.Tests
                 "<text:p><draw:frame draw:name=\"Box\" text:anchor-type=\"paragraph\" svg:width=\"2cm\" svg:height=\"1cm\"><draw:text-box><text:p>box</text:p></draw:text-box><svg:desc>&lt;$Logo&gt;</svg:desc></draw:frame></text:p>" +
                 "<text:p>" + Odt.Frame("Note", "Pictures/p.png", "Just a note, no tag") + "</text:p>");
 
-            var inspection = OpenDocumentTemplate.Inspect(package);
+            var inspection = new OpenDocumentTemplate(package).Inspection;
 
             Assert.Empty(inspection.Pictures);
             Assert.Equal(3, inspection.Problems.Count);
@@ -115,7 +115,7 @@ namespace Allors.Documents.Tests
         {
             var package = Odt.Build("<text:p>body</text:p>", settings: new Dictionary<string, string> { ["culture"] = "nl-BE", ["date"] = "dd-MMM-yyyy" });
 
-            var inspection = OpenDocumentTemplate.Inspect(package);
+            var inspection = new OpenDocumentTemplate(package).Inspection;
 
             Assert.Equal("nl-BE", inspection.Settings["culture"]);
             Assert.Equal("dd-MMM-yyyy", inspection.Settings["date"]);
@@ -130,7 +130,7 @@ namespace Allors.Documents.Tests
                 "<text:p>" + Odt.Placeholder("<@if Receiver.Contact>") + "</text:p>" +
                 "<text:p>" + Odt.Frame("Photo", "Pictures/p.png", "<$item.Photo[0]>") + "</text:p>");
 
-            var inspection = OpenDocumentTemplate.Inspect(package);
+            var inspection = new OpenDocumentTemplate(package).Inspection;
 
             Assert.Equal(4, inspection.Problems.Count);
             Assert.Equal("<$a + b>", inspection.Problems[0].Text);
@@ -146,7 +146,7 @@ namespace Allors.Documents.Tests
         [Fact]
         public void TheWriterTemplateOfTheSuiteIsInspected()
         {
-            var inspection = OpenDocumentTemplate.Inspect(Resource("EmbeddedTemplate.odt"));
+            var inspection = new OpenDocumentTemplate(Resource("EmbeddedTemplate.odt")).Inspection;
 
             Assert.Empty(inspection.Problems);
             Assert.Contains("Person.FirstName", inspection.Paths);
@@ -171,7 +171,7 @@ namespace Allors.Documents.Tests
                 "<text:p>" + Odt.Frame("Logo", "Pictures/p.png", "<$Logo>") + "</text:p>" +
                 "<text:p>" + Odt.Placeholder("<@end>") + "</text:p>");
 
-            var inspection = OpenDocumentTemplate.Inspect(package);
+            var inspection = new OpenDocumentTemplate(package).Inspection;
 
             Assert.Empty(inspection.Problems);
             var condition = Assert.Single(inspection.Tags);
@@ -189,7 +189,7 @@ namespace Allors.Documents.Tests
             var header = "<office:master-styles><style:master-page style:name=\"Standard\"><style:header>" + Odt.Map("Titles", "true|CREDIT NOTE", "false|INVOICE") + "</style:header></style:master-page></office:master-styles>";
             var package = Odt.Build("<text:p>x</text:p>" + Odt.Map("Labels", "Payment|PAYMENT", "default|OTHER") + "<text:p>" + Odt.Placeholder("<$Kind map=\"Labels\">") + "</text:p>", masterStyles: header);
 
-            var inspection = OpenDocumentTemplate.Inspect(package);
+            var inspection = new OpenDocumentTemplate(package).Inspection;
 
             Assert.Empty(inspection.Problems);
             Assert.Equal(["Labels", "Titles"], inspection.Maps.Select(v => v.Name));

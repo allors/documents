@@ -23,10 +23,8 @@ namespace Allors.Documents
 
         private static readonly Regex WhitespaceRegex = new Regex(@"\s+");
 
-        public static TemplateInspection Inspect(byte[] document)
+        public static TemplateInspection Inspect(Parts parts)
         {
-            var parts = Parts.Read(document);
-
             var tags = new List<InspectedTag>();
             var pictures = new List<InspectedPicture>();
             var maps = new List<InspectedMap>();

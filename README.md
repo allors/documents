@@ -10,7 +10,7 @@ Embed template tags inside OpenDocument texts: write the template in LibreOffice
 
 | Package | Holds |
 |---|---|
-| `Allors.Documents` | The template and its renderer, the tag language, `Inspect`, `Validate`, the model contracts (`IShape`, `IResolver`) and the dictionary shape and resolver. Targets netstandard2.0 and net10.0, is trimmable and AOT-compatible, uses no reflection and has no dependencies. |
+| `Allors.Documents` | The template and its renderer, the tag language, the inspection, `Validate`, the model contracts (`IShape`, `IResolver`) and the dictionary shape and resolver. Targets netstandard2.0 and net10.0, is trimmable and AOT-compatible, uses no reflection and has no dependencies. |
 | `Allors.Documents.Reflection` | `OpenDocumentTemplate<T>`, `ReflectionShape` and `ReflectionResolver`: templates over plain classes and dictionaries, their members read through reflection. |
 
 # Usage

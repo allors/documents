@@ -11,6 +11,7 @@ namespace Allors.Documents.Tests
     using System.Linq;
     using System.Reflection;
     using System.Text;
+    using System.Threading.Tasks;
     using System.Xml.Linq;
     using Allors.Documents;
     using Xunit;
@@ -308,8 +309,8 @@ namespace Allors.Documents.Tests
             var template = Template(P("<@for item Items>") + P(Odt.Picture("<$item.Photo>", "Photo")) + P("<@end>"), pictures: Placeholders);
             var model = new Dictionary<string, object> { ["Items"] = new object[] { Photo(Png), Photo(Png2) } };
 
-            var first = Odt.Entries(template.Render(model, new RenderSettings()).Document);
-            var second = Odt.Entries(template.Render(model, new RenderSettings()).Document);
+            var first = Odt.Entries(template.Render(model).Document);
+            var second = Odt.Entries(template.Render(model).Document);
 
             Assert.Equal(first.Select(v => v.Name), second.Select(v => v.Name));
             Assert.All(first.Zip(second), pair => Assert.Equal(pair.First.Bytes, pair.Second.Bytes));
@@ -338,6 +339,24 @@ namespace Allors.Documents.Tests
         private sealed class MediaResolver : DictionaryResolver
         {
             public override byte[] Picture(object value) => (value as Media)?.Bytes;
+        }
+
+        [Fact]
+        public void RendersWithPicturesRunConcurrently()
+        {
+            var template = Template(P("<@for item Items>") + P(Odt.Picture("<$item.Photo>", "Photo")) + P("<@end>"), pictures: Placeholders);
+            var model = new Dictionary<string, object> { ["Items"] = new object[] { Photo(Png), Photo(Png2) } };
+            var expected = Odt.Entries(template.Render(model).Document);
+
+            var results = new IReadOnlyList<Odt.PackageEntry>[16];
+            Parallel.For(0, results.Length, i => results[i] = Odt.Entries(template.Render(model).Document));
+
+            // A render keeps its own pictures and findings: concurrent renders of one template give the same package
+            Assert.All(results, entries =>
+            {
+                Assert.Equal(expected.Select(v => v.Name), entries.Select(v => v.Name));
+                Assert.All(expected.Zip(entries), pair => Assert.Equal(pair.First.Bytes, pair.Second.Bytes));
+            });
         }
     }
 }

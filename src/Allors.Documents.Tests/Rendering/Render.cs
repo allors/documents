@@ -13,10 +13,10 @@ namespace Allors.Documents.Tests
     internal static class Render
     {
         public static RenderResult Document(string body, object model, RenderSettings settings = null, IDictionary<string, string> documentSettings = null, string styles = null, IDictionary<string, byte[]> pictures = null) =>
-            Template(body, documentSettings, styles, pictures).Render(model, settings);
+            Template(body, documentSettings, styles, pictures, settings).Render(model);
 
-        public static OpenDocumentTemplate Template(string body, IDictionary<string, string> documentSettings = null, string styles = null, IDictionary<string, byte[]> pictures = null) =>
-            new OpenDocumentTemplate(Odt.Build(body, pictures, styles, settings: documentSettings));
+        public static OpenDocumentTemplate Template(string body, IDictionary<string, string> documentSettings = null, string styles = null, IDictionary<string, byte[]> pictures = null, RenderSettings settings = null) =>
+            new OpenDocumentTemplate(Odt.Build(body, pictures, styles, settings: documentSettings), settings);
 
         public static string Paragraphs(RenderResult result) => Odt.Paragraphs(Odt.Content(result.Document));
 

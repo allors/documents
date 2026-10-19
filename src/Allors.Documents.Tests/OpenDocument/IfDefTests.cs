@@ -21,7 +21,7 @@ namespace Allors.Documents.Tests
         [Fact]
         public void ADefinedConditionIsABlock()
         {
-            var inspection = OpenDocumentTemplate.Inspect(Template);
+            var inspection = new OpenDocumentTemplate(Template).Inspection;
 
             var block = Assert.Single(inspection.Blocks);
             Assert.Equal(TagKind.IfDef, block.Tag.Kind);

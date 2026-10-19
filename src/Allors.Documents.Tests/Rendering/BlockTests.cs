@@ -236,9 +236,9 @@ namespace Allors.Documents.Tests
         }
 
         [Fact]
-        public void ABlockThatWouldCutATableThrowsWhenTheTemplateIsRead()
+        public void ABlockThatWouldCutATableThrowsWhenTheTemplateRenders()
         {
-            var exception = Assert.Throws<TemplateException>(() => Template(Table(Row(P("<@if Flag>"), P("<@end>")))));
+            var exception = Assert.Throws<TemplateException>(() => Template(Table(Row(P("<@if Flag>"), P("<@end>")))).Render(new Dictionary<string, object>()));
 
             var finding = Assert.Single(exception.Findings);
             Assert.Equal(FindingKind.BlockStructure, finding.Kind);
@@ -248,9 +248,9 @@ namespace Allors.Documents.Tests
         }
 
         [Fact]
-        public void ABlockThatEndsOutsideItsTableThrowsWhenTheTemplateIsRead()
+        public void ABlockThatEndsOutsideItsTableThrowsWhenTheTemplateRenders()
         {
-            var exception = Assert.Throws<TemplateException>(() => Template(Table(Row(P("<@for line Lines>"))) + P("<@end>")));
+            var exception = Assert.Throws<TemplateException>(() => Template(Table(Row(P("<@for line Lines>"))) + P("<@end>")).Render(new Dictionary<string, object>()));
 
             var finding = Assert.Single(exception.Findings);
             Assert.Equal(FindingKind.BlockStructure, finding.Kind);
@@ -260,9 +260,9 @@ namespace Allors.Documents.Tests
         [Theory]
         [InlineData("<@for line Lines>", "this block never ends")]
         [InlineData("<@end>", "closes nothing")]
-        public void AnUnbalancedBlockThrowsWhenTheTemplateIsRead(string tag, string message)
+        public void AnUnbalancedBlockThrowsWhenTheTemplateRenders(string tag, string message)
         {
-            var exception = Assert.Throws<TemplateException>(() => Template(P("x") + P(tag)));
+            var exception = Assert.Throws<TemplateException>(() => Template(P("x") + P(tag)).Render(new Dictionary<string, object>()));
 
             var finding = Assert.Single(exception.Findings);
             Assert.Equal(FindingKind.UnbalancedBlock, finding.Kind);
@@ -273,11 +273,11 @@ namespace Allors.Documents.Tests
         }
 
         [Fact]
-        public void AnUnbalancedBlockInAHeaderThrowsWhenTheTemplateIsRead()
+        public void AnUnbalancedBlockInAHeaderThrowsWhenTheTemplateRenders()
         {
             var header = "<office:master-styles><style:master-page style:name=\"Standard\"><style:header>" + P("<@if Flag>") + "</style:header></style:master-page></office:master-styles>";
 
-            var exception = Assert.Throws<TemplateException>(() => Template(P("x"), styles: header));
+            var exception = Assert.Throws<TemplateException>(() => Template(P("x"), styles: header).Render(new Dictionary<string, object>()));
 
             var finding = Assert.Single(exception.Findings);
             Assert.Equal(FindingKind.UnbalancedBlock, finding.Kind);

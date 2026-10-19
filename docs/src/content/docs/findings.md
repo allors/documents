@@ -16,7 +16,7 @@ typed, the message and the location:
 error: <$Invoice.Customer.Email>: Customer has no member Email (content.xml paragraph 3 "Customer: <$Invoice.Customer.Name>, <$Invoice.Customer.Email>")
 ```
 
-A `Finding` says what is wrong in the author's terms: the kind, the severity, the tag as typed, the path, a message and the `Location`. `Validate` reports everything it can tell from the template and the shape; `Render` reports what depends on the data; the constructor throws `TemplateException` with the findings a template cannot render with.
+A `Finding` says what is wrong in the author's terms: the kind, the severity, the tag as typed, the path, a message and the `Location`. `Validate` reports everything it can tell from the template and the shape; `Render` reports what depends on the data and throws `TemplateException` with the findings a template cannot render with; `CanRender` says so when the template is read.
 
 | Finding | Severity | Meaning | From |
 |---|---|---|---|

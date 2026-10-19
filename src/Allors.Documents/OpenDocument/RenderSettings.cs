@@ -10,46 +10,48 @@ namespace Allors.Documents
 
     /// <summary>
     /// How a render reads and formats its model: the resolver that binds paths to values, and the caller's formatting defaults.
+    /// A template takes its settings when it is read and every render uses them; a render that needs other settings, another culture or a flat
+    /// document, comes from another template over the same bytes. The resolver is shared by every render of the template, from any thread.
     /// The template's own document settings win over these, and a tag's attributes win over both; a layer's culture resets the
     /// number and date cultures of the layers below it.
     /// </summary>
     public sealed class RenderSettings
     {
         /// <summary>Binds paths to the model's members; the template's own resolver when null: <see cref="DictionaryResolver"/>, or the reflection resolver of a template over a model type.</summary>
-        public IResolver Resolver { get; set; }
+        public IResolver Resolver { get; init; }
 
         /// <summary>The culture values print in and text sorts by; the invariant culture when null.</summary>
-        public CultureInfo Culture { get; set; }
+        public CultureInfo Culture { get; init; }
 
         /// <summary>The culture numbers print in when it is not <see cref="Culture"/>; null when they print in the culture.</summary>
-        public CultureInfo NumberCulture { get; set; }
+        public CultureInfo NumberCulture { get; init; }
 
         /// <summary>The culture dates, times and date-times print in when it is not <see cref="Culture"/>; null when they print in the culture.</summary>
-        public CultureInfo DateCulture { get; set; }
+        public CultureInfo DateCulture { get; init; }
 
         /// <summary>The pattern for a date without a time; the culture's default when null.</summary>
-        public string Date { get; set; }
+        public string Date { get; init; }
 
         /// <summary>The pattern for a time without a date; the culture's default when null.</summary>
-        public string Time { get; set; }
+        public string Time { get; init; }
 
         /// <summary>The pattern for a date with a time; the culture's default when null.</summary>
-        public string DateTime { get; set; }
+        public string DateTime { get; init; }
 
         /// <summary>The pattern for a number; the culture's default when null.</summary>
-        public string Number { get; set; }
+        public string Number { get; init; }
 
         /// <summary>The word a true value prints; "true" when null.</summary>
-        public string True { get; set; }
+        public string True { get; init; }
 
         /// <summary>The word a false value prints; "false" when null.</summary>
-        public string False { get; set; }
+        public string False { get; init; }
 
         /// <summary>
         /// True to render a flat document (.fodt): one XML file with the pictures embedded, which LibreOffice opens as it does a package.
         /// False, the default, renders a package (.odt). Either way the template may be a package or a flat document.
         /// </summary>
-        public bool Flat { get; set; }
+        public bool Flat { get; init; }
 
         /// <summary>The caller's layer over the library's defaults.</summary>
         internal Formatting ToFormatting() => Formatting.Default.WithCulture(this.Culture, this.NumberCulture, this.DateCulture).With(this.Settings());

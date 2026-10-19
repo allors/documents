@@ -13,7 +13,7 @@ namespace Allors.Documents.Reflection
     /// <summary>
     /// A template over a model type. A render sees the public properties of <typeparamref name="T"/> by their exact names, the root that
     /// <see cref="ReflectionShape.Arguments{T}"/> gives Validate, and reads what is below them through <see cref="ReflectionResolver"/>,
-    /// unless the settings of the render name another resolver.
+    /// unless the settings name another resolver.
     /// </summary>
 #if NET
     [System.Diagnostics.CodeAnalysis.RequiresUnreferencedCode("Reads the members of a type through reflection.")]
@@ -25,15 +25,19 @@ namespace Allors.Documents.Reflection
         private readonly PropertyInfo[] properties;
 
         /// <summary>
-        /// Reads a template. Throws <see cref="System.IO.InvalidDataException"/> when the package is not an OpenDocument text, and
-        /// <see cref="TemplateException"/> when a block never ends, an end opens nothing or a block would cut a table.
+        /// Reads a template with the settings every render uses; null settings are the library's defaults. Throws
+        /// <see cref="System.IO.InvalidDataException"/> when the bytes are not an OpenDocument text; a template whose blocks cannot be
+        /// rendered is read, says so with <see cref="OpenDocumentTemplate.CanRender"/> and throws at <see cref="Render"/>.
         /// </summary>
-        public OpenDocumentTemplate(byte[] document)
-            : base(document, ReflectionResolver.Instance) =>
+        public OpenDocumentTemplate(byte[] document, RenderSettings settings = null)
+            : base(document, settings) =>
             this.properties = typeof(T).GetProperties();
 
-        /// <summary>Renders the template for a model; see <see cref="OpenDocumentTemplate.Render(object, RenderSettings)"/>.</summary>
-        public RenderResult Render(T model, RenderSettings settings = null)
+        /// <summary>The resolver a render reads through when the settings name none: the reflection resolver.</summary>
+        protected override IResolver DefaultResolver => ReflectionResolver.Instance;
+
+        /// <summary>Renders the template for a model; see <see cref="OpenDocumentTemplate.Render(object)"/>.</summary>
+        public RenderResult Render(T model)
         {
             if (model == null)
             {
@@ -50,7 +54,7 @@ namespace Allors.Documents.Reflection
                 }
             }
 
-            return this.Render((object)root, settings);
+            return this.Render((object)root);
         }
     }
 }

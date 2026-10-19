@@ -21,6 +21,7 @@ namespace Allors.Documents
         private static readonly IShape CounterShape = new DictionaryShape(new Dictionary<string, IShape>(), "the loop counter");
 
         private readonly IShape root;
+        private readonly Formatting caller;
         private readonly List<Finding> findings = new List<Finding>();
         private readonly Dictionary<InspectedTag, Scope> scopeByBranch = new Dictionary<InspectedTag, Scope>();
         private readonly HashSet<XmlElement> blockElements = new HashSet<XmlElement>();
@@ -28,12 +29,15 @@ namespace Allors.Documents
         private readonly Dictionary<string, InspectedMap> mapsByName = new Dictionary<string, InspectedMap>();
         private readonly HashSet<InspectedMap> mapsUsed = new HashSet<InspectedMap>();
 
-        private Validator(IShape root) => this.root = root ?? throw new ArgumentNullException(nameof(root));
-
-        public static TemplateValidation Validate(byte[] package, IShape root)
+        private Validator(IShape root, Formatting caller)
         {
-            var inspection = Inspector.Inspect(package);
-            var validator = new Validator(root);
+            this.root = root ?? throw new ArgumentNullException(nameof(root));
+            this.caller = caller;
+        }
+
+        public static TemplateValidation Validate(TemplateInspection inspection, IShape root, Formatting caller)
+        {
+            var validator = new Validator(root, caller);
             validator.Run(inspection);
             return new TemplateValidation(validator.Sorted(), inspection);
         }
@@ -444,7 +448,7 @@ namespace Allors.Documents
                 }
             }
 
-            var formatting = Formatting.Default.With(settings);
+            var formatting = this.caller.With(settings);
             foreach (var setting in settings)
             {
                 var name = setting.Key.ToLowerInvariant();

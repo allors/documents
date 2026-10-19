@@ -278,7 +278,7 @@ namespace Allors.Documents.Tests
         {
             var template = Template(P("x"));
 
-            Assert.Throws<ArgumentNullException>(() => template.Render(null, new RenderSettings()));
+            Assert.Throws<ArgumentNullException>(() => template.Render(null));
         }
 
         private sealed class Money

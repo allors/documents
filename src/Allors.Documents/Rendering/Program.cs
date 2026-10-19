@@ -44,8 +44,19 @@ namespace Allors.Documents
         /// <summary>Tags that cannot be read and render as the text the author typed; every render reports them.</summary>
         public IReadOnlyList<Finding> Findings { get; }
 
-        /// <summary>Builds a part's program; the maps found in it are added to the list, which the parts of one template share so that a name is defined once.</summary>
+        /// <summary>Builds a part's program, or throws <see cref="TemplateException"/> when the part cannot render; see <see cref="TryBuild"/>.</summary>
         public static Program Build(string part, byte[] xml, List<InspectedMap> maps = null)
+        {
+            var blocking = new List<Finding>();
+            return TryBuild(part, xml, maps, blocking) ?? throw new TemplateException(blocking);
+        }
+
+        /// <summary>
+        /// Builds a part's program, or gives null and adds to the blocking findings why the part cannot render: a block that never ends, an end
+        /// that opens nothing, an else that belongs to no condition, or a block that would cut a table. The maps found in the part are added to
+        /// the list, which the parts of one template share so that a name is defined once.
+        /// </summary>
+        public static Program TryBuild(string part, byte[] xml, List<InspectedMap> maps, List<Finding> blocking)
         {
             var document = Inspector.Load(xml);
             var tags = new List<InspectedTag>();
@@ -57,7 +68,8 @@ namespace Allors.Documents
             var unbalanced = problems.Where(v => v.IsUnbalanced).Select(v => new Finding(FindingKind.UnbalancedBlock, FindingSeverity.Error, v.Text, null, v.Message, v.Location)).ToList();
             if (unbalanced.Count > 0)
             {
-                throw new TemplateException(unbalanced);
+                blocking.AddRange(unbalanced);
+                return null;
             }
 
             var malformed = problems.Select(v => new Finding(FindingKind.MalformedTag, FindingSeverity.Error, v.Text, null, v.Message, v.Location)).ToList();
@@ -70,7 +82,8 @@ namespace Allors.Documents
             Prepare(tags, root, document, instructions, tagByPair, branchesByPair, misplaced);
             if (misplaced.Count > 0)
             {
-                throw new TemplateException(misplaced);
+                blocking.AddRange(misplaced);
+                return null;
             }
 
             foreach (var picture in pictures)

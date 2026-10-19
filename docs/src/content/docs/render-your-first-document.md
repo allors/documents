@@ -127,8 +127,9 @@ and without patterns: `10/19/2026 00:00:00` and `1250.5`.
 
 ## 4. Format for the installation
 
-Pass render settings for the culture and the patterns. The template's own document settings and a
-tag's attributes win over them; [Formatting](formatting.md) explains the layers.
+Read the template with render settings for the culture and the patterns; a template keeps its
+settings for every render. The template's own document settings and a tag's attributes win over
+them; [Formatting](formatting.md) explains the layers.
 
 ```csharp
 using System.Globalization;
@@ -140,7 +141,7 @@ var settings = new RenderSettings
     Number = "N2",
     Date = "dd-MMM-yyyy",
 };
-result = template.Render(model, settings);
+result = new OpenDocumentTemplate<InvoiceModel>(File.ReadAllBytes("invoice-template.odt"), settings).Render(model);
 ```
 
 Now the date prints `19-Oct-2026` and the amounts `1.250,50` and `99,00`. The quantities print
@@ -158,7 +159,7 @@ the template is saved and in a test over every template:
 using Allors.Documents;
 
 IShape shape = ReflectionShape.Arguments<InvoiceModel>();
-TemplateValidation validation = OpenDocumentTemplate.Validate(File.ReadAllBytes("invoice-template.odt"), shape);
+TemplateValidation validation = template.Validate(shape);
 foreach (Finding finding in validation.Findings)
 {
     Console.WriteLine(finding);

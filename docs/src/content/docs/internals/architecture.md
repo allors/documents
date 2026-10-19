@@ -1,6 +1,6 @@
 ---
 title: "Architecture"
-description: "How a template becomes a document: the parts of an OpenDocument text, the program built once per template, the renderer that walks it per render, pictures and output, and how Inspect and Validate share the same reading of a template."
+description: "How a template becomes a document: the parts of an OpenDocument text, the program built once per template, the renderer that walks it per render, pictures and output, and how the inspection and Validate share the same reading of a template."
 audience: "Maintainers"
 kind: "Explanation"
 status: "Current"
@@ -44,14 +44,15 @@ with theirs `styles.xml`, the meta data `meta.xml`, and every embedded picture a
 `Pictures/`, named by a hash of its bytes. From here on the engine does not know which form it
 read.
 
-`Program.Build` prepares each rendering part once, for the life of the template. It loads the
+`Program.TryBuild` prepares each rendering part once, for the life of the template. It loads the
 part with every white-space character kept, since Writer writes a part without indentation of its
 own, and walks it with the inspector's part walker, which collects the tags in placeholder
 fields, the frames whose description is a picture tag, the map tables and the problems it cannot
-read past. An unbalanced block throws `TemplateException` here. The tags are paired into blocks
+read past. An unbalanced block is a blocking finding here: the template is read, `CanRender` is
+false and `Render` throws `TemplateException` with it. The tags are paired into blocks
 with `XmlPair`, and `BlockStructure` decides whether a block's begin, elses and end sit where the
 renderer can cut: in paragraphs of one container or in rows of one table. A block that would cut
-a table throws as well. Then the rewrite: every placeholder becomes an instruction element in the
+a table blocks as well. Then the rewrite: every placeholder becomes an instruction element in the
 program's own namespace, every block one element around what sat between its tags with a branch
 element per else, the paragraphs or rows that held block tags gone; a bound frame stays where it
 is and is an instruction itself; a map table leaves the part. A tag that could not be read stays
@@ -94,19 +95,21 @@ way Writer does, the `mimetype` entry first and stored, pictures that are compre
 stored and the rest deflated; `Flat.Write` merges the parts back into one document with the
 pictures embedded. The result is the document and the findings.
 
-## Inspect and Validate
+## Inspection and Validate
 
-`Inspect` reads the parts and walks them with the same part walker that `Program.Build` uses, and
-returns what it collected: the tags as a tree with their locations, the bound pictures, the maps,
+The constructor builds the `Inspection` from the parts with the same part walker that
+`Program.TryBuild` uses, over a DOM of its own, and it holds what the walker collected: the tags
+as a tree with their locations, the bound pictures, the maps,
 the document settings and the problems. It rewrites nothing and throws for nothing a template
 says.
 
-`Validate` runs `Inspect` and checks the inspection against an `IShape`. The problems become
+`Validate` checks the inspection against an `IShape`, starting from the template's settings as the
+caller's formatting layer. The problems become
 findings. The validator visits the tags with scopes of its own: a loop variable carries the shape
 of the collection's items, and each branch of a condition is checked in the scope its test opens,
 narrowed through `NarrowedShape` to the variants of an abstract shape that have the guarded
 member. Block placement is replayed with `XmlPair` and `BlockStructure`, so that the validator
-reports what the constructor would throw, together with the text that the paragraph or row of a
+reports what `Render` would throw, together with the text that the paragraph or row of a
 block tag would lose. Attributes are checked against the lists in `TagSyntax`, cultures through
 `Formatting` and patterns by trying them in the culture of their kind, maps for their use and
 their default row, and the document settings for their names, cultures and patterns. The findings come sorted: `content.xml`, then
@@ -141,6 +144,6 @@ under `Resources` are fixtures for what needs one.
 - The output reads as the template did: the declaration, the comments and processing
   instructions, a full end tag on every element and the author's white space kept, and a manifest
   nothing changed passes through unchanged.
-- What a template says never throws at render time; the two structural errors throw when the
-  template is read, with findings.
+- What a template says never throws when it is read; the structural errors leave `CanRender`
+  false and throw at `Render`, with findings.
 - A finding names the tag as typed, the path, the part and the paragraph, in the author's terms.

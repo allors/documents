@@ -8,11 +8,18 @@ All notable changes to this project are documented in this file. The format foll
 
 - **Breaking:** every type of the core sits in the namespace `Allors.Documents`, the name of the package, and the reflection package in `Allors.Documents.Reflection`; the namespaces `Allors.Document.OpenDocument`, `Allors.Document.Validation`, `Allors.Document.Inspection`, `Allors.Document.Models`, `Allors.Document.Tags` and `Allors.Document.Reflection` are gone. To upgrade, replace the `using Allors.Document.*` directives by `using Allors.Documents;` and `using Allors.Documents.Reflection;`. `TagSyntax` and `XmlPair` are internal: neither was part of the contract.
 - **Breaking:** `Finding`, `Location` and `SortKey` are records: two with the same members are equal, `ToString` prints as before, and their constructors are public, so an application can build findings of its own.
+- **Breaking:** a template takes its settings when it is read: `OpenDocumentTemplate(byte[] document, RenderSettings settings = null)`, `Settings`, and `Render(object model)` without a settings parameter; the properties of `RenderSettings` are set by the initializer only. Every render of a template uses the same settings; a render with other settings, another culture or a flat document, comes from another template over the same bytes. `OpenDocumentTemplate<T>` takes the same arguments and reads through `ReflectionResolver` unless the settings name a resolver.
+- **Breaking:** the static `Inspect` and `Validate` are gone. `Inspection` is a property of the template, read with it, and `Validate(IShape root)` an instance operation that checks the template under its settings.
+- **Breaking:** reading a template throws only `InvalidDataException`, for bytes that are no OpenDocument text. A block that never ends, an end that opens nothing, an else that belongs to no condition or a block that would cut a table no longer throw when the template is read: `CanRender` is false, `Validate` reports them, and `Render` throws `TemplateException` with those findings.
 
 ### Added
 
 - `RenderResult.Errors` and `RenderResult.Warnings`: the findings of a render by severity, as `TemplateValidation` splits those of a validation. An error says a value is missing from the document; a warning says the document is complete but not as the template asked.
 - A documentation website under `docs/`, built with Astro and Starlight from pages for template authors, developers and maintainers, with Markdown exports and an `llms.txt` index generated from the same pages; the documentation workflow validates it for the `/documents/` and `/` deployment paths. The reference the README held moved to the pages, joined by new pages on writing a template in Writer, the design, the architecture and the planned renderers. The guide on writing a template says what to enter in Writer's dialogs: `$Invoice.Number` in the Placeholder box, which Writer saves as `<$Invoice.Number>`, and the complete tag with its brackets in a picture's description. The README is an introduction that links to the pages, and `AGENTS.md` holds the agent instructions.
+
+### Fixed
+
+- A nested block whose begin or end tag shared a paragraph with its parent block's begin or end tag crashed when the template was read. Both layouts render, and the shared paragraph leaves the document once.
 
 ## [3.2.0] - 2026-10-16
 

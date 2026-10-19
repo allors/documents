@@ -67,7 +67,7 @@ namespace Allors.Documents.Tests
 
         /// <summary>Renders a package for a dictionary model, an empty one when null, and gives the document back.</summary>
         public static byte[] Render(byte[] package, IDictionary<string, object> model = null, RenderSettings settings = null) =>
-            new OpenDocumentTemplate(package).Render(model ?? new Dictionary<string, object>(), settings).Document;
+            new OpenDocumentTemplate(package, settings).Render(model ?? new Dictionary<string, object>()).Document;
 
         /// <summary>The manifest's entries: the media type by full path.</summary>
         public static IReadOnlyDictionary<string, string> ManifestEntries(byte[] package) =>

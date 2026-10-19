@@ -136,7 +136,7 @@ namespace Allors.Documents.Tests
                       "<table:table-row><table:table-cell><text:p>default</text:p></table:table-cell><table:table-cell><text:p>D2</text:p></table:table-cell></table:table-row>" +
                       "</table:table>";
 
-            var inspection = OpenDocumentTemplate.Inspect(Odt.Build(map));
+            var inspection = new OpenDocumentTemplate(Odt.Build(map)).Inspection;
 
             var inspected = Assert.Single(inspection.Maps);
             Assert.Equal("M", inspected.Name);

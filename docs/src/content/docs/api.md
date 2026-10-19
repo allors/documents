@@ -1,6 +1,6 @@
 ---
 title: "API"
-description: "The packages, the template class with Inspect, Validate and Render, the render settings and result, and flat documents."
+description: "The packages, the template class with its inspection, Validate and Render, the render settings and result, and flat documents."
 audience: "Developers"
 kind: "Reference"
 status: "Current"
@@ -17,37 +17,42 @@ document. The namespace is `Allors.Documents`, the name of the package, and
 
 | Package | Holds |
 |---|---|
-| `Allors.Documents` | The template and its renderer, the tag language, `Inspect`, `Validate`, the model contracts (`IShape`, `IResolver`) and the dictionary shape and resolver. Targets netstandard2.0 and net10.0, is trimmable and AOT-compatible, uses no reflection and has no dependencies. |
+| `Allors.Documents` | The template and its renderer, the tag language, the inspection, `Validate`, the model contracts (`IShape`, `IResolver`) and the dictionary shape and resolver. Targets netstandard2.0 and net10.0, is trimmable and AOT-compatible, uses no reflection and has no dependencies. |
 | `Allors.Documents.Reflection` | `OpenDocumentTemplate<T>`, `ReflectionShape` and `ReflectionResolver`: templates over plain classes and dictionaries, their members read through reflection. |
 
 ## Template
 
-`OpenDocumentTemplate` reads a template from its bytes and keeps it ready to render; `Render` is
-its instance operation, `Inspect` and `Validate` are static and take the bytes. A template over a
-model type sees the public properties of `T` by their exact names and reads what is below them
+`OpenDocumentTemplate` reads a template from its bytes, with the settings every render uses, and
+keeps it ready: `Inspection` is what it asks of a model, `Validate` checks it against a shape,
+`Render` renders it for a model and `CanRender` says whether its blocks can be rendered. A template
+over a model type sees the public properties of `T` by their exact names and reads what is below them
 through reflection. The non-generic `OpenDocumentTemplate` takes any model and reads it as a
 dictionary unless the settings name another resolver:
 
 ```csharp
-var template = new OpenDocumentTemplate(templateBytes);
-var model = new Dictionary<string, object> { ["Invoice"] = invoice, ["Issuer"] = issuer };
 var settings = new RenderSettings { Resolver = ReflectionResolver.Instance, Culture = new CultureInfo("nl-BE"), DateCulture = CultureInfo.InvariantCulture, Number = "N2", Date = "dd-MMM-yyyy" };
-RenderResult result = template.Render(model, settings);
+var template = new OpenDocumentTemplate(templateBytes, settings);
+var model = new Dictionary<string, object> { ["Invoice"] = invoice, ["Issuer"] = issuer };
+RenderResult result = template.Render(model);
 ```
 
-A template is read once and rendered any number of times, from any thread. It may be a package (`.odt`) or a flat document (`.fodt`), and it renders a package unless the settings ask for a flat document. Reading a template throws `InvalidDataException` when the bytes are not an OpenDocument text, and `TemplateException` when a block never ends, an end opens nothing, an else belongs to no condition or a block would cut a table; `Findings` says which tags and where. A render never throws for what the template says: a value the model cannot give prints blank, and `Findings` reports it.
+A template is read once and rendered any number of times, from any thread. It may be a package (`.odt`) or a flat document (`.fodt`), and it renders a package unless the settings ask for a flat document. Reading a template throws `InvalidDataException` when the bytes are not an OpenDocument text, and nothing else: a block that never ends, an end that opens nothing, an else that belongs to no condition or a block that would cut a table leave `CanRender` false, `Validate` reports them, and `Render` throws `TemplateException` whose `Findings` say which tags and where. A render never throws for what the template says: a value the model cannot give prints blank, and `Findings` reports it.
 
-`OpenDocumentTemplate<T>`, in `Allors.Documents.Reflection`, adds a typed
-`Render(T model, RenderSettings settings = null)`; `ReflectionShape.Arguments<T>()` is the shape
+A template never changes after it is read: a render keeps its own state, so renders may run concurrently, and `Inspection` and `Validate` may be read alongside them. The settings' resolver is shared by every render of the template, from any thread, so it keeps no state of a render; the model is not changed while a render reads it. A render with other settings, another culture or a flat document, comes from another template over the same bytes: reading one is cheap next to rendering it.
+
+`OpenDocumentTemplate<T>`, in `Allors.Documents.Reflection`, takes the same settings and adds a typed
+`Render(T model)`; it reads through `ReflectionResolver` unless the settings name a resolver, and
+`ReflectionShape.Arguments<T>()` is the shape
 that matches it for `Validate`. [Render your first document](render-your-first-document.md) walks
 through both.
 
 ## Render settings
 
 `RenderSettings` carries how a render reads and formats its model: the resolver that binds paths
-to values, the caller's formatting defaults and the output form. The template's own document
-settings win over these, and a tag's attributes win over both; a layer's culture resets the
-number and date cultures of the layers below it. [Formatting](formatting.md) has the rules.
+to values, the caller's formatting defaults and the output form. A template takes its settings
+when it is read, and every render uses them; the properties are set by the initializer only. The
+template's own document settings win over these, and a tag's attributes win over both; a layer's
+culture resets the number and date cultures of the layers below it. [Formatting](formatting.md) has the rules.
 
 | Member | Meaning |
 | --- | --- |
@@ -77,12 +82,12 @@ typed, white space collapsed, at most 200 characters. [Findings](findings.md) li
 `Finding`, `Location` and the `SortKey` of a loop tag are records: two with the same members are
 equal, and an application may construct its own.
 
-## Inspect
+## Inspection
 
-`Inspect` reads a template without a model and lists what it asks for: every tag in document order with its part and paragraph, the bound picture frames, the maps, the document settings, and the tags it cannot read.
+`Inspection` is what the template asks for, read without a model: every tag in document order with its part and paragraph, the bound picture frames, the maps, the document settings, and the tags it cannot read.
 
 ```csharp
-TemplateInspection inspection = OpenDocumentTemplate.Inspect(templateBytes);
+TemplateInspection inspection = new OpenDocumentTemplate(templateBytes).Inspection;
 
 inspection.Paths;      // every distinct path, bindings and pictures alike
 inspection.Bindings;   // the <$path> tags, each with Tag, Location and the enclosing Block
@@ -97,8 +102,8 @@ A `Location` names the part (`content.xml` or `styles.xml`), the paragraph's ord
 
 ## Validate
 
-`Validate(byte[] document, IShape root)` checks a template against the shape of its model
-without rendering it and returns a `TemplateValidation`: its `Findings` in document order,
+`Validate(IShape root)` checks the template against the shape of its model, under the template's
+settings, without rendering it and returns a `TemplateValidation`: its `Findings` in document order,
 `content.xml`, then `styles.xml`, then the document settings; `IsValid`, true when there is no
 error; and the `Inspection` the findings came from. [Validate templates](validate-templates.md)
 says which shape to pass and how a condition narrows what its branches see.

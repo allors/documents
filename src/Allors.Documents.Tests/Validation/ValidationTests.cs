@@ -437,7 +437,7 @@ namespace Allors.Documents.Tests
             var styles = "<office:master-styles><style:master-page style:name=\"Standard\"><style:header>" + P("<$Invoice.Nubmer3>") + "</style:header></style:master-page></office:master-styles>";
             var settings = new Dictionary<string, string> { ["colour"] = "red" };
 
-            var validation = OpenDocumentTemplate.Validate(Odt.Build(body, masterStyles: styles, settings: settings), Root);
+            var validation = new OpenDocumentTemplate(Odt.Build(body, masterStyles: styles, settings: settings)).Validate(Root);
 
             Assert.Equal(new[] { "content.xml", "content.xml", "styles.xml", "meta.xml" }, validation.Findings.Select(v => v.Location.Part));
         }
@@ -459,9 +459,9 @@ namespace Allors.Documents.Tests
                 withoutContent = stream.ToArray();
             }
 
-            Assert.Throws<InvalidDataException>(() => OpenDocumentTemplate.Validate(new byte[] { 1, 2, 3 }, Root));
-            Assert.Throws<InvalidDataException>(() => OpenDocumentTemplate.Validate(withoutContent, Root));
-            Assert.Throws<ArgumentNullException>(() => OpenDocumentTemplate.Validate(Odt.Build(P("x")), null));
+            Assert.Throws<InvalidDataException>(() => new OpenDocumentTemplate(new byte[] { 1, 2, 3 }).Validate(Root));
+            Assert.Throws<InvalidDataException>(() => new OpenDocumentTemplate(withoutContent).Validate(Root));
+            Assert.Throws<ArgumentNullException>(() => new OpenDocumentTemplate(Odt.Build(P("x"))).Validate(null));
         }
 
         [Fact]
@@ -662,7 +662,7 @@ namespace Allors.Documents.Tests
         }
 
         private static TemplateValidation Validate(string body, IDictionary<string, string> settings = null, IShape root = null) =>
-            OpenDocumentTemplate.Validate(Odt.Build(body, settings: settings), root ?? Root);
+            new OpenDocumentTemplate(Odt.Build(body, settings: settings)).Validate(root ?? Root);
 
         private static string P(string content) => "<text:p>" + (content.StartsWith("<") && !content.StartsWith("<draw:") ? Odt.Placeholder(content) : content) + "</text:p>";
 
