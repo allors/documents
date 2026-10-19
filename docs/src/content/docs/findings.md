@@ -28,11 +28,12 @@ A `Finding` says what is wrong in the author's terms: the kind, the severity, th
 | `UnknownAttribute` | error | An attribute a tag of that kind does not know. | Validate |
 | `BadValue` | error | A value an attribute does not take, such as `empty="maybe"`. | Validate |
 | `BadCulture` | error | A culture name that is no culture, in a tag's `culture` or in a document setting. | Validate |
-| `BadPattern` | error | A date, time or number pattern .NET rejects, in a tag or a document setting. | Validate |
+| `BadPattern` | error | A pattern that is no date, time or number pattern, or one of the wrong family for the kind of value it formats, in a tag or a document setting. | Validate |
+| `FormatIgnored` | warning | A `format`, or `true` and `false` words, on a value whose kind prints without them: text, a boolean, an object or a picture; the value prints as it is. | Validate |
 | `MixedText` | warning | Text or tags in the paragraph or row that holds a block tag; they are removed with it. | Validate |
 | `UnknownSetting` | warning | A document setting the library does not know. | Validate |
-| `CannotSort` | warning | A loop whose sort keys cannot be ordered against each other; it keeps the collection's order. | Render |
-| `NotAPicture` | error | A value bound to a picture frame that is no picture, or bytes in a format the library does not know; the frame leaves the document. | Render |
+| `CannotSort` | error, warning | A sort key whose kind does not order, an object, a collection or a picture, is an error from `Validate`; key values of two types at render time are a warning, and the loop keeps the collection's order. | Validate, Render |
+| `NotAPicture` | error | A value bound to a picture frame that is no picture, by its kind or at render time, or bytes in a format the library does not know; the frame leaves the document. | Validate, Render |
 | `CannotFit` | warning | A picture that fills its frame instead of fitting it, because its bytes do not tell their size or the frame has no size. | Render |
 | `UnknownMap` | error | A `map` attribute that names no map of the template; the value prints as it is. | Validate, Render |
 | `MissingKey` | warning | A value a map has no row for, in a map without a default row; the value prints as it is. | Render |

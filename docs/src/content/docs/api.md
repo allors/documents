@@ -102,8 +102,9 @@ A `Location` names the part (`content.xml` or `styles.xml`), the paragraph's ord
 
 ## Validate
 
-`Validate(IShape root)` checks the template against the shape of its model, under the template's
-settings, without rendering it and returns a `TemplateValidation`: its `Findings` in document order,
+`Validate(IShape root)` checks the template against the shape of its model, every path, attribute,
+pattern, block and document setting, as far as the kind of each value tells, without rendering it
+and returns a `TemplateValidation`: its `Findings` in document order,
 `content.xml`, then `styles.xml`, then the document settings; `IsValid`, true when there is no
 error; and the `Inspection` the findings came from. [Validate templates](validate-templates.md)
 says which shape to pass and how a condition narrows what its branches see.

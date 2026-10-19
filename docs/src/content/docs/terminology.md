@@ -37,7 +37,8 @@ their declared spelling and capitalization.
 | Term | Definition and usage |
 | --- | --- |
 | Model | What a render binds the template to: a dictionary of roots, a plain class, or a host's own objects read through a resolver. |
-| Shape | The static view of a model that `Validate` walks: the members a value has, whether it is a collection, the shape of its items and the variants of an abstract shape. See [Resolve your own model](resolve-your-own-model.md). |
+| Shape | The static view of a model that `Validate` walks: the kind of a value, the members it has, the shape of its items and the variants of an abstract shape. See [Resolve your own model](resolve-your-own-model.md). |
+| Value kind | What kind of value a shape stands for: open, object, collection, or a leaf such as text, a number, a boolean, a date, a time, a date and time, a picture or another kind. `Validate` reads it to check loops, patterns, sort keys and picture frames. See [Resolve your own model](resolve-your-own-model.md). |
 | Resolver | The runtime view a render reads through: how a member is read, iterated, tested, formatted, ordered and turned into a picture. See [Resolve your own model](resolve-your-own-model.md). |
 | Render settings | The caller's resolver, cultures, patterns and output form, given to a template when it is read and used by every render of it. See [API](api.md). |
 | Render result | The rendered document and the findings of the render, split into errors and warnings. See [API](api.md). |

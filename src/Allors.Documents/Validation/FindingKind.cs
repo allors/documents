@@ -26,8 +26,11 @@ namespace Allors.Documents
         /// <summary>A culture name that is no culture.</summary>
         BadCulture,
 
-        /// <summary>A date, time or number pattern .NET rejects.</summary>
+        /// <summary>A pattern that is no date, time or number pattern, or one of the wrong family for the kind of value it formats.</summary>
         BadPattern,
+
+        /// <summary>A format, or true and false words, on a value whose kind prints without them; the value prints as it is.</summary>
+        FormatIgnored,
 
         /// <summary>A value an attribute does not take, such as empty="maybe" on a picture.</summary>
         BadValue,
@@ -41,10 +44,10 @@ namespace Allors.Documents
         /// <summary>A document setting the library does not know.</summary>
         UnknownSetting,
 
-        /// <summary>A loop whose sort keys cannot be ordered against each other at render time; it keeps the collection's order.</summary>
+        /// <summary>A loop whose sort keys cannot be ordered against each other: an object, a collection or a picture, or values of two types at render time; it keeps the collection's order.</summary>
         CannotSort,
 
-        /// <summary>A value bound to a picture frame that is not a picture, or bytes in a format the library does not know; the frame leaves the document.</summary>
+        /// <summary>A value bound to a picture frame that is not a picture, by its kind or at render time, or bytes in a format the library does not know; the frame leaves the document.</summary>
         NotAPicture,
 
         /// <summary>A picture that fills its frame instead of fitting it as its tag asks, because its bytes do not tell its size or the frame has no size.</summary>

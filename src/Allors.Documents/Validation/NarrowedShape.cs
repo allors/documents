@@ -19,11 +19,12 @@ namespace Allors.Documents
 
         public string Name => string.Join(" or ", this.variants.Select(v => v.Name));
 
+        /// <summary>The kind the variants share; an object when they differ.</summary>
+        public ValueKind Kind => this.variants.All(v => v.Kind == this.variants[0].Kind) ? this.variants[0].Kind : ValueKind.Object;
+
         public IEnumerable<string> Members => this.variants.Skip(1).Aggregate((IEnumerable<string>)this.variants[0].Members, (common, variant) => common.Intersect(variant.Members));
 
-        public bool IsCollection => this.variants.All(v => v.IsCollection);
-
-        public IShape Element => this.IsCollection ? this.variants[0].Element : null;
+        public IShape Element => this.Kind == ValueKind.Collection || this.Kind == ValueKind.Open ? this.variants[0].Element : null;
 
         public IEnumerable<IShape> Variants => this.variants;
 

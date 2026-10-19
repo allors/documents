@@ -265,15 +265,15 @@ namespace Allors.Documents
         /// The culture a value of this kind prints in: the number culture for a number, the date culture for a date, a time or a date-time,
         /// each when it has one of its own, and otherwise the culture.
         /// </summary>
-        public CultureInfo CultureOf(string settingOfKind)
+        public CultureInfo CultureFor(ValueKind kind)
         {
-            switch (settingOfKind)
+            switch (kind)
             {
-                case NumberSetting:
+                case ValueKind.Number:
                     return this.NumberCulture ?? this.Culture;
-                case DateSetting:
-                case TimeSetting:
-                case DateTimeSetting:
+                case ValueKind.Date:
+                case ValueKind.Time:
+                case ValueKind.DateTime:
                     return this.DateCulture ?? this.Culture;
                 default:
                     return this.Culture;
@@ -281,15 +281,15 @@ namespace Allors.Documents
         }
 
         /// <summary>
-        /// The pattern a value should use: the tag's format when it is a format string, the named setting when the tag names one
-        /// (date, time, datetime or number), otherwise the setting the value's kind falls under.
+        /// The pattern a value of this kind prints with: the tag's format when it is a format string, the named setting when the tag names one
+        /// (date, time, datetime or number), otherwise the setting of the kind: date, time, datetime or number, and none for the other kinds.
         /// </summary>
-        public string Pattern(string settingOfKind)
+        public string PatternFor(ValueKind kind)
         {
             switch (this.Format?.ToLowerInvariant())
             {
                 case null:
-                    return this.Setting(settingOfKind);
+                    return this.SettingFor(kind);
                 case DateSetting:
                     return this.Date;
                 case TimeSetting:
@@ -300,6 +300,24 @@ namespace Allors.Documents
                     return this.Number;
                 default:
                     return this.Format;
+            }
+        }
+
+        /// <summary>The kind a pattern setting formats: date, time, datetime or number; null for another name.</summary>
+        public static ValueKind? KindOfSetting(string name)
+        {
+            switch (name?.ToLowerInvariant())
+            {
+                case DateSetting:
+                    return ValueKind.Date;
+                case TimeSetting:
+                    return ValueKind.Time;
+                case DateTimeSetting:
+                    return ValueKind.DateTime;
+                case NumberSetting:
+                    return ValueKind.Number;
+                default:
+                    return null;
             }
         }
 
@@ -316,17 +334,17 @@ namespace Allors.Documents
             return false;
         }
 
-        private string Setting(string name)
+        private string SettingFor(ValueKind kind)
         {
-            switch (name)
+            switch (kind)
             {
-                case DateSetting:
+                case ValueKind.Date:
                     return this.Date;
-                case TimeSetting:
+                case ValueKind.Time:
                     return this.Time;
-                case DateTimeSetting:
+                case ValueKind.DateTime:
                     return this.DateTime;
-                case NumberSetting:
+                case ValueKind.Number:
                     return this.Number;
                 default:
                     return null;

@@ -82,10 +82,10 @@ namespace Allors.Documents
         protected virtual IResolver DefaultResolver => DictionaryResolver.Instance;
 
         /// <summary>
-        /// Checks the template against the shape of its model without rendering it: every path, attribute, block and document setting,
-        /// under the template's settings. Never throws for what the template says.
+        /// Checks the template against the shape of its model without rendering it: every path, attribute, pattern, block and document setting,
+        /// as far as the kind of each value tells. Never throws for what the template says.
         /// </summary>
-        public TemplateValidation Validate(IShape root) => Validator.Validate(this.Inspection, root, this.Settings.ToFormatting());
+        public TemplateValidation Validate(IShape root) => Validator.Validate(this.Inspection, root);
 
         /// <summary>
         /// Renders the template for a model. Every <c>&lt;$path&gt;</c> prints the value at its path, formatted by the settings, the template's

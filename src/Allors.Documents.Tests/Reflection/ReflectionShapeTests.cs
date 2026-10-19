@@ -5,9 +5,9 @@
 
 namespace Allors.Documents.Tests
 {
+    using System;
     using System.Collections;
     using System.Collections.Generic;
-    using System.Linq;
     using Allors.Documents;
     using Allors.Documents.Reflection;
     using Xunit;
@@ -53,23 +53,59 @@ namespace Allors.Documents.Tests
             Assert.Null(ReflectionShape.Of<Person>().Member("Address").Member("Street"));
         }
 
+        [Theory]
+        [InlineData(typeof(string), ValueKind.Text)]
+        [InlineData(typeof(DayOfWeek), ValueKind.Text)]
+        [InlineData(typeof(int), ValueKind.Number)]
+        [InlineData(typeof(decimal), ValueKind.Number)]
+        [InlineData(typeof(double?), ValueKind.Number)]
+        [InlineData(typeof(bool), ValueKind.Boolean)]
+        [InlineData(typeof(bool?), ValueKind.Boolean)]
+        [InlineData(typeof(DateTime), ValueKind.DateTime)]
+        [InlineData(typeof(DateTimeOffset), ValueKind.DateTime)]
+        [InlineData(typeof(DateOnly), ValueKind.Date)]
+        [InlineData(typeof(TimeOnly), ValueKind.Time)]
+        [InlineData(typeof(byte[]), ValueKind.Picture)]
+        [InlineData(typeof(string[]), ValueKind.Collection)]
+        [InlineData(typeof(List<Person>), ValueKind.Collection)]
+        [InlineData(typeof(IEnumerable), ValueKind.Collection)]
+        [InlineData(typeof(Person), ValueKind.Object)]
+        [InlineData(typeof(Guid), ValueKind.Other)]
+        [InlineData(typeof(TimeSpan), ValueKind.Other)]
+        [InlineData(typeof(char), ValueKind.Other)]
+        [InlineData(typeof(object), ValueKind.Open)]
+        [InlineData(typeof(Hashtable), ValueKind.Open)]
+        public void TheKindFollowsTheType(Type type, ValueKind kind) => Assert.Equal(kind, ReflectionShape.Of(type).Kind);
+
+        /// <summary>A byte array is a picture, not a collection of bytes, so it has no element; its members stay, as the resolver reads them.</summary>
+        [Fact]
+        public void APictureHasNoElementAndKeepsItsMembers()
+        {
+            var shape = ReflectionShape.Of<byte[]>();
+
+            Assert.Equal(ValueKind.Picture, shape.Kind);
+            Assert.Null(shape.Element);
+            Assert.NotNull(shape.Member("Length"));
+            Assert.NotNull(ReflectionShape.Of<string>().Member("Length"));
+        }
+
         [Fact]
         public void CollectionsHaveAnElementAndScalarsDoNot()
         {
             var person = ReflectionShape.Of<Person>();
 
-            Assert.True(person.Member("Tags").IsCollection);
+            Assert.Equal(ValueKind.Collection, person.Member("Tags").Kind);
             Assert.Equal("String", person.Member("Tags").Element.Name);
-            Assert.True(person.Member("Friends").IsCollection);
+            Assert.Equal(ValueKind.Collection, person.Member("Friends").Kind);
             Assert.Same(person, person.Member("Friends").Element);
-            Assert.True(person.Member("Things").IsCollection);
+            Assert.Equal(ValueKind.Collection, person.Member("Things").Kind);
             Assert.Same(DictionaryShape.Open, person.Member("Things").Element);
 
-            Assert.False(person.IsCollection);
+            Assert.Equal(ValueKind.Object, person.Kind);
             Assert.Null(person.Element);
-            Assert.False(person.Member("FirstName").IsCollection);
+            Assert.Equal(ValueKind.Text, person.Member("FirstName").Kind);
             Assert.Null(person.Member("FirstName").Element);
-            Assert.False(person.Member("Age").IsCollection);
+            Assert.Equal(ValueKind.Number, person.Member("Age").Kind);
         }
 
         [Fact]

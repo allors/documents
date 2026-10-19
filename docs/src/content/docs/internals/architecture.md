@@ -103,15 +103,15 @@ as a tree with their locations, the bound pictures, the maps,
 the document settings and the problems. It rewrites nothing and throws for nothing a template
 says.
 
-`Validate` checks the inspection against an `IShape`, starting from the template's settings as the
-caller's formatting layer. The problems become
+`Validate` checks the inspection against an `IShape`. The problems become
 findings. The validator visits the tags with scopes of its own: a loop variable carries the shape
 of the collection's items, and each branch of a condition is checked in the scope its test opens,
 narrowed through `NarrowedShape` to the variants of an abstract shape that have the guarded
 member. Block placement is replayed with `XmlPair` and `BlockStructure`, so that the validator
 reports what `Render` would throw, together with the text that the paragraph or row of a
 block tag would lose. Attributes are checked against the lists in `TagSyntax`, cultures through
-`Formatting` and patterns by trying them in the culture of their kind, maps for their use and
+`Formatting`, patterns by the grammar in `Patterns` and against the `ValueKind` of the shape at
+the tag's path, as are loops, sort keys and picture frames, maps for their use and
 their default row, and the document settings for their names, cultures and patterns. The findings come sorted: `content.xml`, then
 `styles.xml`, then the settings.
 

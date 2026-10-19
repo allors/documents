@@ -89,20 +89,20 @@ namespace Allors.Documents
 
                     return items.ToString();
                 case DateTime dateTime:
-                    var dateTimeKind = dateTime.TimeOfDay == TimeSpan.Zero ? Formatting.DateSetting : Formatting.DateTimeSetting;
-                    return dateTime.ToString(formatting.Pattern(dateTimeKind), formatting.CultureOf(dateTimeKind));
+                    var dateTimeKind = dateTime.TimeOfDay == TimeSpan.Zero ? ValueKind.Date : ValueKind.DateTime;
+                    return dateTime.ToString(formatting.PatternFor(dateTimeKind), formatting.CultureFor(dateTimeKind));
                 case DateTimeOffset dateTimeOffset:
-                    var dateTimeOffsetKind = dateTimeOffset.TimeOfDay == TimeSpan.Zero ? Formatting.DateSetting : Formatting.DateTimeSetting;
-                    return dateTimeOffset.ToString(formatting.Pattern(dateTimeOffsetKind), formatting.CultureOf(dateTimeOffsetKind));
+                    var dateTimeOffsetKind = dateTimeOffset.TimeOfDay == TimeSpan.Zero ? ValueKind.Date : ValueKind.DateTime;
+                    return dateTimeOffset.ToString(formatting.PatternFor(dateTimeOffsetKind), formatting.CultureFor(dateTimeOffsetKind));
 #if NET
                 case DateOnly date:
-                    return date.ToString(formatting.Pattern(Formatting.DateSetting), formatting.CultureOf(Formatting.DateSetting));
+                    return date.ToString(formatting.PatternFor(ValueKind.Date), formatting.CultureFor(ValueKind.Date));
                 case TimeOnly time:
-                    return time.ToString(formatting.Pattern(Formatting.TimeSetting), formatting.CultureOf(Formatting.TimeSetting));
+                    return time.ToString(formatting.PatternFor(ValueKind.Time), formatting.CultureFor(ValueKind.Time));
 #endif
                 case IFormattable formattable:
                     return IsNumber(value)
-                        ? formattable.ToString(formatting.Pattern(Formatting.NumberSetting), formatting.CultureOf(Formatting.NumberSetting))
+                        ? formattable.ToString(formatting.PatternFor(ValueKind.Number), formatting.CultureFor(ValueKind.Number))
                         : formattable.ToString(NotNamed(formatting.Format), formatting.Culture);
                 default:
                     return value.ToString();

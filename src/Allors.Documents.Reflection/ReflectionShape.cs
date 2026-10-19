@@ -13,8 +13,9 @@ namespace Allors.Documents.Reflection
     using Allors.Documents;
 
     /// <summary>
-    /// The shape of a type, read through reflection, with the member rules of <see cref="ReflectionResolver"/>.
-    /// Text, numbers, dates and the like are leaves. A dictionary or an object-typed value is open. An enumerable is a collection of its element type.
+    /// The shape of a type, read through reflection, with the member rules of <see cref="ReflectionResolver"/>. The kind follows the type:
+    /// text and enums, numbers, booleans, dates and times, a byte array as a picture, any other enumerable as a collection of its element type,
+    /// any other class as an object; a dictionary or an object-typed value is open. Every type keeps its members, as the resolver reads them.
     /// </summary>
 #if NET
     [System.Diagnostics.CodeAnalysis.RequiresUnreferencedCode("Reads the members of a type through reflection.")]
@@ -31,15 +32,15 @@ namespace Allors.Documents.Reflection
 
         public Type Type => this.type;
 
-        public IEnumerable<string> Members => Reflection.Members.Names(this.type);
+        public ValueKind Kind => KindOf(this.type);
 
-        public bool IsCollection => ElementType(this.type) != null;
+        public IEnumerable<string> Members => Reflection.Members.Names(this.type);
 
         public IShape Element
         {
             get
             {
-                var elementType = ElementType(this.type);
+                var elementType = this.Kind == ValueKind.Collection ? ElementType(this.type) : null;
                 return elementType == null ? null : Of(elementType);
             }
         }
@@ -112,6 +113,66 @@ namespace Allors.Documents.Reflection
 
         private static bool IsGenericDictionary(Type type) =>
             type.IsInterface && type.IsGenericType && (type.GetGenericTypeDefinition() == typeof(IDictionary<,>) || type.GetGenericTypeDefinition() == typeof(IReadOnlyDictionary<,>));
+
+        /// <summary>The kind of a type: a nullable has the kind of its value type, an enum is text, a byte array is a picture, any other enumerable a collection.</summary>
+        private static ValueKind KindOf(Type type)
+        {
+            type = Nullable.GetUnderlyingType(type) ?? type;
+            if (type == typeof(string) || type.IsEnum)
+            {
+                return ValueKind.Text;
+            }
+
+            if (type == typeof(bool))
+            {
+                return ValueKind.Boolean;
+            }
+
+            if (type == typeof(DateTime) || type == typeof(DateTimeOffset))
+            {
+                return ValueKind.DateTime;
+            }
+
+#if NET
+            if (type == typeof(DateOnly))
+            {
+                return ValueKind.Date;
+            }
+
+            if (type == typeof(TimeOnly))
+            {
+                return ValueKind.Time;
+            }
+#endif
+
+            if (type == typeof(byte[]))
+            {
+                return ValueKind.Picture;
+            }
+
+            switch (Type.GetTypeCode(type))
+            {
+                case TypeCode.Byte:
+                case TypeCode.SByte:
+                case TypeCode.Int16:
+                case TypeCode.UInt16:
+                case TypeCode.Int32:
+                case TypeCode.UInt32:
+                case TypeCode.Int64:
+                case TypeCode.UInt64:
+                case TypeCode.Single:
+                case TypeCode.Double:
+                case TypeCode.Decimal:
+                    return ValueKind.Number;
+            }
+
+            if (ElementType(type) != null)
+            {
+                return ValueKind.Collection;
+            }
+
+            return typeof(IFormattable).IsAssignableFrom(type) || type.IsPrimitive ? ValueKind.Other : ValueKind.Object;
+        }
 
         /// <summary>The element type of a collection, or null for text and anything that is not enumerable.</summary>
         private static Type ElementType(Type type)

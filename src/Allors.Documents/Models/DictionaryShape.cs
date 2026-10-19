@@ -32,10 +32,10 @@ namespace Allors.Documents
 
         public bool IsOpen => this.members == null;
 
-        public IEnumerable<string> Members => this.members?.Keys ?? Enumerable.Empty<string>();
+        /// <summary>Open: an open shape can stand for anything, a collection included. Closed: a dictionary is an object, not looped over.</summary>
+        public ValueKind Kind => this.IsOpen ? ValueKind.Open : ValueKind.Object;
 
-        /// <summary>Open: an open shape can stand for anything, a collection included. Closed: a dictionary is not looped over.</summary>
-        public bool IsCollection => this.IsOpen;
+        public IEnumerable<string> Members => this.members?.Keys ?? Enumerable.Empty<string>();
 
         public IShape Element => this.IsOpen ? this : null;
 

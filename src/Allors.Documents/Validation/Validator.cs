@@ -18,10 +18,9 @@ namespace Allors.Documents
         private static readonly Location SettingsLocation = new Location("meta.xml", 0, string.Empty);
 
         /// <summary>A loop counter is a number: it has no members and is not a collection.</summary>
-        private static readonly IShape CounterShape = new DictionaryShape(new Dictionary<string, IShape>(), "the loop counter");
+        private static readonly IShape CounterShape = new ValueShape(ValueKind.Number, "the loop counter");
 
         private readonly IShape root;
-        private readonly Formatting caller;
         private readonly List<Finding> findings = new List<Finding>();
         private readonly Dictionary<InspectedTag, Scope> scopeByBranch = new Dictionary<InspectedTag, Scope>();
         private readonly HashSet<XmlElement> blockElements = new HashSet<XmlElement>();
@@ -29,15 +28,11 @@ namespace Allors.Documents
         private readonly Dictionary<string, InspectedMap> mapsByName = new Dictionary<string, InspectedMap>();
         private readonly HashSet<InspectedMap> mapsUsed = new HashSet<InspectedMap>();
 
-        private Validator(IShape root, Formatting caller)
-        {
-            this.root = root ?? throw new ArgumentNullException(nameof(root));
-            this.caller = caller;
-        }
+        private Validator(IShape root) => this.root = root ?? throw new ArgumentNullException(nameof(root));
 
-        public static TemplateValidation Validate(TemplateInspection inspection, IShape root, Formatting caller)
+        public static TemplateValidation Validate(TemplateInspection inspection, IShape root)
         {
-            var validator = new Validator(root, caller);
+            var validator = new Validator(root);
             validator.Run(inspection);
             return new TemplateValidation(validator.Sorted(), inspection);
         }
@@ -81,7 +76,11 @@ namespace Allors.Documents
         private void CheckPicture(InspectedPicture picture, Scope scope)
         {
             var tag = picture.Tag;
-            this.CheckPath(tag.Path, scope, tag.Text, picture.Location);
+            var shape = this.CheckPath(tag.Path, scope, tag.Text, picture.Location);
+            if (shape != null && shape.Kind != ValueKind.Picture && shape.Kind != ValueKind.Open)
+            {
+                this.Add(FindingKind.NotAPicture, FindingSeverity.Error, tag.Text, tag.Path, "'" + tag.Path + "' is " + KindText(shape) + ", not a picture: bind the frame to a member that holds the bytes of a picture", picture.Location);
+            }
 
             foreach (var attribute in tag.Attributes)
             {
@@ -197,9 +196,8 @@ namespace Allors.Documents
 
         private void CheckBinding(InspectedTag tag, Scope scope)
         {
-            this.CheckPath(tag.Tag.Path, scope, tag.Tag.Text, tag.Location);
+            var shape = this.CheckPath(tag.Tag.Path, scope, tag.Tag.Text, tag.Location);
 
-            var culture = CultureInfo.InvariantCulture;
             foreach (var attribute in tag.Tag.Attributes)
             {
                 if (!TagSyntax.IsBindingAttribute(attribute.Key))
@@ -208,7 +206,7 @@ namespace Allors.Documents
                 }
                 else if (string.Equals(attribute.Key, Formatting.CultureSetting, StringComparison.OrdinalIgnoreCase))
                 {
-                    culture = this.CheckCulture(attribute.Value, tag.Tag.Text, tag.Location) ?? culture;
+                    this.CheckCulture(attribute.Value, tag.Tag.Text, tag.Location);
                 }
                 else if (string.Equals(attribute.Key, TagSyntax.MapAttribute, StringComparison.OrdinalIgnoreCase))
                 {
@@ -223,10 +221,80 @@ namespace Allors.Documents
                 }
             }
 
-            if (tag.Tag.Attributes.TryGetValue(Formatting.FormatAttribute, out var format) && !Formatting.IsNamedFormat(format) && !IsDatePattern(format, culture) && !IsNumberPattern(format, culture))
+            var kind = PrintedKind(shape);
+            if (tag.Tag.Attributes.TryGetValue(Formatting.FormatAttribute, out var format) && !string.IsNullOrEmpty(format))
             {
-                this.Add(FindingKind.BadPattern, FindingSeverity.Error, tag.Tag.Text, null, "'" + format + "' is not a format: use a .NET format string, or date, time, datetime or number for the document's pattern", tag.Location);
+                this.CheckFormat(tag, format, kind);
             }
+
+            if ((tag.Tag.Attributes.ContainsKey(Formatting.TrueSetting) || tag.Tag.Attributes.ContainsKey(Formatting.FalseSetting)) && kind != ValueKind.Boolean && kind != ValueKind.Open)
+            {
+                this.Add(FindingKind.FormatIgnored, FindingSeverity.Warning, tag.Tag.Text, tag.Tag.Path, "the true and false words are ignored: '" + tag.Tag.Path + "' is " + KindText(shape) + ", not a boolean", tag.Location);
+            }
+        }
+
+        /// <summary>
+        /// A format must be of the family of the kind it prints: a date, time or date-time takes a date pattern, a number a number pattern,
+        /// and a kind that prints without a pattern ignores it. An open or other value takes any pattern of either family.
+        /// </summary>
+        private void CheckFormat(InspectedTag tag, string format, ValueKind kind)
+        {
+            var path = tag.Tag.Path;
+            var named = Formatting.KindOfSetting(format);
+            switch (kind)
+            {
+                case ValueKind.Date:
+                case ValueKind.Time:
+                case ValueKind.DateTime:
+                    if (named == ValueKind.Number)
+                    {
+                        this.Add(FindingKind.BadPattern, FindingSeverity.Error, tag.Tag.Text, path, "'" + format + "' names the document's number pattern, and '" + path + "' is " + KindText(kind) + ": use date, time or datetime, or a date pattern", tag.Location);
+                    }
+                    else if (named == null && !Patterns.IsDate(format))
+                    {
+                        this.Add(FindingKind.BadPattern, FindingSeverity.Error, tag.Tag.Text, path, "'" + format + "' is not a date pattern, and '" + path + "' is " + KindText(kind) + ": use the letters d, M, y, h, H, m, s, f, F, t, z, K and g with separators and quoted text, such as dd-MMM-yyyy, or a standard letter such as d, D or g", tag.Location);
+                    }
+
+                    break;
+
+                case ValueKind.Number:
+                    if (named != null && named != ValueKind.Number)
+                    {
+                        this.Add(FindingKind.BadPattern, FindingSeverity.Error, tag.Tag.Text, path, "'" + format + "' names the document's " + format.ToLowerInvariant() + " pattern, and '" + path + "' is a number: use number, or a number pattern", tag.Location);
+                    }
+                    else if (named == null && !Patterns.IsNumber(format))
+                    {
+                        this.Add(FindingKind.BadPattern, FindingSeverity.Error, tag.Tag.Text, path, "'" + format + "' is not a number pattern, and '" + path + "' is a number: use a standard letter with its precision such as N2, F0 or C, or a pattern with 0 and # such as #,##0.00", tag.Location);
+                    }
+
+                    break;
+
+                case ValueKind.Text:
+                case ValueKind.Boolean:
+                case ValueKind.Object:
+                case ValueKind.Picture:
+                    this.Add(FindingKind.FormatIgnored, FindingSeverity.Warning, tag.Tag.Text, path, "the format is ignored: '" + path + "' is " + KindText(kind) + " and prints without a pattern", tag.Location);
+                    break;
+
+                default:
+                    if (named == null && !Patterns.IsDate(format) && !Patterns.IsNumber(format))
+                    {
+                        this.Add(FindingKind.BadPattern, FindingSeverity.Error, tag.Tag.Text, path, "'" + format + "' is not a format: use a date or number pattern, or date, time, datetime or number for the document's pattern", tag.Location);
+                    }
+
+                    break;
+            }
+        }
+
+        /// <summary>The kind a binding prints: a collection prints its items, so their kind; an unknown path is open.</summary>
+        private static ValueKind PrintedKind(IShape shape)
+        {
+            while (shape != null && shape.Kind == ValueKind.Collection)
+            {
+                shape = shape.Element;
+            }
+
+            return shape?.Kind ?? ValueKind.Open;
         }
 
         private Scope CheckLoop(InspectedTag tag, Scope scope)
@@ -239,7 +307,7 @@ namespace Allors.Documents
                 this.AddUnknownMember(walk, tag.Tag.Path, tag.Tag.Text, tag.Location);
                 variableShape = DictionaryShape.Open;
             }
-            else if (walk.Shape.IsCollection)
+            else if (walk.Shape.Kind == ValueKind.Collection || walk.Shape.Kind == ValueKind.Open)
             {
                 variableShape = walk.Shape.Element ?? DictionaryShape.Open;
             }
@@ -264,6 +332,10 @@ namespace Allors.Documents
                 {
                     this.Add(FindingKind.UnknownMember, FindingSeverity.Error, tag.Tag.Text, key.Path, "sort key '" + key.Path + "': " + UnknownMemberText(keyWalk), tag.Location);
                 }
+                else if (keyWalk.Shape.Kind == ValueKind.Object || keyWalk.Shape.Kind == ValueKind.Collection || keyWalk.Shape.Kind == ValueKind.Picture)
+                {
+                    this.Add(FindingKind.CannotSort, FindingSeverity.Error, tag.Tag.Text, key.Path, "sort key '" + key.Path + "' is " + KindText(keyWalk.Shape) + ", which does not order: sort by a text, number, boolean, date or time member of it, such as " + key.Path + ".Name", tag.Location);
+                }
             }
 
             var body = new Scope(scope, variable, variableShape);
@@ -275,13 +347,16 @@ namespace Allors.Documents
             return new Scope(body, tag.Tag.Index, CounterShape);
         }
 
-        private void CheckPath(string path, Scope scope, string text, Location location)
+        /// <summary>The shape at the path, or null after reporting that the path breaks.</summary>
+        private IShape CheckPath(string path, Scope scope, string text, Location location)
         {
             var walk = this.Resolve(path, scope, null);
             if (walk.Failed)
             {
                 this.AddUnknownMember(walk, path, text, location);
             }
+
+            return walk.Shape;
         }
 
         private void AddUnknownMember(Walk walk, string path, string text, Location location)
@@ -307,6 +382,42 @@ namespace Allors.Documents
         }
 
         private static string Describe(IShape shape) => shape is DictionaryShape dictionary && dictionary.IsOpen ? "an open value" : shape.Name;
+
+        /// <summary>The kind of a shape in the author's words, with the shape's name when it adds something: "an object (Party)", "text".</summary>
+        private static string KindText(IShape shape)
+        {
+            var kind = KindText(shape.Kind);
+            return shape.Kind == ValueKind.Object || shape.Kind == ValueKind.Collection || shape.Kind == ValueKind.Other ? kind + " (" + shape.Name + ")" : kind;
+        }
+
+        private static string KindText(ValueKind kind)
+        {
+            switch (kind)
+            {
+                case ValueKind.Open:
+                    return "an open value";
+                case ValueKind.Object:
+                    return "an object";
+                case ValueKind.Collection:
+                    return "a collection";
+                case ValueKind.Text:
+                    return "text";
+                case ValueKind.Number:
+                    return "a number";
+                case ValueKind.Boolean:
+                    return "a boolean";
+                case ValueKind.Date:
+                    return "a date";
+                case ValueKind.Time:
+                    return "a time";
+                case ValueKind.DateTime:
+                    return "a date and time";
+                case ValueKind.Picture:
+                    return "a picture";
+                default:
+                    return "a value of another kind";
+            }
+        }
 
         /// <summary>
         /// Walks a path from a scope: the first segment is a loop variable in scope, innermost first, or a member of the root; the rest are members.
@@ -433,7 +544,7 @@ namespace Allors.Documents
             }
         }
 
-        /// <summary>Every setting must be known and every culture a culture; a pattern is tried in the culture its kind prints in.</summary>
+        /// <summary>Every setting must be known and every culture a culture; a pattern must be of the family of its setting.</summary>
         private void CheckSettings(IReadOnlyDictionary<string, string> settings)
         {
             foreach (var setting in settings)
@@ -448,21 +559,18 @@ namespace Allors.Documents
                 }
             }
 
-            var formatting = this.caller.With(settings);
             foreach (var setting in settings)
             {
-                var name = setting.Key.ToLowerInvariant();
-                var isDate = name == Formatting.DateSetting || name == Formatting.TimeSetting || name == Formatting.DateTimeSetting;
-                var isNumber = name == Formatting.NumberSetting;
-                if (string.IsNullOrEmpty(setting.Value) || (!isDate && !isNumber))
+                var kind = Formatting.KindOfSetting(setting.Key);
+                if (string.IsNullOrEmpty(setting.Value) || kind == null)
                 {
                     continue;
                 }
 
-                var culture = formatting.CultureOf(name);
-                if (isDate ? !IsDatePattern(setting.Value, culture) : !IsNumberPattern(setting.Value, culture))
+                var isNumber = kind == ValueKind.Number;
+                if (isNumber ? !Patterns.IsNumber(setting.Value) : !Patterns.IsDate(setting.Value))
                 {
-                    this.Add(FindingKind.BadPattern, FindingSeverity.Error, setting.Key, null, "'" + setting.Value + "' is not a " + (isDate ? "date" : "number") + " format", SettingsLocation);
+                    this.Add(FindingKind.BadPattern, FindingSeverity.Error, setting.Key, null, "'" + setting.Value + "' is not a " + (isNumber ? "number" : "date") + " format", SettingsLocation);
                 }
             }
         }
@@ -504,32 +612,6 @@ namespace Allors.Documents
                     return 1;
                 default:
                     return 2;
-            }
-        }
-
-        private static bool IsDatePattern(string pattern, CultureInfo culture)
-        {
-            try
-            {
-                new DateTime(2026, 10, 14, 13, 45, 30).ToString(pattern, culture);
-                return true;
-            }
-            catch (FormatException)
-            {
-                return false;
-            }
-        }
-
-        private static bool IsNumberPattern(string pattern, CultureInfo culture)
-        {
-            try
-            {
-                1234.5m.ToString(pattern, culture);
-                return true;
-            }
-            catch (FormatException)
-            {
-                return false;
             }
         }
 
