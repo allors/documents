@@ -1,5 +1,6 @@
 import AxeBuilder from '@axe-core/playwright';
 import { expect, test, type Locator, type Page } from '@playwright/test';
+import { home } from '../../site.mjs';
 
 async function tabTo(page: Page, target: Locator) {
   for (let attempt = 0; attempt < 60; attempt++) {
@@ -48,6 +49,15 @@ test('skip link and sidebar navigation work from the keyboard', async ({ page })
   await page.keyboard.press('Enter');
   await expect(page.getByRole('heading', { level: 1, name: 'Tags', exact: true })).toBeVisible();
   await expect(page.locator('#starlight__sidebar:popover-open')).toHaveCount(0);
+  await expectNoPageOverflow(page);
+});
+
+test('the sidebar links to the documentation home at the origin', async ({ page }) => {
+  await page.goto('./');
+  await openMobileMenu(page);
+  const link = page.locator('#starlight__sidebar').getByRole('link', { name: 'Allors documentation', exact: true });
+  await expect(link).toHaveAttribute('href', home);
+  await page.keyboard.press('Escape');
   await expectNoPageOverflow(page);
 });
 

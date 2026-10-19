@@ -72,7 +72,7 @@ accessibility at desktop and narrow widths. On Linux, use
 Review prose and representative rendered pages too; automated checks do not establish that
 an explanation is accurate or clear.
 
-The default deployment origin is `https://allors.github.io`, with `/documents/` as the base path.
+The default deployment origin is `https://docs.allors.com`, with `/documents/` as the base path.
 `DOCS_SITE` changes the origin and `DOCS_BASE` changes the base path. Use the same settings for
 build, link checking and preview. For example, check deployment at the origin root:
 
@@ -112,11 +112,13 @@ The [documentation workflow](../.github/workflows/documentation.yml) checks pull
 `main`, pushes to `main` and pushes to `docs/` branches that touch the documentation. Those
 events validate the site without publishing it.
 
-After publication has been approved, configure the repository's Pages source as **GitHub
-Actions** and its `github-pages` environment for deployment from `main`. Run the
-**Documentation** workflow manually on `main` with **publish** selected. Both base-path
-validation jobs must pass before the workflow deploys the `/documents/` build. The default
-manual run leaves **publish** unselected and only validates.
+The website is published at `https://docs.allors.com/documents/`, beneath the
+[Allors documentation home](https://docs.allors.com/), from the repository's Pages source
+**GitHub Actions** and its `github-pages` environment, which deploys from `main`. The custom
+domain is configured on the organisation site, `allors/allors.github.io`, and applies to this
+project site. To publish, run the **Documentation** workflow manually on `main` with **publish**
+selected. Both base-path validation jobs must pass before the workflow deploys the `/documents/`
+build. The default manual run leaves **publish** unselected and only validates.
 
 The workflow follows GitHub's
 [custom Pages workflow](https://docs.github.com/en/pages/getting-started-with-github-pages/using-custom-workflows-with-github-pages)
