@@ -3,18 +3,15 @@
 // Licensed under the LGPL license. See LICENSE file in the project root for full license information.
 // </copyright>
 
-namespace Allos.Document.Validation.Tests
+namespace Allors.Documents.Tests
 {
     using System;
     using System.Collections.Generic;
     using System.IO;
     using System.IO.Compression;
     using System.Linq;
-    using Allors.Document.Models;
-    using Allors.Document.OpenDocument;
-    using Allors.Document.Reflection;
-    using Allors.Document.Validation;
-    using Allos.Document.OpenDocument.Tests;
+    using Allors.Documents;
+    using Allors.Documents.Reflection;
     using Xunit;
 
     public class ValidationTests

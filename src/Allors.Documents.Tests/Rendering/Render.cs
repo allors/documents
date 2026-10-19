@@ -3,12 +3,11 @@
 // Licensed under the LGPL license. See LICENSE file in the project root for full license information.
 // </copyright>
 
-namespace Allos.Document.Rendering.Tests
+namespace Allors.Documents.Tests
 {
     using System.Collections.Generic;
     using System.Linq;
-    using Allors.Document.OpenDocument;
-    using Allos.Document.OpenDocument.Tests;
+    using Allors.Documents;
 
     /// <summary>Renders a body through the resolver engine and reads the result back.</summary>
     internal static class Render

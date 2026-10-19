@@ -10,10 +10,8 @@ status: "Current"
 
 This page is the reference for the public API: the two packages, the template class and its
 three operations, the settings a render takes, what a render returns, and the two forms of a
-document. The namespaces are `Allors.Document.OpenDocument` for the template, the settings and
-the result, `Allors.Document.Validation` for findings and validation,
-`Allors.Document.Inspection` for inspection, `Allors.Document.Models` for the model contracts and
-the formatting, and `Allors.Document.Reflection` for the reflection package.
+document. The namespace is `Allors.Documents`, the name of the package, and
+`Allors.Documents.Reflection` for the reflection package.
 
 ## Packages
 

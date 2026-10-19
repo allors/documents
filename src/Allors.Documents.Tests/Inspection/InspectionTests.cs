@@ -3,15 +3,13 @@
 // Licensed under the LGPL license. See LICENSE file in the project root for full license information.
 // </copyright>
 
-namespace Allos.Document.Inspection.Tests
+namespace Allors.Documents.Tests
 {
     using System.Collections.Generic;
     using System.IO;
     using System.Linq;
     using System.Reflection;
-    using Allors.Document.OpenDocument;
-    using Allors.Document.Tags;
-    using Allos.Document.OpenDocument.Tests;
+    using Allors.Documents;
     using Xunit;
 
     public class InspectionTests

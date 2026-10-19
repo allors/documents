@@ -3,14 +3,14 @@
 // Licensed under the LGPL license. See LICENSE file in the project root for full license information.
 // </copyright>
 
-namespace Allors.Document.Reflection
+namespace Allors.Documents.Reflection
 {
     using System;
     using System.Collections;
     using System.Collections.Concurrent;
     using System.Collections.Generic;
     using System.Linq;
-    using Allors.Document.Models;
+    using Allors.Documents;
 
     /// <summary>
     /// The shape of a type, read through reflection, with the member rules of <see cref="ReflectionResolver"/>.

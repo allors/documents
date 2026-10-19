@@ -3,16 +3,12 @@
 // Licensed under the LGPL license. See LICENSE file in the project root for full license information.
 // </copyright>
 
-namespace Allors.Document.OpenDocument
+namespace Allors.Documents
 {
     using System;
     using System.Collections.Generic;
     using System.IO;
     using System.Linq;
-    using Allors.Document.Inspection;
-    using Allors.Document.Models;
-    using Allors.Document.Rendering;
-    using Allors.Document.Validation;
 
     /// <summary>
     /// An OpenDocument text with template tags, read once and rendered any number of times, from any thread. The template is a package (.odt)

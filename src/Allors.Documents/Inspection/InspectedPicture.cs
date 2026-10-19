@@ -3,10 +3,9 @@
 // Licensed under the LGPL license. See LICENSE file in the project root for full license information.
 // </copyright>
 
-namespace Allors.Document.Inspection
+namespace Allors.Documents
 {
     using System.Xml;
-    using Allors.Document.Tags;
 
     /// <summary>A picture frame bound to the model: its description is a picture tag, <c>&lt;$path empty="keep" fit="contain"&gt;</c>, and the frame shows the picture at that path.</summary>
     public sealed class InspectedPicture

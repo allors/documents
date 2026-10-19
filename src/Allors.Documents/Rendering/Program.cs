@@ -3,15 +3,11 @@
 // Licensed under the LGPL license. See LICENSE file in the project root for full license information.
 // </copyright>
 
-namespace Allors.Document.Rendering
+namespace Allors.Documents
 {
     using System.Collections.Generic;
     using System.Linq;
     using System.Xml;
-    using Allors.Document.Inspection;
-    using Allors.Document.Tags;
-    using Allors.Document.Validation;
-    using Allors.Document.Xml;
 
     /// <summary>
     /// A part of a template (content.xml or styles.xml) ready to render: its DOM with every tag replaced by an instruction element in the

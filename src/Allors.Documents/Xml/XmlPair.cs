@@ -3,7 +3,7 @@
 // Licensed under the LGPL license. See LICENSE file in the project root for full license information.
 // </copyright>
 
-namespace Allors.Document.Xml
+namespace Allors.Documents
 {
     using System;
     using System.Collections.Generic;
@@ -15,7 +15,7 @@ namespace Allors.Document.Xml
     /// replaces everything from the begin sibling to the end sibling by one instruction element holding what sat between them, with a
     /// branch element for what follows each separator.
     /// </summary>
-    public class XmlPair
+    internal class XmlPair
     {
         private readonly List<XmlElement> separators = new List<XmlElement>();
         private readonly List<XmlElement> separatorSiblings = new List<XmlElement>();

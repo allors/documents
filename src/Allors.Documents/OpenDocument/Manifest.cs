@@ -3,13 +3,11 @@
 // Licensed under the LGPL license. See LICENSE file in the project root for full license information.
 // </copyright>
 
-namespace Allors.Document.OpenDocument
+namespace Allors.Documents
 {
     using System.Collections.Generic;
     using System.Linq;
     using System.Xml;
-    using Allors.Document.Inspection;
-    using Allors.Document.Xml;
 
     /// <summary>
     /// The package's manifest (META-INF/manifest.xml): one entry per file with its media type. Entries come and go with the pictures of a

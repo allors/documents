@@ -3,10 +3,9 @@
 // Licensed under the LGPL license. See LICENSE file in the project root for full license information.
 // </copyright>
 
-namespace Allors.Document.OpenDocument
+namespace Allors.Documents
 {
     using System.Collections.Generic;
-    using Allors.Document.Validation;
 
     /// <summary>What a render produced: the document, and what the template asked of the model that it could not give.</summary>
     public sealed class RenderResult

@@ -3,11 +3,10 @@
 // Licensed under the LGPL license. See LICENSE file in the project root for full license information.
 // </copyright>
 
-namespace Allors.Document.Inspection
+namespace Allors.Documents
 {
     using System.Collections.Generic;
     using System.Linq;
-    using Allors.Document.Tags;
 
     /// <summary>
     /// What a template asks of its model: every tag in document order with the paragraph it sits in, the bound picture frames, the maps,

@@ -3,11 +3,9 @@
 // Licensed under the LGPL license. See LICENSE file in the project root for full license information.
 // </copyright>
 
-namespace Allors.Document.Rendering
+namespace Allors.Documents
 {
     using System;
-    using Allors.Document.OpenDocument;
-    using Allors.Document.Tags;
 
     /// <summary>
     /// The size a bound frame takes for its picture under the fit its tag asks. Fill keeps the frame as the author drew it; contain shrinks the side

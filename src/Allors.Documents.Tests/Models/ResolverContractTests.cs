@@ -3,14 +3,14 @@
 // Licensed under the LGPL license. See LICENSE file in the project root for full license information.
 // </copyright>
 
-namespace Allos.Document.Models.Tests
+namespace Allors.Documents.Tests
 {
     using System;
     using System.Collections;
     using System.Collections.Generic;
     using System.Linq;
-    using Allors.Document.Models;
-    using Allors.Document.Reflection;
+    using Allors.Documents;
+    using Allors.Documents.Reflection;
     using Xunit;
 
     /// <summary>The parts of the contract every provider shares: iteration, truthiness, formatting, ordering, pictures and dictionary keys.</summary>

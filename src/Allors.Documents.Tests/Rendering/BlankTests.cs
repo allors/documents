@@ -3,13 +3,12 @@
 // Licensed under the LGPL license. See LICENSE file in the project root for full license information.
 // </copyright>
 
-namespace Allos.Document.Rendering.Tests
+namespace Allors.Documents.Tests
 {
     using System.Collections.Generic;
-    using Allors.Document.Validation;
-    using Allos.Document.OpenDocument.Tests;
+    using Allors.Documents;
     using Xunit;
-    using static Allos.Document.Rendering.Tests.Render;
+    using static Allors.Documents.Tests.Render;
 
     /// <summary>The blank attribute: the text a binding prints when what it would print is empty or white space.</summary>
     public class BlankTests

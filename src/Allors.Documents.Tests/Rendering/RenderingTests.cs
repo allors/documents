@@ -3,17 +3,15 @@
 // Licensed under the LGPL license. See LICENSE file in the project root for full license information.
 // </copyright>
 
-namespace Allos.Document.Rendering.Tests
+namespace Allors.Documents.Tests
 {
     using System;
     using System.Collections.Generic;
     using System.Globalization;
-    using Allors.Document.Models;
-    using Allors.Document.OpenDocument;
-    using Allors.Document.Reflection;
-    using Allors.Document.Validation;
+    using Allors.Documents;
+    using Allors.Documents.Reflection;
     using Xunit;
-    using static Allos.Document.Rendering.Tests.Render;
+    using static Allors.Documents.Tests.Render;
 
     /// <summary>Bindings under the resolver engine: paths, scopes, formatting and what gets reported.</summary>
     public class RenderingTests

@@ -3,12 +3,12 @@
 // Licensed under the LGPL license. See LICENSE file in the project root for full license information.
 // </copyright>
 
-namespace Allos.Document.Xml.Tests
+namespace Allors.Documents.Tests
 {
     using System;
     using System.Linq;
     using System.Xml;
-    using Allors.Document.Xml;
+    using Allors.Documents;
     using Org.XmlUnit.Builder;
     using Xunit;
 

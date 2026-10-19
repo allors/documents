@@ -3,7 +3,7 @@
 // Licensed under the LGPL license. See LICENSE file in the project root for full license information.
 // </copyright>
 
-namespace Allors.Document.Rendering
+namespace Allors.Documents
 {
     /// <summary>
     /// What a path may start with at a point of the render: the loop variables and counters in scope, innermost first, then a member of the root.

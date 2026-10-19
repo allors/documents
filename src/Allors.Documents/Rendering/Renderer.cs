@@ -3,19 +3,12 @@
 // Licensed under the LGPL license. See LICENSE file in the project root for full license information.
 // </copyright>
 
-namespace Allors.Document.Rendering
+namespace Allors.Documents
 {
     using System;
     using System.Collections.Generic;
     using System.Linq;
     using System.Xml;
-    using Allors.Document.Inspection;
-    using Allors.Document.Models;
-    using Allors.Document.OpenDocument;
-    using Allors.Document.Tags;
-    using Allors.Document.Validation;
-    using Allors.Document.Xml;
-    using Formatting = Allors.Document.Models.Formatting;
 
     /// <summary>
     /// Renders programs for one model: walks a program's DOM and writes it as XML, with every binding replaced by its formatted value,

@@ -3,7 +3,7 @@
 // Licensed under the LGPL license. See LICENSE file in the project root for full license information.
 // </copyright>
 
-namespace Allors.Document.Reflection
+namespace Allors.Documents.Reflection
 {
     using System;
     using System.Collections.Concurrent;

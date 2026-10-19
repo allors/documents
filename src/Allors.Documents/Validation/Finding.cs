@@ -3,10 +3,8 @@
 // Licensed under the LGPL license. See LICENSE file in the project root for full license information.
 // </copyright>
 
-namespace Allors.Document.Validation
+namespace Allors.Documents
 {
-    using Allors.Document.Inspection;
-
     /// <summary>One thing wrong or doubtful in a template, in the author's terms, with where it sits.</summary>
     public sealed class Finding
     {

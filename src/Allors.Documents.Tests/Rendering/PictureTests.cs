@@ -3,7 +3,7 @@
 // Licensed under the LGPL license. See LICENSE file in the project root for full license information.
 // </copyright>
 
-namespace Allos.Document.Rendering.Tests
+namespace Allors.Documents.Tests
 {
     using System;
     using System.Collections.Generic;
@@ -12,12 +12,9 @@ namespace Allos.Document.Rendering.Tests
     using System.Reflection;
     using System.Text;
     using System.Xml.Linq;
-    using Allors.Document.Models;
-    using Allors.Document.OpenDocument;
-    using Allors.Document.Validation;
-    using Allos.Document.OpenDocument.Tests;
+    using Allors.Documents;
     using Xunit;
-    using static Allos.Document.Rendering.Tests.Render;
+    using static Allors.Documents.Tests.Render;
 
     /// <summary>
     /// Pictures under the resolver engine: a frame whose description is a picture tag shows the picture at that path, stored in the package

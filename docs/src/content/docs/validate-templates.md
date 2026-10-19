@@ -16,7 +16,7 @@ a document.
 `Validate` checks a template against the shape of its model, without rendering and without data: every path, attribute, block and document setting. It never throws for what the template says; it throws only when the bytes are not an OpenDocument text.
 
 ```csharp
-using Allors.Document.Reflection;
+using Allors.Documents.Reflection;
 
 IShape model = ReflectionShape.Arguments<InvoiceModel>();
 TemplateValidation validation = OpenDocumentTemplate.Validate(templateBytes, model);

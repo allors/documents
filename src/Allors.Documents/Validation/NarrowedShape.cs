@@ -3,11 +3,10 @@
 // Licensed under the LGPL license. See LICENSE file in the project root for full license information.
 // </copyright>
 
-namespace Allors.Document.Validation
+namespace Allors.Documents
 {
     using System.Collections.Generic;
     using System.Linq;
-    using Allors.Document.Models;
 
     /// <summary>
     /// The variants of an abstract shape that have a guarded member: inside the guard, a member counts when every one of them has it.

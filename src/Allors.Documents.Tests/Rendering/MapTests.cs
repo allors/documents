@@ -3,17 +3,15 @@
 // Licensed under the LGPL license. See LICENSE file in the project root for full license information.
 // </copyright>
 
-namespace Allos.Document.Rendering.Tests
+namespace Allors.Documents.Tests
 {
     using System;
     using System.Collections.Generic;
     using System.Globalization;
     using System.Linq;
-    using Allors.Document.OpenDocument;
-    using Allors.Document.Validation;
-    using Allos.Document.OpenDocument.Tests;
+    using Allors.Documents;
     using Xunit;
-    using static Allos.Document.Rendering.Tests.Render;
+    using static Allors.Documents.Tests.Render;
 
     /// <summary>Maps: a two-column table the template keeps for itself, through which a binding prints the text for its value.</summary>
     public class MapTests

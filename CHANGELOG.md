@@ -4,6 +4,10 @@ All notable changes to this project are documented in this file. The format foll
 
 ## [Unreleased]
 
+### Changed
+
+- **Breaking:** every type of the core sits in the namespace `Allors.Documents`, the name of the package, and the reflection package in `Allors.Documents.Reflection`; the namespaces `Allors.Document.OpenDocument`, `Allors.Document.Validation`, `Allors.Document.Inspection`, `Allors.Document.Models`, `Allors.Document.Tags` and `Allors.Document.Reflection` are gone. To upgrade, replace the `using Allors.Document.*` directives by `using Allors.Documents;` and `using Allors.Documents.Reflection;`. `TagSyntax` and `XmlPair` are internal: neither was part of the contract.
+
 ### Added
 
 - A documentation website under `docs/`, built with Astro and Starlight from pages for template authors, developers and maintainers, with Markdown exports and an `llms.txt` index generated from the same pages; the documentation workflow validates it for the `/documents/` and `/` deployment paths. The reference the README held moved to the pages, joined by new pages on writing a template in Writer, the design, the architecture and the planned renderers. The guide on writing a template says what to enter in Writer's dialogs: `$Invoice.Number` in the Placeholder box, which Writer saves as `<$Invoice.Number>`, and the complete tag with its brackets in a picture's description. The README is an introduction that links to the pages, and `AGENTS.md` holds the agent instructions.

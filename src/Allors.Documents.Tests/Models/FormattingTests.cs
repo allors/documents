@@ -3,12 +3,12 @@
 // Licensed under the LGPL license. See LICENSE file in the project root for full license information.
 // </copyright>
 
-namespace Allos.Document.Models.Tests
+namespace Allors.Documents.Tests
 {
     using System;
     using System.Collections.Generic;
     using System.Globalization;
-    using Allors.Document.Models;
+    using Allors.Documents;
     using Xunit;
 
     public class FormattingTests

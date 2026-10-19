@@ -3,13 +3,13 @@
 // Licensed under the LGPL license. See LICENSE file in the project root for full license information.
 // </copyright>
 
-namespace Allos.Document.OpenDocument.Tests
+namespace Allors.Documents.Tests
 {
     using System;
     using System.Collections.Generic;
     using System.Globalization;
     using System.Linq;
-    using Allors.Document.OpenDocument;
+    using Allors.Documents;
     using Xunit;
 
     /// <summary>The template renders as typed, and what the model gives is escaped.</summary>

@@ -3,12 +3,11 @@
 // Licensed under the LGPL license. See LICENSE file in the project root for full license information.
 // </copyright>
 
-namespace Allors.Document.Tags
+namespace Allors.Documents
 {
     using System;
     using System.Collections.Generic;
     using System.Text.RegularExpressions;
-    using Allors.Document.Models;
 
     /// <summary>
     /// The tag language of a template: <c>&lt;$path attr="value"&gt;</c>, <c>&lt;@for variable path sort="key desc" index="n" separator=", "&gt;</c>,
@@ -16,7 +15,7 @@ namespace Allors.Document.Tags
     /// <c>&lt;@else ifdef path&gt;</c>, <c>&lt;@map Name&gt;</c> and <c>&lt;@end&gt;</c> in placeholder fields, and <c>&lt;$path empty="keep" fit="contain"&gt;</c>
     /// as the description of a picture frame. A path is a chain of member names; keywords are not case-sensitive.
     /// </summary>
-    public static class TagSyntax
+    internal static class TagSyntax
     {
         private static readonly Regex PathRegex = new Regex(@"^[A-Za-z_][A-Za-z0-9_]*(\.[A-Za-z_][A-Za-z0-9_]*)*$");
 

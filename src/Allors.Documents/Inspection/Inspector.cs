@@ -3,7 +3,7 @@
 // Licensed under the LGPL license. See LICENSE file in the project root for full license information.
 // </copyright>
 
-namespace Allors.Document.Inspection
+namespace Allors.Documents
 {
     using System.Collections.Generic;
     using System.IO;
@@ -11,8 +11,6 @@ namespace Allors.Document.Inspection
     using System.Text;
     using System.Text.RegularExpressions;
     using System.Xml;
-    using Allors.Document.OpenDocument;
-    using Allors.Document.Tags;
 
     /// <summary>Reads the tags, bound pictures, maps and settings of a template package without rendering it.</summary>
     internal static class Inspector

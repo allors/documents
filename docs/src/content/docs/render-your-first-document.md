@@ -83,9 +83,8 @@ Add the package `Allors.Documents.Reflection` to the project; it brings `Allors.
 it. Read the template once, render it for a model and write the document:
 
 ```csharp
-using Allors.Document.OpenDocument;
-using Allors.Document.Reflection;
-using Allors.Document.Validation;
+using Allors.Documents;
+using Allors.Documents.Reflection;
 
 var template = new OpenDocumentTemplate<InvoiceModel>(File.ReadAllBytes("invoice-template.odt"));
 
@@ -156,7 +155,7 @@ template against the shape of the model, without data, so that the same mistake 
 the template is saved and in a test over every template:
 
 ```csharp
-using Allors.Document.Models;
+using Allors.Documents;
 
 IShape shape = ReflectionShape.Arguments<InvoiceModel>();
 TemplateValidation validation = OpenDocumentTemplate.Validate(File.ReadAllBytes("invoice-template.odt"), shape);

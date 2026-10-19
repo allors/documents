@@ -3,7 +3,7 @@
 // Licensed under the LGPL license. See LICENSE file in the project root for full license information.
 // </copyright>
 
-namespace Allors.Document.OpenDocument
+namespace Allors.Documents
 {
     using System;
     using System.Collections.Generic;
@@ -12,8 +12,6 @@ namespace Allors.Document.OpenDocument
     using System.Security.Cryptography;
     using System.Text;
     using System.Xml;
-    using Allors.Document.Inspection;
-    using Allors.Document.Xml;
 
     /// <summary>
     /// A flat OpenDocument text (.fodt): the whole document in one XML file, an <c>office:document</c> whose sections hold the meta data, the
@@ -317,7 +315,7 @@ namespace Allors.Document.OpenDocument
         /// <summary>The manifest of the package the flat document becomes: the document, its parts and its pictures with their media types.</summary>
         private static byte[] Manifest(string mimetype, string version, IEnumerable<string> parts, IEnumerable<KeyValuePair<string, string>> pictures)
         {
-            var ns = OpenDocument.Manifest.Namespace;
+            var ns = Allors.Documents.Manifest.Namespace;
             return XmlOutput.Write(writer =>
             {
                 writer.WriteStartElement("manifest", "manifest", ns);
@@ -345,7 +343,7 @@ namespace Allors.Document.OpenDocument
 
         private static void Entry(XmlWriter writer, string fullPath, string mediaType, string version)
         {
-            var ns = OpenDocument.Manifest.Namespace;
+            var ns = Allors.Documents.Manifest.Namespace;
             writer.WriteWhitespace(SectionBreak);
             writer.WriteStartElement("manifest", "file-entry", ns);
             writer.WriteAttributeString("manifest", "full-path", ns, fullPath);

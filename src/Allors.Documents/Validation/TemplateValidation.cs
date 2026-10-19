@@ -3,11 +3,10 @@
 // Licensed under the LGPL license. See LICENSE file in the project root for full license information.
 // </copyright>
 
-namespace Allors.Document.Validation
+namespace Allors.Documents
 {
     using System.Collections.Generic;
     using System.Linq;
-    using Allors.Document.Inspection;
 
     /// <summary>The outcome of validating a template against a model shape: the findings in document order, and the inspection they came from.</summary>
     public sealed class TemplateValidation

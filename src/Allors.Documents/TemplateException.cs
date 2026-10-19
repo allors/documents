@@ -3,11 +3,10 @@
 // Licensed under the LGPL license. See LICENSE file in the project root for full license information.
 // </copyright>
 
-namespace Allors.Document
+namespace Allors.Documents
 {
     using System;
     using System.Collections.Generic;
-    using Allors.Document.Validation;
 
 #pragma warning disable RCS1194 // Implement exception constructors.
 

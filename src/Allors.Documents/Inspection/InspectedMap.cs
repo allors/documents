@@ -3,11 +3,10 @@
 // Licensed under the LGPL license. See LICENSE file in the project root for full license information.
 // </copyright>
 
-namespace Allors.Document.Inspection
+namespace Allors.Documents
 {
     using System.Collections.Generic;
     using System.Xml;
-    using Allors.Document.Tags;
 
     /// <summary>
     /// A map of a template: a table of two columns whose first cell holds <c>&lt;@map Name&gt;</c>; every row below it maps the text in its first

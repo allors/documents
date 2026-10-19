@@ -3,7 +3,7 @@
 // Licensed under the LGPL license. See LICENSE file in the project root for full license information.
 // </copyright>
 
-namespace Allos.Document.Rendering.Tests
+namespace Allors.Documents.Tests
 {
     using System.Collections.Generic;
     using System.IO;
@@ -12,11 +12,10 @@ namespace Allos.Document.Rendering.Tests
     using System.Text;
     using System.Threading.Tasks;
     using System.Xml.Linq;
-    using Allors.Document.OpenDocument;
-    using Allors.Document.Reflection;
-    using Allos.Document.OpenDocument.Tests;
+    using Allors.Documents;
+    using Allors.Documents.Reflection;
     using Xunit;
-    using static Allos.Document.Rendering.Tests.Render;
+    using static Allors.Documents.Tests.Render;
 
     /// <summary>What the resolver engine writes around the values: the parts as the template had them, the package, and the other files.</summary>
     public class OutputTests

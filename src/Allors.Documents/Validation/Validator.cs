@@ -3,7 +3,7 @@
 // Licensed under the LGPL license. See LICENSE file in the project root for full license information.
 // </copyright>
 
-namespace Allors.Document.Validation
+namespace Allors.Documents
 {
     using System;
     using System.Collections.Generic;
@@ -11,11 +11,6 @@ namespace Allors.Document.Validation
     using System.Linq;
     using System.Text;
     using System.Xml;
-    using Allors.Document.Inspection;
-    using Allors.Document.Models;
-    using Allors.Document.Tags;
-    using Allors.Document.Xml;
-    using Formatting = Allors.Document.Models.Formatting;
 
     /// <summary>Checks an inspected template against a model shape.</summary>
     internal sealed class Validator

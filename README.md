@@ -16,9 +16,8 @@ Embed template tags inside OpenDocument texts: write the template in LibreOffice
 # Usage
 
 ```csharp
-using Allors.Document.OpenDocument;
-using Allors.Document.Reflection;
-using Allors.Document.Validation;
+using Allors.Documents;
+using Allors.Documents.Reflection;
 
 var template = new OpenDocumentTemplate<InvoiceModel>(templateBytes);
 RenderResult result = template.Render(model);

@@ -3,12 +3,12 @@
 // Licensed under the LGPL license. See LICENSE file in the project root for full license information.
 // </copyright>
 
-namespace Allors.Document.Reflection
+namespace Allors.Documents.Reflection
 {
     using System;
     using System.Collections.Generic;
     using System.Reflection;
-    using Allors.Document.OpenDocument;
+    using Allors.Documents;
 
     /// <summary>
     /// A template over a model type. A render sees the public properties of <typeparamref name="T"/> by their exact names, the root that

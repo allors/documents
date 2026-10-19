@@ -3,13 +3,12 @@
 // Licensed under the LGPL license. See LICENSE file in the project root for full license information.
 // </copyright>
 
-namespace Allors.Document.Rendering
+namespace Allors.Documents
 {
     using System;
     using System.Collections.Generic;
     using System.Linq;
     using System.Security.Cryptography;
-    using Allors.Document.OpenDocument;
 
     /// <summary>
     /// The pictures a render puts into the package. A picture is stored once, however many frames show it, under <c>Pictures/&lt;path&gt;.&lt;ext&gt;</c>

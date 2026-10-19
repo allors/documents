@@ -3,11 +3,10 @@
 // Licensed under the LGPL license. See LICENSE file in the project root for full license information.
 // </copyright>
 
-namespace Allors.Document.OpenDocument
+namespace Allors.Documents
 {
     using System.Collections.Generic;
     using System.Globalization;
-    using Allors.Document.Models;
 
     /// <summary>
     /// How a render reads and formats its model: the resolver that binds paths to values, and the caller's formatting defaults.

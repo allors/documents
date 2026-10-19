@@ -3,7 +3,7 @@
 // Licensed under the LGPL license. See LICENSE file in the project root for full license information.
 // </copyright>
 
-namespace Allos.Document.OpenDocument.Tests
+namespace Allors.Documents.Tests
 {
     using System.Collections.Generic;
     using System.IO;
@@ -11,7 +11,7 @@ namespace Allos.Document.OpenDocument.Tests
     using System.Linq;
     using System.Text;
     using System.Xml.Linq;
-    using Allors.Document.OpenDocument;
+    using Allors.Documents;
 
     /// <summary>
     /// Builds minimal OpenDocument text packages in code, and reads rendered packages back.

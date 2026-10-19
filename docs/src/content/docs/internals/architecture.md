@@ -16,7 +16,8 @@ describes can change with any version. The core is organized by stage: `Tags` pa
 a tag, `OpenDocument` reads and writes the document, `Rendering` prepares a template and renders
 it, `Xml` handles blocks and output, `Models` holds the model contracts and the formatting,
 `Inspection` lists what a template asks for and `Validation` checks it against a shape. The
-namespaces of the core, `Allors.Document.*`, predate the package name `Allors.Documents`.
+folders organize the source; every type of the core sits in the one namespace `Allors.Documents`,
+the name of the package, and the public types are those an application needs.
 
 ```mermaid
 flowchart TB

@@ -3,12 +3,11 @@
 // Licensed under the LGPL license. See LICENSE file in the project root for full license information.
 // </copyright>
 
-namespace Allos.Document.Rendering.Tests
+namespace Allors.Documents.Tests
 {
     using System.Collections.Generic;
-    using Allos.Document.OpenDocument.Tests;
     using Xunit;
-    using static Allos.Document.Rendering.Tests.Render;
+    using static Allors.Documents.Tests.Render;
 
     /// <summary>The separator attribute: text between the items of a loop that sits in one paragraph.</summary>
     public class SeparatorTests

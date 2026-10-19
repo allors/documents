@@ -3,14 +3,14 @@
 // Licensed under the LGPL license. See LICENSE file in the project root for full license information.
 // </copyright>
 
-namespace Allos.Document.OpenDocument.Tests
+namespace Allors.Documents.Tests
 {
     using System.Collections.Generic;
     using System.IO;
     using System.Linq;
     using System.Reflection;
     using System.Text;
-    using Allors.Document.OpenDocument;
+    using Allors.Documents;
     using Xunit;
 
     /// <summary>

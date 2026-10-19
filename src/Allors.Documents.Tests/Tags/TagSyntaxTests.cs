@@ -3,10 +3,10 @@
 // Licensed under the LGPL license. See LICENSE file in the project root for full license information.
 // </copyright>
 
-namespace Allos.Document.Tags.Tests
+namespace Allors.Documents.Tests
 {
     using System.Linq;
-    using Allors.Document.Tags;
+    using Allors.Documents;
     using Xunit;
 
     public class TagSyntaxTests

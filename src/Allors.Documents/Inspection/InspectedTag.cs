@@ -3,12 +3,11 @@
 // Licensed under the LGPL license. See LICENSE file in the project root for full license information.
 // </copyright>
 
-namespace Allors.Document.Inspection
+namespace Allors.Documents
 {
     using System.Collections.Generic;
     using System.Linq;
     using System.Xml;
-    using Allors.Document.Tags;
 
     /// <summary>A tag and where it sits: the part, the paragraph's text and the paragraph's ordinal in that part.</summary>
     public sealed class InspectedTag

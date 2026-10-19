@@ -3,7 +3,7 @@
 // Licensed under the LGPL license. See LICENSE file in the project root for full license information.
 // </copyright>
 
-namespace Allors.Document.Validation
+namespace Allors.Documents
 {
     /// <summary>What a finding is about.</summary>
     public enum FindingKind
