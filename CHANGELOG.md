@@ -8,6 +8,10 @@ All notable changes to this project are documented in this file. The format foll
 
 - A documentation website under `docs/`, built with Astro and Starlight from pages for template authors, developers and maintainers, with Markdown exports and an `llms.txt` index generated from the same pages; the documentation workflow validates it for the `/documents/` and `/` deployment paths. The reference the README held moved to the pages, joined by new pages on writing a template in Writer, the design, the architecture and the planned renderers. The README is an introduction that links to the pages, and `AGENTS.md` holds the agent instructions.
 
+### Fixed
+
+- The template-writing guide and first-document tutorial explain that Writer supplies a placeholder's angle brackets: enter `$Invoice.Number` in its dialog to save `<$Invoice.Number>`. Picture descriptions take the complete tag, including its brackets.
+
 ## [3.2.0] - 2026-10-16
 
 A condition can say what to print otherwise, a loop can put text between its items, a binding can print a text of its own for a blank value, and a template can carry maps that translate values into its own words. Every addition is a tag or an attribute that meant nothing before, so a 3.1 template renders as it did.

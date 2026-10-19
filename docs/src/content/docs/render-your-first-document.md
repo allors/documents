@@ -16,8 +16,9 @@ run of this code against the current version of the library.
 ## 1. Write the template
 
 Create a document in Writer with these paragraphs and this table, every tag in a placeholder
-field (Insert, Field, More Fields, Functions, Placeholder). [Write a template](write-a-template.md)
-has the steps.
+field (Insert, Field, More Fields, Functions, Placeholder). The examples show the fields as they
+appear in the document; enter the text inside the angle brackets in Writer's Placeholder box.
+[Insert a tag](write-a-template.md#insert-a-tag) has the steps.
 
 ```
 Invoice <$Invoice.Number>

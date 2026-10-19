@@ -33,13 +33,17 @@ A tag sits in a placeholder field, which keeps it in one piece whatever the form
 1. Put the cursor where the value goes.
 2. Choose Insert, Field, More Fields (Ctrl+F2) and open the Functions tab.
 3. Select the type Placeholder and the format Text.
-4. Type the tag in the Placeholder box, for example `<$Invoice.Number>`, and click Insert.
+4. Type the tag without its outer angle brackets in the Placeholder box, for example
+   `$Invoice.Number`, and click Insert.
 
-Writer shows a placeholder between angle brackets of its own, so the field reads
-`<<$Invoice.Number>>` on screen; the tag is what you typed. View, Field Shadings (Ctrl+F8) shows
-every field on a grey background. A click on a placeholder selects it, and what you type then
-replaces the field with plain text; to change a tag, put the cursor right before the field and
-choose Edit, Fields, or insert a new field and delete the old one.
+Writer adds the angle brackets: the field displays and saves `<$Invoice.Number>`. The examples
+on these pages show tags as they appear in the document. For every placeholder, enter only what
+is inside the brackets: `@for line Invoice.Lines`, `@end` or `@map Titles`, for example.
+
+View, Field Shadings (Ctrl+F8) shows every field on a grey background. A click on a placeholder
+selects it, and what you type then replaces the field with plain text; to change a tag, put the
+cursor right before the field and choose Edit, Fields, or insert a new field and delete the old
+one.
 
 ## Print a value
 
@@ -98,8 +102,8 @@ put the tag in the picture's description:
 
 1. Right-click the picture and choose Properties, or choose Format, Image, Properties.
 2. Open the Options tab.
-3. Type the tag in the Description box, for example `<$Issuer.Logo>` or
-   `<$item.Photo fit="contain" empty="keep">`.
+3. Type the complete tag, including its angle brackets, in the Description box, for example
+   `<$Issuer.Logo>` or `<$item.Photo fit="contain" empty="keep">`.
 
 The Description is the longer of the two accessibility texts; the short Text Alternative stays
 yours and travels to the output. LibreOffice's Alt Text dialog (Format, Alt Text) shows the same
