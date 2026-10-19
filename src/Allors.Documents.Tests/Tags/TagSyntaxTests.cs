@@ -367,6 +367,17 @@ namespace Allors.Documents.Tests
             Assert.True(TagSyntax.IsDefaultKey(" Default "));
             Assert.False(TagSyntax.IsDefaultKey("defaults"));
         }
+
+        [Fact]
+        public void SortKeysWithTheSameValuesAreEqual()
+        {
+            Assert.True(TagSyntax.TryParse("<@for line Lines sort=\"Product, Quantity desc\">", out var first, out var error), error);
+            Assert.True(TagSyntax.TryParse("<@for line Lines sort=\"Product, Quantity desc\">", out var second, out error), error);
+
+            Assert.Equal(first.Sort, second.Sort);
+            Assert.NotEqual(first.Sort[0], first.Sort[1]);
+            Assert.Equal("Quantity desc", first.Sort[1].ToString());
+        }
     }
 }
 

@@ -7,6 +7,7 @@ All notable changes to this project are documented in this file. The format foll
 ### Changed
 
 - **Breaking:** every type of the core sits in the namespace `Allors.Documents`, the name of the package, and the reflection package in `Allors.Documents.Reflection`; the namespaces `Allors.Document.OpenDocument`, `Allors.Document.Validation`, `Allors.Document.Inspection`, `Allors.Document.Models`, `Allors.Document.Tags` and `Allors.Document.Reflection` are gone. To upgrade, replace the `using Allors.Document.*` directives by `using Allors.Documents;` and `using Allors.Documents.Reflection;`. `TagSyntax` and `XmlPair` are internal: neither was part of the contract.
+- **Breaking:** `Finding`, `Location` and `SortKey` are records: two with the same members are equal, `ToString` prints as before, and their constructors are public, so an application can build findings of its own.
 
 ### Added
 

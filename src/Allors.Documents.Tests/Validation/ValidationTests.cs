@@ -647,6 +647,20 @@ namespace Allors.Documents.Tests
             Assert.False(validation.IsValid);
         }
 
+        [Fact]
+        public void FindingsWithTheSameValuesAreEqual()
+        {
+            var body = P("<$Invoice.Nope>") + P("<@for line Invoice.Lines sort=\"Nope\">") + P("<@end>");
+
+            var first = Validate(body).Findings;
+            var second = Validate(body).Findings;
+
+            // A finding is a value: two validations of the same template report findings that are equal, location included
+            Assert.Equal(2, first.Count);
+            Assert.Equal(first, second);
+            Assert.Equal(first[0].Location, second[0].Location);
+        }
+
         private static TemplateValidation Validate(string body, IDictionary<string, string> settings = null, IShape root = null) =>
             OpenDocumentTemplate.Validate(Odt.Build(body, settings: settings), root ?? Root);
 

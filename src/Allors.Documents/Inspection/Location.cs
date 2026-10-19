@@ -5,24 +5,12 @@
 
 namespace Allors.Documents
 {
-    /// <summary>Where something sits in a template: the part (content.xml or styles.xml), the text of its paragraph and that paragraph's ordinal in the part.</summary>
-    public sealed class Location
+    /// <summary>Where something sits in a template: the part (content.xml or styles.xml), the text of its paragraph and that paragraph's ordinal in the part. A location is a value: two locations with the same members are equal.</summary>
+    /// <param name="Part">The part: content.xml or styles.xml.</param>
+    /// <param name="Paragraph">The 1-based ordinal of the paragraph or heading in the part; 0 when the element is outside any paragraph.</param>
+    /// <param name="ParagraphText">The paragraph's text with the tags as the author typed them, white space collapsed, at most 200 characters.</param>
+    public sealed record Location(string Part, int Paragraph, string ParagraphText)
     {
-        internal Location(string part, int paragraph, string paragraphText)
-        {
-            this.Part = part;
-            this.Paragraph = paragraph;
-            this.ParagraphText = paragraphText;
-        }
-
-        public string Part { get; }
-
-        /// <summary>The 1-based ordinal of the paragraph or heading in the part; 0 when the element is outside any paragraph.</summary>
-        public int Paragraph { get; }
-
-        /// <summary>The paragraph's text with the tags as the author typed them, white space collapsed, at most 200 characters.</summary>
-        public string ParagraphText { get; }
-
         public override string ToString() => this.Paragraph == 0 ? this.Part : this.Part + " paragraph " + this.Paragraph + " \"" + this.ParagraphText + "\"";
     }
 }

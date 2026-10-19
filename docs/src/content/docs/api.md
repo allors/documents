@@ -72,6 +72,8 @@ author typed it, the `Path` that was checked when the finding is about one, a `M
 `Location`. A `Location` names the `Part` (`content.xml` or `styles.xml`), the `Paragraph` as a
 1-based ordinal in the part, 0 outside any paragraph, and the `ParagraphText` with the tags as
 typed, white space collapsed, at most 200 characters. [Findings](findings.md) lists the kinds.
+`Finding`, `Location` and the `SortKey` of a loop tag are records: two with the same members are
+equal, and an application may construct its own.
 
 ## Inspect
 
