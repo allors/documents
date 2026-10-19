@@ -4,8 +4,9 @@ import { fileURLToPath } from 'node:url';
 import { parseHTML } from 'linkedom';
 import remarkParse from 'remark-parse';
 import { unified } from 'unified';
+import { home } from '../site.mjs';
 
-const defaultOrigin = 'https://allors.github.io';
+const defaultOrigin = 'https://docs.allors.com';
 const markdown = unified().use(remarkParse);
 
 async function publishedFiles(directory) {
@@ -76,8 +77,12 @@ async function findFile(filename) {
   return undefined;
 }
 
-/** Check published links without making network requests. */
-export async function checkLinks(outDir, baseURL = '/documents/') {
+/**
+ * Check published links without making network requests. A link to `home`, the documentation home that
+ * another build publishes at the root of the same origin, is counted as unchecked instead of being
+ * looked up in this build output when it lies outside the deployment base.
+ */
+export async function checkLinks(outDir, baseURL = '/documents/', { home: homeURL } = {}) {
   const directory = path.resolve(outDir);
   const base = new URL(baseURL, defaultOrigin);
   if (!base.pathname.endsWith('/')) base.pathname += '/';
@@ -88,6 +93,8 @@ export async function checkLinks(outDir, baseURL = '/documents/') {
   const documents = new Map();
   const targets = new Map();
   let links = 0;
+  let unchecked = 0;
+  const homePath = homeURL === undefined ? undefined : new URL(homeURL, base).pathname;
 
   async function documentFor(filename) {
     if (!documents.has(filename)) {
@@ -126,6 +133,10 @@ export async function checkLinks(outDir, baseURL = '/documents/') {
         continue;
       }
       if (!['http:', 'https:'].includes(url.protocol) || url.host !== base.host) continue;
+      if (url.pathname === homePath && !url.pathname.startsWith(base.pathname)) {
+        unchecked += 1;
+        continue;
+      }
       links += 1;
       if (!url.pathname.startsWith(base.pathname) && url.pathname !== base.pathname.slice(0, -1)) {
         errors.push(`${context} is outside deployment base ${base.pathname}. Include the deployment base in the local URL.`);
@@ -173,15 +184,15 @@ export async function checkLinks(outDir, baseURL = '/documents/') {
       }
     }
   }
-  return { files: files.length, links, errors };
+  return { files: files.length, links, unchecked, errors };
 }
 
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   try {
     const base = new URL(process.env.DOCS_BASE || '/documents/', process.env.DOCS_SITE || defaultOrigin);
-    const result = await checkLinks(fileURLToPath(new URL('../dist/', import.meta.url)), base);
+    const result = await checkLinks(fileURLToPath(new URL('../dist/', import.meta.url)), base, { home });
     for (const error of result.errors) console.error(error);
-    console.log(`Checked ${result.links} local links across ${result.files} published files; ${result.errors.length} errors.`);
+    console.log(`Checked ${result.links} local links across ${result.files} published files; ${result.unchecked} links to the documentation home were left to its own build; ${result.errors.length} errors.`);
     if (result.errors.length > 0) process.exitCode = 1;
   } catch (error) {
     console.error(`Link check failed: ${error.message}`);

@@ -59,7 +59,7 @@ application must not rely on them: they can change with any version.
 | [Architecture](internals/architecture.md) | Explanation | Current | How a template becomes a document: the parts, the program built once per template, the renderer that walks it per render, pictures and output, and how Inspect and Validate share the same reading of a template. |
 | [Releasing](internals/releasing.md) | How-to guide | Current | Build, test and pack with Task, how the version is stamped, and how a tag publishes the packages. |
 | [Writing documentation](internals/writing-documentation.md) | How-to guide | Current | Audience, Diátaxis, status, Oxford English, stable terminology, visual explanations and review. |
-| [Documentation website](internals/documentation-website.md) | Decision record | Planned | Agreed website design, its adoption from the Allors3 documentation project, implementation subtasks and validation. |
+| [Documentation website](internals/documentation-website.md) | Decision record | Current | Agreed website design, its adoption from the Allors3 documentation project, implementation subtasks, validation and publication. |
 
 The writing guide defines [page kinds](internals/writing-documentation.md#choose-the-audience-and-purpose)
 and [statuses](internals/writing-documentation.md#state-what-is-current). Audience, kind and
