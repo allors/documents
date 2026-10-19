@@ -146,8 +146,7 @@ namespace Allors.Documents.Tests
 
             var template = new OpenDocumentTemplate(package);
 
-            // The template is read: the inspection lists its tags and the problem, Validate reports it; only Render refuses
-            Assert.False(template.CanRender);
+            // The template is read: the inspection lists its tags and the problem, Validate with an open shape reports it without a model; only Render refuses
             Assert.Equal(["Flag", "Name"], template.Inspection.Paths);
             Assert.Single(template.Inspection.Problems);
             Assert.Contains(template.Validate(DictionaryShape.Open).Errors, v => v.Kind == FindingKind.UnbalancedBlock);

@@ -96,7 +96,7 @@ A template mistake prints blank and is reported as a [finding](findings.md); the
 completes. A missing member, a loop that cannot be ordered, a value that is no picture, a tag
 that cannot be read: each has a defined result and a finding that names the tag, the part and the
 paragraph. Only a template whose blocks cannot be rendered, because a block never ends or would
-cut a table, is refused at `Render`, with the same findings; `CanRender` says so before.
+cut a table, is refused at `Render`, with the same findings, which `Validate` reports before.
 
 The reason is where mistakes should surface. A document run that fails on one typo is worse than
 a document with one blank and a report that says where, and the typo should not reach a run at

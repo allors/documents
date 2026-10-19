@@ -13,7 +13,7 @@ Run the check where templates enter the application, when one is saved or upload
 over every template the application ships, so that a typo is a failed check rather than a blank in
 a document.
 
-`Validate` checks a template against the shape of its model, without rendering and without data: every path, attribute, block and document setting. It never throws for what the template says; reading the template throws only when the bytes are not an OpenDocument text. A template whose blocks cannot be rendered is reported here, and says so with `CanRender`.
+`Validate` checks a template against the shape of its model, without rendering and without data: every path, attribute, block and document setting. It never throws for what the template says; reading the template throws only when the bytes are not an OpenDocument text. A template whose blocks cannot be rendered is reported here too; `DictionaryShape.Open` serves as the shape when no model is at hand.
 
 ```csharp
 using Allors.Documents.Reflection;

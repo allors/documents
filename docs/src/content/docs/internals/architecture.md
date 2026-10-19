@@ -48,8 +48,8 @@ read.
 part with every white-space character kept, since Writer writes a part without indentation of its
 own, and walks it with the inspector's part walker, which collects the tags in placeholder
 fields, the frames whose description is a picture tag, the map tables and the problems it cannot
-read past. An unbalanced block is a blocking finding here: the template is read, `CanRender` is
-false and `Render` throws `TemplateException` with it. The tags are paired into blocks
+read past. An unbalanced block is a blocking finding here: the template is read, and `Render` throws
+`TemplateException` with it. The tags are paired into blocks
 with `XmlPair`, and `BlockStructure` decides whether a block's begin, elses and end sit where the
 renderer can cut: in paragraphs of one container or in rows of one table. A block that would cut
 a table blocks as well. Then the rewrite: every placeholder becomes an instruction element in the
@@ -144,6 +144,6 @@ under `Resources` are fixtures for what needs one.
 - The output reads as the template did: the declaration, the comments and processing
   instructions, a full end tag on every element and the author's white space kept, and a manifest
   nothing changed passes through unchanged.
-- What a template says never throws when it is read; the structural errors leave `CanRender`
-  false and throw at `Render`, with findings.
+- What a template says never throws when it is read; the structural errors throw at `Render`,
+  with findings, and `Validate` reports them.
 - A finding names the tag as typed, the path, the part and the paragraph, in the author's terms.

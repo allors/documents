@@ -27,7 +27,7 @@ namespace Allors.Documents.Reflection
         /// <summary>
         /// Reads a template with the settings every render uses; null settings are the library's defaults. Throws
         /// <see cref="System.IO.InvalidDataException"/> when the bytes are not an OpenDocument text; a template whose blocks cannot be
-        /// rendered is read, says so with <see cref="OpenDocumentTemplate.CanRender"/> and throws at <see cref="Render"/>.
+        /// rendered is read, reported by <see cref="OpenDocumentTemplate.Validate"/> and thrown at <see cref="Render"/>.
         /// </summary>
         public OpenDocumentTemplate(byte[] document, RenderSettings settings = null)
             : base(document, settings) =>

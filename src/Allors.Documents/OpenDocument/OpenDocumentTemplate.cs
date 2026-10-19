@@ -14,7 +14,7 @@ namespace Allors.Documents
     /// An OpenDocument text with template tags, read once with its settings and rendered any number of times, from any thread. The template
     /// is a package (.odt) or a flat document (.fodt), one XML file with the pictures embedded; a render gives a package, or a flat document
     /// when the settings ask for one. Reading the template prepares its parts and its <see cref="Inspection"/>; a template whose blocks are
-    /// unbalanced or would cut a table is read too, says so with <see cref="CanRender"/>, and throws <see cref="TemplateException"/> at <see cref="Render"/>.
+    /// unbalanced or would cut a table is read too, <see cref="Validate"/> reports it, and <see cref="Render"/> throws <see cref="TemplateException"/>.
     /// A template never changes after it is read: a render keeps its own state, so renders may run concurrently; the settings' resolver
     /// is shared by every render and keeps no state of a render.
     /// </summary>
@@ -48,7 +48,7 @@ namespace Allors.Documents
         /// Reads a template, a package or a flat document, with the settings every render uses; null settings are the library's defaults.
         /// Throws <see cref="InvalidDataException"/> when the bytes are neither an OpenDocument package with a content.xml nor a flat
         /// OpenDocument text. Never throws for what the template says: a block that never ends, an end that opens nothing, an else that
-        /// belongs to no condition or a block that would cut a table leave <see cref="CanRender"/> false, and <see cref="Validate"/> reports them.
+        /// belongs to no condition or a block that would cut a table are reported by <see cref="Validate"/>, with <see cref="DictionaryShape.Open"/> when there is no shape at hand, and thrown by <see cref="Render"/>.
         /// </summary>
         public OpenDocumentTemplate(byte[] document, RenderSettings settings = null)
         {
@@ -78,13 +78,6 @@ namespace Allors.Documents
         /// <summary>What the template asks of its model, read without a model: the tags, the bound pictures, the maps, the document settings and the problems.</summary>
         public TemplateInspection Inspection { get; }
 
-        /// <summary>
-        /// True when every block of the template can be rendered. False when a block never ends, an end opens nothing, an else belongs to
-        /// no condition or a block would cut a table: <see cref="Render"/> then throws <see cref="TemplateException"/> with those findings, and
-        /// <see cref="Validate"/> reports them.
-        /// </summary>
-        public bool CanRender => this.blocking.Count == 0;
-
         /// <summary>The resolver a render reads through when the settings name none: the dictionary resolver.</summary>
         protected virtual IResolver DefaultResolver => DictionaryResolver.Instance;
 
@@ -101,7 +94,7 @@ namespace Allors.Documents
         /// there is none. Paths resolve through the settings' resolver, or the template's own when the settings name none. The result carries
         /// the document, a package unless the settings ask for a flat document, and the findings: a member the model does not have prints blank
         /// and is reported, a loop that cannot be ordered keeps its order and is reported, a value that is no picture is reported, a tag that
-        /// cannot be read prints as typed and is reported. Throws <see cref="TemplateException"/> when <see cref="CanRender"/> is false.
+        /// cannot be read prints as typed and is reported. Throws <see cref="TemplateException"/>, with the findings, when a block of the template cannot be rendered.
         /// </summary>
         public RenderResult Render(object model)
         {
@@ -110,7 +103,7 @@ namespace Allors.Documents
                 throw new ArgumentNullException(nameof(model));
             }
 
-            if (!this.CanRender)
+            if (this.blocking.Count > 0)
             {
                 throw new TemplateException(this.blocking);
             }

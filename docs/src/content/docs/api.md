@@ -24,7 +24,7 @@ document. The namespace is `Allors.Documents`, the name of the package, and
 
 `OpenDocumentTemplate` reads a template from its bytes, with the settings every render uses, and
 keeps it ready: `Inspection` is what it asks of a model, `Validate` checks it against a shape,
-`Render` renders it for a model and `CanRender` says whether its blocks can be rendered. A template
+`Render` renders it for a model. A template
 over a model type sees the public properties of `T` by their exact names and reads what is below them
 through reflection. The non-generic `OpenDocumentTemplate` takes any model and reads it as a
 dictionary unless the settings name another resolver:
@@ -36,7 +36,7 @@ var model = new Dictionary<string, object> { ["Invoice"] = invoice, ["Issuer"] =
 RenderResult result = template.Render(model);
 ```
 
-A template is read once and rendered any number of times, from any thread. It may be a package (`.odt`) or a flat document (`.fodt`), and it renders a package unless the settings ask for a flat document. Reading a template throws `InvalidDataException` when the bytes are not an OpenDocument text, and nothing else: a block that never ends, an end that opens nothing, an else that belongs to no condition or a block that would cut a table leave `CanRender` false, `Validate` reports them, and `Render` throws `TemplateException` whose `Findings` say which tags and where. A render never throws for what the template says: a value the model cannot give prints blank, and `Findings` reports it.
+A template is read once and rendered any number of times, from any thread. It may be a package (`.odt`) or a flat document (`.fodt`), and it renders a package unless the settings ask for a flat document. Reading a template throws `InvalidDataException` when the bytes are not an OpenDocument text, and nothing else: a block that never ends, an end that opens nothing, an else that belongs to no condition or a block that would cut a table are reported by `Validate`, with `DictionaryShape.Open` as the shape when there is no model at hand, and `Render` throws `TemplateException` whose `Findings` say which tags and where. A render never throws for what the template says: a value the model cannot give prints blank, and `Findings` reports it.
 
 A template never changes after it is read: a render keeps its own state, so renders may run concurrently, and `Inspection` and `Validate` may be read alongside them. The settings' resolver is shared by every render of the template, from any thread, so it keeps no state of a render; the model is not changed while a render reads it. A render with other settings, another culture or a flat document, comes from another template over the same bytes: reading one is cheap next to rendering it.
 
