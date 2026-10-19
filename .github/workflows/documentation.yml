@@ -1,0 +1,108 @@
+name: Documentation
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'docs/**'
+      - '.github/workflows/documentation.yml'
+      - 'AGENTS.md'
+      - 'README.md'
+      - 'CHANGELOG.md'
+      - 'version.json'
+  push:
+    branches:
+      - main
+      - 'docs/**'
+    paths:
+      - 'docs/**'
+      - '.github/workflows/documentation.yml'
+      - 'AGENTS.md'
+      - 'README.md'
+      - 'CHANGELOG.md'
+      - 'version.json'
+  workflow_dispatch:
+    inputs:
+      publish:
+        description: Publish the validated documentation from main to GitHub Pages
+        type: boolean
+        required: true
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: documentation-${{ github.ref }}-${{ github.event_name }}
+  cancel-in-progress: ${{ github.event_name != 'workflow_dispatch' }}
+
+jobs:
+  build:
+    name: Validate documentation (${{ matrix.base }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        base:
+          - /documents/
+          - /
+    defaults:
+      run:
+        working-directory: docs
+    env:
+      DOCS_SITE: https://allors.github.io
+      DOCS_BASE: ${{ matrix.base }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: docs/package-lock.json
+      - name: Install dependencies
+        run: npm ci
+      - name: Test documentation tooling
+        run: npm test
+      - name: Check Astro and TypeScript
+        run: npm run check
+      - name: Build website and exports
+        run: npm run build
+      - name: Check links
+        run: npm run check:links
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+      - name: Test browser behaviour and accessibility
+        run: npm run test:browser
+      - name: Upload GitHub Pages artifact
+        if: github.event_name == 'workflow_dispatch' && inputs.publish && github.ref == 'refs/heads/main' && matrix.base == '/documents/'
+        uses: actions/upload-pages-artifact@v5
+        with:
+          path: docs/dist
+
+  deploy:
+    name: Publish documentation
+    if: github.event_name == 'workflow_dispatch' && inputs.publish && github.ref == 'refs/heads/main'
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      pages: write
+      id-token: write
+    concurrency:
+      group: documentation-pages
+      cancel-in-progress: false
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Configure GitHub Pages
+        uses: actions/configure-pages@v6
+      - name: Deploy GitHub Pages artifact
+        id: deployment
+        uses: actions/deploy-pages@v5

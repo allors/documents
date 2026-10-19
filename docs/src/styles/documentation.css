@@ -1,0 +1,21 @@
+:root {
+  --sl-color-accent-low: #142f3d;
+  --sl-color-accent: #1686a6;
+  --sl-color-accent-high: #b7e7f2;
+  --sl-content-width: 52rem;
+}
+:root[data-theme='light'] {
+  --sl-color-accent-low: #d6eff5;
+  --sl-color-accent: #00667f;
+  --sl-color-accent-high: #113c4b;
+}
+.documentation-version { margin-bottom: 0.5rem; font-size: var(--sl-text-sm); color: var(--sl-color-text-accent); }
+.documentation-context { display: flex; flex-wrap: wrap; gap: 0.5rem 1rem; margin-top: 0.75rem; font-size: var(--sl-text-sm); }
+.sl-markdown-content table { display: block; max-width: 100%; overflow-x: auto; }
+.sl-markdown-content table:focus-visible,
+.sl-markdown-content pre.mermaid:focus-visible { outline: 2px solid var(--sl-color-text-accent); outline-offset: 3px; }
+.sl-markdown-content pre.mermaid { justify-content: flex-start; }
+.sl-markdown-content pre.mermaid svg { min-width: 34rem; flex-shrink: 0; margin-inline: auto; }
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { scroll-behavior: auto !important; animation-duration: 0.01ms !important; }
+}
