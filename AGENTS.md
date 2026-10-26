@@ -9,6 +9,15 @@ Visibility: public. Change policy: conservative.
 - Follow existing test placement, fixtures and patterns; do not introduce a separate
   testing approach. Preserve established test expectations unless the requested change
   explicitly changes that behaviour.
+- Before adding test coverage, inspect the closest existing test methods. When a method
+  already checks the same behaviour across types or cases, extend it in place. Add a
+  separate method only for a distinct scenario that does not fit the existing test's purpose.
+- Keep unrelated test setup, timing and expectations unchanged. Investigate validation
+  failures and fix regressions caused by the requested change. Report independent failures
+  and resulting validation limits separately; passing validation does not authorize
+  unrelated fixes.
+- Before committing, review the test diff against these rules. Check every new test method
+  and every change to existing setup or expectations for necessity within the requested scope.
 - Edit documentation, including README files, changelogs, diagrams and guides, only when
   explicitly requested. Report related improvements or documentation implications
   without implementing them.
