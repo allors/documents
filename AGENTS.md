@@ -24,6 +24,25 @@ Visibility: public. Change policy: conservative.
 - An exception applies only to the change directly authorized; it does not waive the
   remaining rules. Change this policy only when explicitly instructed.
 
+## Research records and agent memory
+
+- Store agent research notes, external comparisons, code-evidence inventories and
+  investigation checkpoints in the agent's own built-in memory outside Git. Do not create
+  committed memory files or a separate shared memory store for these records.
+- Do not append sections such as "Research basis and code evidence" merely to record how
+  the agent investigated a task. Keep resulting guidance, designs, decisions and essential
+  rationale in repository documentation when that documentation is authorized.
+- Retain supporting references where a substantive documented claim depends on them.
+  Include an inspected revision or date only when needed to interpret or verify that claim;
+  routine investigation stamps belong in memory.
+- Keep repository documentation understandable without access to any agent's memory.
+  Memory is working context, not authoritative product documentation; verify remembered
+  implementation details against the source relevant to the task.
+- Keep agent-only handoff notes in built-in memory and provide the necessary continuation
+  context in chat. If memory is unavailable, use chat and state the limitation; do not claim
+  to have saved memory or substitute committed files. Explicitly requested research
+  deliverables and project plans remain governed by their authorized scope.
+
 ## Working agreement
 
 - Stay within the approved objective and preserve unrelated work. Keep explanations and
@@ -40,7 +59,8 @@ Visibility: public. Change policy: conservative.
 - Do not invent subtask boundaries for simple tasks or routine implementation steps.
 - At agreed boundaries, assess whether a fresh session would help. Before recommending
   one, record the branch, commit SHAs, validation, uncommitted work, pending decisions and
-  exact next step. Use authorized project notes, otherwise provide the record in chat.
+  exact next step. Use explicitly authorized project notes for project deliverables; keep
+  agent-only notes in built-in memory and provide the necessary continuation context in chat.
   Include a 2–4-line restart prompt; do not require a restart after every small task.
 
 ## Direction
