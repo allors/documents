@@ -47,7 +47,7 @@ export function rewriteLink(url, source, base) {
   const [, pathname, suffix = ''] = url.match(/^([^?#]*)(.*)$/);
   const target = path.resolve(path.dirname(source), decodeURIComponent(pathname));
   if (!existsSync(target)) throw new Error(`Broken documentation link in ${source}: ${url}. Create the target or correct the link.`);
-  const contentPath = path.relative(contentRoot, target);
+  const contentPath = path.relative(contentRoot, target).split(path.sep).join('/');
   if (!contentPath.startsWith('..') && /\.mdx?$/.test(contentPath)) {
     const slug = contentPath.replace(/\.mdx?$/, '').replace(/(^|\/)index$/, '').replace(/\/$/, '');
     return `${base}${slug ? `${slug}/` : ''}${suffix}`;

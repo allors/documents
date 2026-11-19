@@ -7,6 +7,9 @@ const source = fileURLToPath(new URL('../src/content/docs/internals/releasing.md
 
 test('source links become site links at a project or domain root', () => {
   assert.equal(rewriteLink('../tags.md#loops', source, '/documents/'), '/documents/tags/#loops');
+  for (const base of ['/documents/', '/']) {
+    assert.equal(rewriteLink('architecture.md#rendering', source, base), `${base}internals/architecture/#rendering`);
+  }
   assert.equal(rewriteLink('../index.md', source, '/'), '/');
   assert.equal(rewriteLink('#release', source, '/documents/'), '#release');
 });
