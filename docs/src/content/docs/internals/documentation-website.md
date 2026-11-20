@@ -48,6 +48,11 @@ files with forward slashes on every platform, so that its tests pass on Windows,
 because Expressive Code's client script adds it only after a delay that an accessibility check
 can beat when a line is wider than the page.
 
+One of these files has changed since the adoption. `source-links.mjs` wrote a link to a page in a
+subfolder with a backslash on Windows; since [#16](https://github.com/allors/documents/pull/16)
+it gives the path forward slashes on every platform. The fix comes from Allors3 and is in every
+copy of the tooling.
+
 ## Implementation and validation
 
 The work is divided into two subtasks on one branch. Each subtask ends with a review of its
