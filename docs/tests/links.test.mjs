@@ -112,3 +112,18 @@ test('leaves the link to the documentation home to its own build and counts it',
   assert.equal(root.links, 2);
   assert.equal(root.unchecked, 0);
 });
+
+test('leaves links into the documentation areas to their own builds and counts them', async (t) => {
+  const directory = await fixture(t, {
+    'index.html': `<h1 id="documentation">Documentation</h1>
+      <a href="/allors3/">Allors3</a>
+      <a href="https://docs.allors.com/excel/llms.txt">Excel agent index</a>
+      <a href="/missing/">Missing</a>`,
+    'index.md': '# Documentation\n[Immersive](https://docs.allors.com/immersive/index.md)',
+  });
+  const result = await checkLinks(directory, '/', { external: ['/allors3/', '/excel/', '/immersive/'] });
+  assert.equal(result.errors.length, 1);
+  assert.match(result.errors[0], /index\.html.*\/missing\/.*does not exist/);
+  assert.equal(result.links, 1);
+  assert.equal(result.unchecked, 3);
+});

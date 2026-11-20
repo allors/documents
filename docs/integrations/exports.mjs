@@ -4,6 +4,7 @@ import { fileURLToPath } from 'node:url';
 import { parseHTML } from 'linkedom';
 import TurndownService from 'turndown';
 import { gfm } from 'turndown-plugin-gfm';
+import { title, description, audiences as order } from '../site.mjs';
 
 const metadataFields = ['title', 'description', 'audience', 'kind', 'status', 'version', 'slug'];
 
@@ -136,16 +137,15 @@ function prepareContent(document, metadata, root, targets) {
 function createIndex(pages, root, converter) {
   const versions = [...new Set(pages.map(({ metadata }) => metadata.version))];
   const lines = [
-    '# Allors Documents documentation',
+    `# ${title} documentation`,
     '',
-    '> Human documentation for template authors, developers and maintainers, exported from the same content as the website.',
+    `> ${description} Exported from the same content as the website.`,
     '',
     `Documented version: ${versions.join('; ')}. Use documentation from the relevant checkout when working on another branch or version.`,
     '',
     'The links below point to Markdown exports. Audience, kind and status describe each page independently. This index follows the llms.txt discovery proposal; repository instructions remain in AGENTS.md.',
   ];
   const audiences = [...new Set(pages.map(({ metadata }) => metadata.audience))];
-  const order = ['Everyone', 'Template authors and developers', 'Template authors', 'Developers', 'Maintainers'];
   audiences.sort((a, b) => (order.includes(a) ? order.indexOf(a) : order.length) - (order.includes(b) ? order.indexOf(b) : order.length) || a.localeCompare(b));
   for (const audience of audiences) {
     lines.push('', `## ${audience}`, '');
