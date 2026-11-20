@@ -3,10 +3,10 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import GithubSlugger from 'github-slugger';
 import { visit } from 'unist-util-visit';
-import { repository, branch } from '../site.mjs';
+import { repository, branch, repositoryRoot as repositoryRootURL } from '../site.mjs';
 
 const contentRoot = fileURLToPath(new URL('../src/content/docs/', import.meta.url));
-const repositoryRoot = fileURLToPath(new URL('../../', import.meta.url));
+const repositoryRoot = fileURLToPath(repositoryRootURL);
 const headingIdsByFile = new Map();
 
 function headingText(markdown) {

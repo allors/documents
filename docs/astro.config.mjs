@@ -6,7 +6,7 @@ import sourceLinks from './integrations/source-links.mjs';
 import scrollableContent from './integrations/scrollable-content.mjs';
 import focusableCodeBlocks from './integrations/focusable-code-blocks.mjs';
 import documentationExports from './integrations/exports.mjs';
-import { site, base, repository, home } from './site.mjs';
+import { site, base, repository, title, description, home } from './site.mjs';
 
 export default defineConfig({
   site,
@@ -18,9 +18,9 @@ export default defineConfig({
   integrations: [
     mermaid({ autoTheme: true, enableLog: false, mermaidConfig: { securityLevel: 'strict' } }),
     starlight({
-      title: 'Allors Documents',
+      title,
       favicon: '/favicon.png',
-      description: 'Documentation for template authors, developers and maintainers.',
+      description,
       social: [{ icon: 'github', label: 'GitHub', href: repository }],
       editLink: { baseUrl: `${repository}/edit/main/docs/` },
       components: { PageTitle: './src/components/PageTitle.astro' },
