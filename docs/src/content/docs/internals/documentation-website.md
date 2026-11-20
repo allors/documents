@@ -53,6 +53,18 @@ subfolder with a backslash on Windows; since [#16](https://github.com/allors/doc
 it gives the path forward slashes on every platform. The fix comes from Allors3 and is in every
 copy of the tooling.
 
+Since [#19](https://github.com/allors/documents/pull/19) the values that differed between the
+copies of the tooling are in `site.mjs`: the title and the description of the website, which
+`astro.config.mjs` and `exports.mjs` held, the audiences, which the content schema and
+`exports.mjs` read, the root of the repository, which `source-links.mjs` reads, and the base path,
+from which `check-links.mjs` takes its default. The agent index, `llms.txt`, introduces itself
+with the description of the website. The link checker leaves two kinds of link to the build that
+publishes their target: the link to the documentation home, and links into the documentation
+areas, which the copy of the home needs. With the same change in the other four copies, ten files
+are the same, byte for byte, in all five: the four integrations, the link checker, the content
+schema, the page title component, the stylesheet and the Playwright and TypeScript configuration.
+A copy differs in `site.mjs`, `astro.config.mjs`, its tests, its workflow and its content.
+
 ## Implementation and validation
 
 The work is divided into two subtasks on one branch. Each subtask ends with a review of its
