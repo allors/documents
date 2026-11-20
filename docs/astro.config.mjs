@@ -16,7 +16,7 @@ export default defineConfig({
     processor: unified({ remarkPlugins: [[sourceLinks, { base }]], rehypePlugins: [scrollableContent] }),
   },
   integrations: [
-    mermaid({ autoTheme: true, enableLog: false, mermaidConfig: { securityLevel: 'strict' } }),
+    mermaid({ autoTheme: true, enableLog: false, mermaidConfig: { securityLevel: 'strict', flowchart: { useMaxWidth: false } } }),
     starlight({
       title,
       favicon: '/favicon.png',
